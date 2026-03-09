@@ -282,38 +282,245 @@ namespace INcheonChurchWeb.Services
         public async Task<List<LedgerEntry>> GetMonthlyTransactionsAsync(string dept, int year, int month) => await _db.Transactions.AsNoTracking().Where(t => t.Department == dept && t.Date.Year == year && t.Date.Month == month).OrderBy(t => t.Date).ToListAsync();
         public async Task<List<LedgerEntry>> GetAllTransactionsAsync(int year) => await _db.Transactions.AsNoTracking().Where(t => t.FiscalYear == year).ToListAsync();
 
-        // CSV 자동 분류 및 파싱
+        // =========================================================
+        // CSV/XLS 은행 거래내역 파싱 (하나은행 양식 기준)
+        // 컬럼 순서: 거래일시, 적요, 추가메모, 의뢰인/수취인, 입금, 출금, 거래후잔액, 구분, 거래점, 거래특이사항
+        // =========================================================
         public async Task<List<LedgerEntry>> ParseAndClassifyBankCsvAsync(Stream fileStream, string department)
         {
             var list = new List<LedgerEntry>();
-            var dbMappings = await _db.CategoryMappings.AsNoTracking().Where(m => m.Department == department).ToListAsync();
-            using (var reader = new StreamReader(fileStream, Encoding.UTF8))
+            var dbMappings = await _db.CategoryMappings.AsNoTracking()
+                .Where(m => m.Department == department).ToListAsync();
+
+            // [수정] EUC-KR 인코딩 우선 시도 (하나은행 CSV 기본 인코딩)
+            Encoding encoding;
+            try { encoding = Encoding.GetEncoding("euc-kr"); }
+            catch { encoding = Encoding.UTF8; }
+
+            // 스트림을 바이트로 읽어 인코딩 자동 감지
+            byte[] rawBytes;
+            using (var ms = new MemoryStream())
             {
-                await reader.ReadLineAsync(); await reader.ReadLineAsync(); // 헤더 스킵
-                string? line;
-                while ((line = await reader.ReadLineAsync()) != null)
+                await fileStream.CopyToAsync(ms);
+                rawBytes = ms.ToArray();
+            }
+
+            // BOM 확인으로 인코딩 결정
+            if (rawBytes.Length >= 3 && rawBytes[0] == 0xEF && rawBytes[1] == 0xBB && rawBytes[2] == 0xBF)
+                encoding = Encoding.UTF8; // UTF-8 BOM
+            else if (rawBytes.Length >= 2 && rawBytes[0] == 0xFF && rawBytes[1] == 0xFE)
+                encoding = Encoding.Unicode; // UTF-16 LE
+
+            var content = encoding.GetString(rawBytes);
+            var lines = content.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+
+            // [수정] 헤더 행 동적 탐색 (고정 행 스킵 방식 제거)
+            int dataStartLine = 0;
+            int colDate = -1, colDesc = -1, colMemo = -1, colPerson = -1;
+            int colIncome = -1, colExpense = -1, colBalance = -1;
+
+            for (int i = 0; i < Math.Min(lines.Length, 15); i++)
+            {
+                var cols = SplitCsvLine(lines[i]);
+                // 헤더 탐색: '거래일시' 또는 '날짜' 컬럼 찾기
+                for (int c = 0; c < cols.Count; c++)
                 {
-                    if (string.IsNullOrWhiteSpace(line)) continue;
-                    var v = Regex.Split(line, ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)");
-                    if (v.Length >= 7 && DateTime.TryParse(v[1].Replace("\"", ""), out DateTime date))
-                    {
-                        decimal inc = decimal.TryParse(v[5].Replace("\"", "").Replace(",", ""), out var i) ? i : 0;
-                        decimal exp = decimal.TryParse(v[6].Replace("\"", "").Replace(",", ""), out var e) ? e : 0;
-                        string desc = v[2].Replace("\"", "").Trim();
-                        string type = inc > 0 ? "수입" : "지출";
-                        string category = ClassifyTransaction(desc, type, dbMappings);
-                        list.Add(new LedgerEntry { Date = date, Description = desc, Income = inc, Expense = exp, Department = department, FiscalYear = date.Year, Quarter = 1, Type = type, Category = category, Note = "" });
-                    }
+                    string h = cols[c].Trim().Trim('"');
+                    if (h == "거래일시" || h == "날짜") colDate = c;
+                    else if (h == "적요") colDesc = c;
+                    else if (h == "추가메모") colMemo = c;
+                    else if (h == "의뢰인/수취인" || h == "의뢰인" || h == "수취인") colPerson = c;
+                    else if (h == "입금" || h == "입금액" || h == "입금(원)") colIncome = c;
+                    else if (h == "출금" || h == "출금액" || h == "출금(원)") colExpense = c;
+                    else if (h == "거래후잔액" || h == "잔액") colBalance = c;
                 }
+                if (colDate >= 0 && colDesc >= 0)
+                {
+                    dataStartLine = i + 1;
+                    break;
+                }
+            }
+
+            // 헤더를 못 찾으면 하나은행 기본 컬럼 순서 적용
+            // 순서: 거래일시(0), 적요(1), 추가메모(2), 의뢰인/수취인(3), 입금(4), 출금(5), 거래후잔액(6)
+            if (colDate < 0)
+            {
+                colDate = 0; colDesc = 1; colMemo = 2; colPerson = 3;
+                colIncome = 4; colExpense = 5; colBalance = 6;
+                dataStartLine = 2; // 상단 2줄 정보 행 스킵
+            }
+
+            // 기존 거래 중복 체크용 해시셋
+            var existingKeys = new HashSet<string>(
+                (await _db.Transactions.AsNoTracking()
+                    .Where(t => t.Department == department)
+                    .Select(t => t.Date.ToString("yyyyMMddHHmm") + "_" + t.Description + "_" + t.Income + "_" + t.Expense)
+                    .ToListAsync()));
+
+            for (int i = dataStartLine; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (string.IsNullOrWhiteSpace(line)) continue;
+
+                var v = SplitCsvLine(line);
+                if (v.Count <= Math.Max(colDate, Math.Max(colDesc, Math.Max(colIncome, colExpense)))) continue;
+
+                string Clean(int idx) => idx >= 0 && idx < v.Count
+                    ? v[idx].Trim().Trim('"').Trim() : "";
+
+                string dateStr = Clean(colDate);
+                if (!DateTime.TryParse(dateStr, out DateTime date)) continue;
+
+                string desc    = Clean(colDesc);
+                string memo    = colMemo >= 0 ? Clean(colMemo) : "";
+                string person  = colPerson >= 0 ? Clean(colPerson) : "";
+
+                decimal income  = ParseMoney(Clean(colIncome));
+                decimal expense = ParseMoney(Clean(colExpense));
+                decimal balance = colBalance >= 0 ? ParseMoney(Clean(colBalance)) : 0;
+
+                if (income == 0 && expense == 0) continue;
+
+                // [수정] 비고: 의뢰인/수취인 + 추가메모 합산
+                string note = string.Join(" ", new[] { person, memo }
+                    .Where(s => !string.IsNullOrWhiteSpace(s)));
+
+                string type = income > 0 ? "수입" : "지출";
+
+                // [수정] 분류: 적요 + 의뢰인/수취인 전체를 검색 대상으로
+                string searchText = $"{desc} {person} {memo}";
+                string category = ClassifyTransaction(searchText, type, dbMappings);
+
+                // 중복 체크
+                string key = $"{date:yyyyMMddHHmm}_{desc}_{income}_{expense}";
+                if (existingKeys.Contains(key)) continue;
+                existingKeys.Add(key);
+
+                // 회계년도/분기 계산
+                int fiscalYear = date.Year;
+                if ((date.Month == 11 || date.Month == 12))
+                {
+                    var q4End = await GetQuarterDateRangeAsync(department, date.Year, 4);
+                    if (date > q4End.End) fiscalYear = date.Year + 1;
+                }
+
+                int quarter = await GetQuarterNumberAsync(department, fiscalYear, date);
+
+                list.Add(new LedgerEntry
+                {
+                    Date        = date,
+                    Description = desc,
+                    Income      = income,
+                    Expense     = expense,
+                    Department  = department,
+                    FiscalYear  = fiscalYear,
+                    Quarter     = quarter,
+                    Type        = type,
+                    Category    = category,
+                    Note        = note
+                });
             }
             return list;
         }
 
-        private string ClassifyTransaction(string desc, string type, List<CategoryMapping> mappings)
+        // CSV 행 파싱 (따옴표 안의 쉼표 처리)
+        private List<string> SplitCsvLine(string line)
         {
-            foreach (var m in mappings) { if (desc.Contains(m.Keyword)) return m.Category; }
-            if (type == "수입") { if (desc.Contains("후원")) return "찬조금"; if (desc.Contains("인천중앙교회")) return "교회보조금"; return "회비수입"; }
-            else { if (desc.Contains("두란노")) return "공과비"; return "행사비"; }
+            var result = new List<string>();
+            bool inQuote = false;
+            var current = new StringBuilder();
+            foreach (char c in line)
+            {
+                if (c == '"') { inQuote = !inQuote; }
+                else if (c == ',' && !inQuote) { result.Add(current.ToString()); current.Clear(); }
+                else { current.Append(c); }
+            }
+            result.Add(current.ToString());
+            return result;
+        }
+
+        // 분기 번호 계산
+        private async Task<int> GetQuarterNumberAsync(string dept, int fiscalYear, DateTime date)
+        {
+            var q1 = await GetQuarterDateRangeAsync(dept, fiscalYear, 1);
+            var q2 = await GetQuarterDateRangeAsync(dept, fiscalYear, 2);
+            var q3 = await GetQuarterDateRangeAsync(dept, fiscalYear, 3);
+            var q4prev = await GetQuarterDateRangeAsync(dept, fiscalYear - 1, 4);
+            if (date >= q4prev.Start && date <= q1.End) return 1;
+            if (date > q1.End && date <= q2.End) return 2;
+            if (date > q2.End && date <= q3.End) return 3;
+            return 4;
+        }
+
+        // =========================================================
+        // [수정] 강화된 자동 분류 로직 (2025 유년부 실제 데이터 기반)
+        // =========================================================
+        private string ClassifyTransaction(string text, string type, List<CategoryMapping> mappings)
+        {
+            // 1순위: DB 사용자 정의 키워드 매칭
+            foreach (var m in mappings)
+                if (!string.IsNullOrEmpty(m.Keyword) && text.Contains(m.Keyword))
+                    return m.Category;
+
+            // 2순위: 수입 기본 규칙
+            if (type == "수입")
+            {
+                if (text.Contains("주정헌금") || text.Contains("주일헌금") || text.Contains("주정힌금") ||
+                    text.Contains("주정헌긍") || text.Contains("작정헌금"))  return "주일헌금";
+                if (text.Contains("인천중앙교회") && !text.Contains("초등부") &&
+                    !text.Contains("영유아") && !text.Contains("유치"))      return "교회보조금";
+                if (text.Contains("후원") || text.Contains("찬조") ||
+                    text.Contains("권사회") || text.Contains("집사회"))       return "찬조금";
+                if (text.Contains("이자") || text.Contains("이자소득") ||
+                    text.Contains("예금이자"))                                return "은행이자";
+                if (text.Contains("환급") || text.Contains("반납") ||
+                    text.Contains("취소"))                                    return "환급금";
+                // 이름만 있는 경우 (개인 송금) → 회비수입
+                return "회비수입";
+            }
+
+            // 3순위: 지출 기본 규칙
+            // 성경학교
+            if (text.Contains("성경학교") || text.Contains("볼베어") ||
+                text.Contains("웅진플레이") || text.Contains("캠프") ||
+                text.Contains("트래블로버") || text.Contains("여행자보험") ||
+                text.Contains("손해보험"))
+            {
+                if (text.Contains("겨울") || text.Contains("12") || text.Contains("1월") ||
+                    text.Contains("2월")) return "겨울성경학교";
+                return "여름성경학교";
+            }
+            // 공과비 (매주 공과 관련)
+            if (text.Contains("두란노") || text.Contains("세계로") || text.Contains("씨유") ||
+                text.Contains("CU") || text.Contains("이마트24") || text.Contains("킹식자재") ||
+                text.Contains("탐나는피자") || text.Contains("빵") || text.Contains("컵케익") ||
+                text.Contains("약봉투") || text.Contains("점토") || text.Contains("우리동네할인"))
+                return "공과비";
+            // 교사회의비
+            if (text.Contains("파리바게트") || text.Contains("명랑시대") || text.Contains("돌담옥") ||
+                text.Contains("뚝배기") || text.Contains("안스") || text.Contains("수푸드") ||
+                text.Contains("솔리드퍼퓸") || text.Contains("교사간담"))
+                return "교사회의비";
+            // 훈련비
+            if (text.Contains("QT") || text.Contains("공과책") || text.Contains("훈련") ||
+                text.Contains("MT") || text.Contains("춘천") || text.Contains("삼악산") ||
+                text.Contains("이디야") || text.Contains("목향원") || text.Contains("KH에너지"))
+                return "훈련비";
+            // 부서관리비
+            if (text.Contains("현수막") || text.Contains("명찰") || text.Contains("마이크") ||
+                text.Contains("테이블") || text.Contains("바구니") || text.Contains("테이블보"))
+                return "부서관리비";
+            // 행사비 (다이소, 쿠팡, 마트류)
+            if (text.Contains("다이소") || text.Contains("아트박스") || text.Contains("크로바") ||
+                text.Contains("와글") || text.Contains("캣플") || text.Contains("롤링파스타") ||
+                text.Contains("101번지") || text.Contains("중화가정") || text.Contains("암송") ||
+                text.Contains("꽃") || text.Contains("펜던트") || text.Contains("십자가"))
+                return "행사비";
+            if (text.Contains("쿠팡") || text.Contains("네이버파이낸셜") ||
+                text.Contains("카카오페이") || text.Contains("비바리퍼블리카"))
+                return "행사비"; // 쿠팡/간편결제는 행사비 기본 (키워드 매핑으로 세분화 권장)
+
+            return "미분류";
         }
 
         // =========================================================
@@ -391,60 +598,76 @@ namespace INcheonChurchWeb.Services
 
         public async Task<bool> CopyBudgetFromBaseYearAsync(string department, int baseYear, int targetYear)
         {
-            // [수정] 기초 하드코딩 데이터 우선 준비
-            var hardcodedData = GetOriginal2026Data(department);
-
-            // [수정] DB에서 원본 연도 데이터 조회 (하드코딩 데이터가 없는 부서용)
-            List<BudgetPlan> sourceData;
-            if (hardcodedData.Any())
-            {
-                // 하드코딩 데이터가 있으면 항상 이것을 원본으로 사용 (DB보다 신뢰)
-                sourceData = hardcodedData;
-            }
-            else
-            {
-                sourceData = await _db.BudgetPlans.AsNoTracking()
-                    .Where(b => b.Department == department && b.Year == baseYear)
-                    .ToListAsync();
-            }
-
-            // 불러올 원본 자체가 없으면 false
-            if (!sourceData.Any()) return false;
-
-            // [수정] 대상 연도의 기존 데이터 조회
-            var existingData = await _db.BudgetPlans
-                .Where(b => b.Department == department && b.Year == targetYear)
-                .ToListAsync();
-
-            // 실제 입력된 데이터(Amount > 0)가 있으면 덮어쓰기 차단
-            bool hasRealData = existingData.Any(b => b.Amount > 0);
-            if (hasRealData) return false;
-
-            // 빈 데이터만 있거나 없는 경우 → 전부 삭제 후 기초데이터 적재
-            if (existingData.Any())
-                _db.BudgetPlans.RemoveRange(existingData);
-
-            foreach (var plan in sourceData)
-            {
-                _db.BudgetPlans.Add(new BudgetPlan
-                {
-                    Department = department,
-                    Year = targetYear,
-                    Type = plan.Type,
-                    Category = plan.Category,
-                    SubCategory = plan.SubCategory,
-                    CalcDetail = plan.CalcDetail,
-                    Amount = plan.Amount
-                });
-            }
+            var exists = await _db.BudgetPlans.AnyAsync(b => b.Department == department && b.Year == targetYear);
+            if (exists) return false;
+            var sourceData = await _db.BudgetPlans.AsNoTracking().Where(b => b.Department == department && b.Year == baseYear).ToListAsync();
+            foreach (var plan in sourceData) { _db.BudgetPlans.Add(new BudgetPlan { Department = department, Year = targetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount }); }
             await _db.SaveChangesAsync();
             return true;
         }
 
         public async Task EnsureDetailedMappingsAsync(string dept = "유년부")
         {
-            var mapData = new Dictionary<string, string> { { "다이소", "행사비" }, { "마트", "공과비" }, { "주일헌금", "주일헌금" }, { "보조금", "교회보조금" } };
-            foreach (var kv in mapData) { if (!await _db.CategoryMappings.AnyAsync(x => x.Keyword == kv.Key && x.Department == dept)) _db.CategoryMappings.Add(new CategoryMapping { Keyword = kv.Key, Category = kv.Value, Department = dept }); }
+            // 2025 유년부 실제 거래내역 기반 키워드 매핑
+            var mapData = new Dictionary<string, string>
+            {
+                // 수입
+                { "인천중앙교회",    "교회보조금" },
+                { "주정헌금",        "주일헌금"   },
+                { "주일헌금",        "주일헌금"   },
+                { "이자",            "은행이자"   },
+                { "후원",            "찬조금"     },
+                { "환급",            "환급금"     },
+                { "반납",            "환급금"     },
+                // 지출 - 공과비
+                { "두란노",          "공과비"     },
+                { "세계로",          "공과비"     },
+                { "씨유",            "공과비"     },
+                { "이마트24",        "공과비"     },
+                { "우리동네할인",    "공과비"     },
+                { "킹식자재",        "공과비"     },
+                { "탐나는피자",      "공과비"     },
+                // 지출 - 교사회의비
+                { "파리바게트",      "교사회의비" },
+                { "명랑시대",        "교사회의비" },
+                { "돌담옥",          "교사회의비" },
+                { "뚝배기이탈리아",  "교사회의비" },
+                { "수푸드",          "교사회의비" },
+                // 지출 - 행사비
+                { "다이소",          "행사비"     },
+                { "아트박스",        "행사비"     },
+                { "크로바",          "행사비"     },
+                { "와글",            "행사비"     },
+                { "캣플",            "행사비"     },
+                { "롤링파스타",      "행사비"     },
+                { "알짜마트",        "행사비"     },
+                // 지출 - 부서관리비
+                { "현수막",          "부서관리비" },
+                { "명찰",            "부서관리비" },
+                { "테이블",          "부서관리비" },
+                // 지출 - 훈련비
+                { "QT",              "훈련비"     },
+                { "목향원",          "훈련비"     },
+                { "삼악산",          "훈련비"     },
+                { "이디야",          "훈련비"     },
+                { "KH에너지",        "훈련비"     },
+                // 지출 - 여름성경학교
+                { "볼베어",          "여름성경학교" },
+                { "웅진플레이",      "여름성경학교" },
+                { "트래블로버",      "여름성경학교" },
+                { "한솥도시락",      "여름성경학교" },
+                { "캠프",            "여름성경학교" },
+            };
+            foreach (var kv in mapData)
+            {
+                if (!await _db.CategoryMappings.AnyAsync(x => x.Keyword == kv.Key && x.Department == dept))
+                    _db.CategoryMappings.Add(new CategoryMapping
+                    {
+                        Keyword = kv.Key,
+                        Category = kv.Value,
+                        Department = dept
+                    });
+            }
             await _db.SaveChangesAsync();
         }
 
@@ -472,5 +695,9 @@ namespace INcheonChurchWeb.Services
             var target = await _db.ExpenseReports.FindAsync(id);
             if (target != null) { _db.ExpenseReports.Remove(target); await _db.SaveChangesAsync(); }
         }
+
+        // 금액 문자열 파싱 (쉼표, 따옴표, 공백 제거)
+        private decimal ParseMoney(string s)
+            => decimal.TryParse((s ?? "").Replace(",", "").Replace("\"", "").Trim(), out decimal r) ? r : 0;
     }
 }
