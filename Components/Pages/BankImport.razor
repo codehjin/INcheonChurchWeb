@@ -5,7 +5,7 @@
 @using ExcelDataReader
 @using System.Data
 @using System.IO
-@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
 @inject AppDbContext DbContext
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
@@ -113,52 +113,38 @@
 </div>
 
 @code {
-    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
+    // ✅ 이 앱의 인증 방식: CascadingParameter User (AuthenticationState 방식 아님)
+    [CascadingParameter] public User? CurrentUser { get; set; }
 
-    private string UserDepartment = ""; // 기본값 없음 (로그인 필수)
+    private string UserDepartment => CurrentUser?.Department ?? "";
+
     private List<LedgerEntry> previewList = new();
-
-    // DB에서 가져올 자동 분류 규칙 목록 (메모리에 캐싱)
     private List<CategoryMapping> autoRules = new();
-
     private bool isLoading = false;
     private bool isSaving = false;
     private string errorMessage = "";
 
     protected override async Task OnInitializedAsync()
     {
-        if (authenticationStateTask != null)
+        if (string.IsNullOrEmpty(UserDepartment)) return;
+        if (UserDepartment == "관리자" || UserDepartment == "교육국")
         {
-            var authState = await authenticationStateTask;
-            var user = authState.User;
-            if (user.Identity != null && user.Identity.IsAuthenticated)
-            {
-                var deptClaim = user.FindFirst("Department");
-                if (deptClaim != null)
-                {
-                    UserDepartment = deptClaim.Value;
-
-                    // [중요] 로그인한 부서가 '교육국(Admin)'이면 장부 작성을 막거나 경고해야 함
-                    if (UserDepartment == "교육국")
-                    {
-                        errorMessage = "관리자(교육국) 계정입니다. 장부를 작성하려면 각 부서 계정(유년부 등)으로 로그인하세요.";
-                    }
-                    else
-                    {
-                        // 해당 부서의 자동 분류 규칙만 DB에서 가져오기
-                        // (유년부만 규칙이 들어있으므로 유년부만 가져와짐)
-                        autoRules = DbContext.CategoryMappings
-                            .Where(r => r.Department == UserDepartment)
-                            .ToList();
-                    }
-                }
-            }
+            errorMessage = "관리자 계정입니다. 각 부서 계정(유년부 등)으로 로그인하세요.";
+            return;
         }
+        autoRules = await DbContext.CategoryMappings
+            .Where(r => r.Department == UserDepartment)
+            .ToListAsync();
     }
 
     private async Task LoadFiles(InputFileChangeEventArgs e)
     {
-        if (string.IsNullOrEmpty(UserDepartment) || UserDepartment == "교육국")
+        if (CurrentUser == null || string.IsNullOrEmpty(UserDepartment))
+        {
+            errorMessage = "로그인이 필요합니다.";
+            return;
+        }
+        if (UserDepartment == "관리자" || UserDepartment == "교육국")
         {
             errorMessage = "올바른 부서 계정으로 로그인해주세요.";
             return;
@@ -173,94 +159,153 @@
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             var file = e.File;
 
-            using (var stream = new MemoryStream())
+            using var stream = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+            stream.Position = 0;
+
+            using var reader = ExcelReaderFactory.CreateReader(stream);
+            var table = reader.AsDataSet().Tables[0];
+
+            // 헤더 행 동적 탐색
+            int colDate = -1, colDesc = -1, colMemo = -1, colPerson = -1;
+            int colIn = -1, colOut = -1;
+            int dataStart = 0;
+
+            for (int i = 0; i < Math.Min(table.Rows.Count, 15); i++)
             {
-                await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
-                stream.Position = 0;
-
-                using (var reader = ExcelReaderFactory.CreateReader(stream))
+                var row = table.Rows[i];
+                for (int c = 0; c < table.Columns.Count; c++)
                 {
-                    var result = reader.AsDataSet();
-                    var table = result.Tables[0];
-                    bool headerFound = false;
-
-                    for (int i = 0; i < table.Rows.Count; i++)
-                    {
-                        var row = table.Rows[i];
-
-                        var colDate = row[0]?.ToString()?.Trim();
-                        var colDesc = row[1]?.ToString()?.Trim(); // 적요 (예: 홍길동 주일헌금)
-                        var colNote = row[3]?.ToString()?.Trim(); // 거래처
-                        var colIn = row[4]?.ToString()?.Trim();
-                        var colOut = row[5]?.ToString()?.Trim();
-
-                        if (!headerFound)
-                        {
-                            if (colDate != null && colDate.Contains("거래일시")) headerFound = true;
-                            continue;
-                        }
-
-                        if (string.IsNullOrEmpty(colDate) || !DateTime.TryParse(colDate, out DateTime dateValue)) continue;
-
-                        try
-                        {
-                            decimal income = ParseDecimal(colIn);
-                            decimal expense = ParseDecimal(colOut);
-
-                            // [자동 분류 핵심 로직]
-                            // 적요(Description)에 특정 키워드가 있는지 확인
-                            string category = "미분류";
-                            string cleanDesc = colDesc ?? "";
-
-                            // 내 부서의 규칙 중에서 키워드가 포함된 게 있는지 찾기
-                            var matchedRule = autoRules.FirstOrDefault(r => cleanDesc.Contains(r.Keyword));
-                            if (matchedRule != null)
-                            {
-                                category = matchedRule.Category;
-                            }
-
-                            var entry = new LedgerEntry
-                            {
-                                Date = dateValue,
-                                Description = cleanDesc,
-                                Note = colNote ?? "",
-                                Income = income,
-                                Expense = expense,
-                                Department = UserDepartment, // 내 부서 이름으로 저장
-                                Category = category,         // 자동 분류된 카테고리
-                                Type = income > 0 ? "수입" : "지출",
-                                FiscalYear = dateValue.Year,
-                                Quarter = (dateValue.Month - 1) / 3 + 1,
-                                IsAudited = false
-                            };
-
-                            previewList.Add(entry);
-                        }
-                        catch { continue; }
-                    }
+                    string h = row[c]?.ToString()?.Trim() ?? "";
+                    if      (h == "거래일시" || h == "날짜")              colDate   = c;
+                    else if (h == "적요")                                  colDesc   = c;
+                    else if (h == "추가메모")                              colMemo   = c;
+                    else if (h.Contains("의뢰인") || h.Contains("수취인")) colPerson = c;
+                    else if (h == "입금" || h.Contains("입금액"))          colIn     = c;
+                    else if (h == "출금" || h.Contains("출금액"))          colOut    = c;
                 }
+                if (colDate >= 0 && colDesc >= 0) { dataStart = i + 1; break; }
             }
+
+            // 헤더 못 찾으면 하나은행 기본 순서 적용
+            // 거래일시(0) 적요(1) 추가메모(2) 의뢰인/수취인(3) 입금(4) 출금(5) 거래후잔액(6)
+            if (colDate < 0)
+            {
+                colDate = 0; colDesc = 1; colMemo = 2; colPerson = 3;
+                colIn = 4; colOut = 5; dataStart = 2;
+            }
+
+            string Cell(DataRow row, int idx) =>
+                idx >= 0 && idx < table.Columns.Count ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+            for (int i = dataStart; i < table.Rows.Count; i++)
+            {
+                var row = table.Rows[i];
+                if (!DateTime.TryParse(Cell(row, colDate), out DateTime date)) continue;
+
+                string desc   = Cell(row, colDesc);
+                string memo   = Cell(row, colMemo);
+                string person = Cell(row, colPerson);
+
+                decimal income  = ParseDecimal(Cell(row, colIn));
+                decimal expense = ParseDecimal(Cell(row, colOut));
+                if (income == 0 && expense == 0) continue;
+
+                // 비고: 의뢰인/수취인 + 추가메모
+                string note   = string.Join(" ", new[] { person, memo }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                string type   = income > 0 ? "수입" : "지출";
+                string search = $"{desc} {person} {memo}";
+                string cat    = ClassifyAuto(search, type);
+
+                previewList.Add(new LedgerEntry
+                {
+                    Date        = date,
+                    Description = desc,
+                    Note        = note,
+                    Income      = income,
+                    Expense     = expense,
+                    Department  = UserDepartment,
+                    Category    = cat,
+                    Type        = type,
+                    FiscalYear  = date.Year,
+                    Quarter     = GetQuarter(date),
+                    IsAudited   = false
+                });
+            }
+
+            if (!previewList.Any())
+                errorMessage = "불러온 데이터가 없습니다. 파일 형식을 확인해주세요.";
         }
-        catch (Exception ex) { errorMessage = ex.Message; }
+        catch (Exception ex) { errorMessage = $"오류: {ex.Message}"; }
         finally { isLoading = false; }
     }
+
+    private string ClassifyAuto(string text, string type)
+    {
+        // 1순위: DB 키워드
+        var matched = autoRules.FirstOrDefault(r => !string.IsNullOrEmpty(r.Keyword) && text.Contains(r.Keyword));
+        if (matched != null) return matched.Category;
+
+        // 2순위: 수입 기본 규칙
+        if (type == "수입")
+        {
+            if (text.Contains("주정헌금") || text.Contains("주일헌금") ||
+                text.Contains("주정힌금") || text.Contains("작정헌금"))    return "주일헌금";
+            if (text.Contains("인천중앙교회") && !text.Contains("초등부")) return "교회보조금";
+            if (text.Contains("후원") || text.Contains("찬조") ||
+                text.Contains("권사회") || text.Contains("집사회"))         return "찬조금";
+            if (text.Contains("이자"))                                      return "은행이자";
+            if (text.Contains("환급") || text.Contains("반납"))             return "환급금";
+            return "회비수입";
+        }
+
+        // 3순위: 지출 기본 규칙
+        if (text.Contains("성경학교") || text.Contains("볼베어") ||
+            text.Contains("캠프")     || text.Contains("트래블로버"))       return "여름성경학교";
+        if (text.Contains("두란노")   || text.Contains("세계로") ||
+            text.Contains("씨유")     || text.Contains("이마트24") ||
+            text.Contains("우리동네할인"))                                  return "공과비";
+        if (text.Contains("파리바게트") || text.Contains("명랑시대") ||
+            text.Contains("돌담옥")   || text.Contains("뚝배기"))           return "교사회의비";
+        if (text.Contains("QT")       || text.Contains("공과책") ||
+            text.Contains("목향원")   || text.Contains("삼악산"))           return "훈련비";
+        if (text.Contains("현수막")   || text.Contains("명찰"))             return "부서관리비";
+        if (text.Contains("다이소")   || text.Contains("아트박스") ||
+            text.Contains("쿠팡")     || text.Contains("네이버파이낸셜"))   return "행사비";
+
+        return "미분류";
+    }
+
+    private int GetQuarter(DateTime d) => d.Month switch
+    {
+        12 or 1 or 2 => 1,
+        3 or 4 or 5  => 2,
+        6 or 7 or 8  => 3,
+        _            => 4
+    };
 
     private decimal ParseDecimal(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return 0;
-        if (decimal.TryParse(value.Replace(",", ""), out decimal result)) return result;
-        return 0;
+        decimal.TryParse(value.Replace(",", ""), out decimal r);
+        return r;
     }
 
     private async Task SaveToLedger()
     {
         if (!previewList.Any()) return;
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"{previewList.Count}건을 저장하시겠습니까?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"{previewList.Count}건을 장부에 저장하시겠습니까?"))
         {
             isSaving = true;
-            DbContext.Transactions.AddRange(previewList);
-            await DbContext.SaveChangesAsync();
-            Nav.NavigateTo("/monthly");
+            try
+            {
+                DbContext.Transactions.AddRange(previewList);
+                await DbContext.SaveChangesAsync();
+                await JSRuntime.InvokeVoidAsync("alert", "저장 완료!");
+                Nav.NavigateTo("/monthly");
+            }
+            catch (Exception ex) { errorMessage = $"저장 오류: {ex.Message}"; }
+            finally { isSaving = false; }
         }
     }
 }
