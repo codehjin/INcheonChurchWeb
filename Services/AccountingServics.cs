@@ -391,10 +391,37 @@ namespace INcheonChurchWeb.Services
 
         public async Task<bool> CopyBudgetFromBaseYearAsync(string department, int baseYear, int targetYear)
         {
+            // [수정] 대상 연도에 이미 데이터가 있으면 덮어쓰지 않음
             var exists = await _db.BudgetPlans.AnyAsync(b => b.Department == department && b.Year == targetYear);
             if (exists) return false;
-            var sourceData = await _db.BudgetPlans.AsNoTracking().Where(b => b.Department == department && b.Year == baseYear).ToListAsync();
-            foreach (var plan in sourceData) { _db.BudgetPlans.Add(new BudgetPlan { Department = department, Year = targetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount }); }
+
+            // [수정] DB에서 baseYear 데이터 조회
+            var sourceData = await _db.BudgetPlans.AsNoTracking()
+                .Where(b => b.Department == department && b.Year == baseYear)
+                .ToListAsync();
+
+            // [수정] DB에 원본 데이터가 없으면 하드코딩된 기초데이터 사용
+            if (!sourceData.Any())
+            {
+                sourceData = GetOriginal2026Data(department);
+            }
+
+            // [수정] 그래도 없으면(다른 부서 등) false 반환
+            if (!sourceData.Any()) return false;
+
+            foreach (var plan in sourceData)
+            {
+                _db.BudgetPlans.Add(new BudgetPlan
+                {
+                    Department = department,
+                    Year = targetYear,
+                    Type = plan.Type,
+                    Category = plan.Category,
+                    SubCategory = plan.SubCategory,
+                    CalcDetail = plan.CalcDetail,
+                    Amount = plan.Amount
+                });
+            }
             await _db.SaveChangesAsync();
             return true;
         }
