@@ -34,11 +34,10 @@ var options = new WebApplicationOptions
 var builder = WebApplication.CreateBuilder(options);
 // =========================================================
 
-// 1. 현재 실행 중인 사용자의 홈 폴더를 자동으로 찾습니다.
-// (서버에서는 '/root', 비주얼 스튜디오에서는 '/home/app'이 됩니다.)
-var keyDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".aspnet", "DataProtection-Keys");
+// 1. 키 저장 경로 설정 (프로젝트 실행 폴더 내 'keys' 폴더)
+var keyDirectory = Path.Combine(Directory.GetCurrentDirectory(), "keys");
 
-// 2. 그 폴더에 키를 저장합니다.
+// 2. 데이터 보호 서비스 등록 (중복 없이 딱 한 번만!)
 builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
     .SetApplicationName("INcheonChurchWeb");
