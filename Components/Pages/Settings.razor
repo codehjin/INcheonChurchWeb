@@ -367,7 +367,7 @@
     // ... (기존 CRUD 메서드 유지: SafeDeletePlan, SafeImportBaseBudget, SafeBackup, RestoreData 등) ...
     // (코드 길이상 생략된 메서드들은 이전 답변과 동일하게 유지)
     private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool>("confirm", "삭제?")) await AccService.DeleteBudgetPlanAsync(id); await LoadData(); }
-    // [수정] 결과값 확인 및 사용자 안내 메시지 추가
+    // [수정] 불러오기 후 수입/지출 양쪽 탭 데이터 모두 갱신 + StateHasChanged
     private async Task SafeImportBaseBudget()
     {
         bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
@@ -379,14 +379,27 @@
 
         bool result = await AccService.CopyBudgetFromBaseYearAsync(CurrentUser.Department, 2026, TargetYear);
         if (result)
+        {
+            // [수정] 수입/지출 양쪽 탭 데이터를 모두 다시 로드
+            string dept = CurrentUser.Department;
+            var allIncome  = await AccService.GetAllBudgetPlansForDeptAsync(dept, "Income");
+            var allExpense = await AccService.GetAllBudgetPlansForDeptAsync(dept, "Expense");
+            var allPlans   = allIncome.Concat(allExpense).ToList();
+
+            budgetList    = activeTab == "Income" ? allIncome : allExpense;
+            budgetHistory = allPlans.GroupBy(b => b.Year).ToArray();
+
+            StateHasChanged(); // [수정] Blazor UI 강제 갱신
+
             await JSRuntime.InvokeVoidAsync("alert",
                 $"✅ {TargetYear}년도 기초예산 불러오기 완료!\n수입 및 지출 예산이 등록되었습니다.");
+        }
         else
+        {
             await JSRuntime.InvokeVoidAsync("alert",
                 $"⚠️ {TargetYear}년도에 이미 입력된 예산 데이터가 있습니다.\n" +
                 $"기존 항목을 먼저 삭제하거나 직접 수정해 주세요.");
-
-        await LoadData();
+        }
     }
     private async Task SafeBackup(string t, string m) { await AccService.CreateBackupAsync(CurrentUser.Department, t, m); await LoadData(); }
     private async Task RestoreData(DataBackup b) { if (await JSRuntime.InvokeAsync<bool>("confirm", "복구?")) await AccService.RestoreFromBackupAsync(b.Id); await LoadData(); }
