@@ -371,11 +371,11 @@ namespace INcheonChurchWeb.Services
                 string dateStr = Clean(colDate);
                 if (!DateTime.TryParse(dateStr, out DateTime date)) continue;
 
-                string desc    = Clean(colDesc);
-                string memo    = colMemo >= 0 ? Clean(colMemo) : "";
-                string person  = colPerson >= 0 ? Clean(colPerson) : "";
+                string desc = Clean(colDesc);
+                string memo = colMemo >= 0 ? Clean(colMemo) : "";
+                string person = colPerson >= 0 ? Clean(colPerson) : "";
 
-                decimal income  = ParseMoney(Clean(colIncome));
+                decimal income = ParseMoney(Clean(colIncome));
                 decimal expense = ParseMoney(Clean(colExpense));
                 decimal balance = colBalance >= 0 ? ParseMoney(Clean(colBalance)) : 0;
 
@@ -408,16 +408,16 @@ namespace INcheonChurchWeb.Services
 
                 list.Add(new LedgerEntry
                 {
-                    Date        = date,
+                    Date = date,
                     Description = desc,
-                    Income      = income,
-                    Expense     = expense,
-                    Department  = department,
-                    FiscalYear  = fiscalYear,
-                    Quarter     = quarter,
-                    Type        = type,
-                    Category    = category,
-                    Note        = note
+                    Income = income,
+                    Expense = expense,
+                    Department = department,
+                    FiscalYear = fiscalYear,
+                    Quarter = quarter,
+                    Type = type,
+                    Category = category,
+                    Note = note
                 });
             }
             return list;
@@ -466,15 +466,15 @@ namespace INcheonChurchWeb.Services
             if (type == "수입")
             {
                 if (text.Contains("주정헌금") || text.Contains("주일헌금") || text.Contains("주정힌금") ||
-                    text.Contains("주정헌긍") || text.Contains("작정헌금"))  return "주일헌금";
+                    text.Contains("주정헌긍") || text.Contains("작정헌금")) return "주일헌금";
                 if (text.Contains("인천중앙교회") && !text.Contains("초등부") &&
-                    !text.Contains("영유아") && !text.Contains("유치"))      return "교회보조금";
+                    !text.Contains("영유아") && !text.Contains("유치")) return "교회보조금";
                 if (text.Contains("후원") || text.Contains("찬조") ||
-                    text.Contains("권사회") || text.Contains("집사회"))       return "찬조금";
+                    text.Contains("권사회") || text.Contains("집사회")) return "찬조금";
                 if (text.Contains("이자") || text.Contains("이자소득") ||
-                    text.Contains("예금이자"))                                return "은행이자";
+                    text.Contains("예금이자")) return "은행이자";
                 if (text.Contains("환급") || text.Contains("반납") ||
-                    text.Contains("취소"))                                    return "환급금";
+                    text.Contains("취소")) return "환급금";
                 // 이름만 있는 경우 (개인 송금) → 회비수입
                 return "회비수입";
             }
@@ -699,5 +699,30 @@ namespace INcheonChurchWeb.Services
         // 금액 문자열 파싱 (쉼표, 따옴표, 공백 제거)
         private decimal ParseMoney(string s)
             => decimal.TryParse((s ?? "").Replace(",", "").Replace("\"", "").Trim(), out decimal r) ? r : 0;
+
+        // =========================================================
+        // [추가] 월별 장부 페이지용 메서드 (오류 해결용)
+        // =========================================================
+
+        // 1. 특정 부서, 특정 연도의 모든 거래 내역 가져오기
+        public async Task<List<LedgerEntry>> GetLedgerAsync(string dept, int year)
+        {
+            return await _db.Transactions
+                .Where(t => t.Department == dept && t.FiscalYear == year)
+                .OrderBy(t => t.Date) // 날짜순 정렬
+                .AsNoTracking()       // 조회 전용 (속도 향상)
+                .ToListAsync();
+        }
+
+        // 2. 거래 내역 삭제하기
+        public async Task DeleteLedgerEntryAsync(int id)
+        {
+            var entry = await _db.Transactions.FindAsync(id);
+            if (entry != null)
+            {
+                _db.Transactions.Remove(entry);
+                await _db.SaveChangesAsync();
+            }
+        }
     }
 }
