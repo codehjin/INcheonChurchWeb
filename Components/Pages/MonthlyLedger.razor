@@ -9,8 +9,70 @@
 @inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
+@* ========================================================= *@
+@* [인쇄 스타일 정의] *@
+@* ========================================================= *@
+<style>
+    @@media print {
+        /* 1. 사이드바, 상단 메뉴, 버튼들 모두 숨김 */
+        .sidebar, .top-row, .btn, .no-print, .btn-group, select, .form-select {
+            display: none !important;
+        }
+        /* 2. 레이아웃 강제 확장 (종이 꽉 채우기) */
+        body, .page, main, .content, .container {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            background-color: white !important;
+            overflow: visible !important;
+        }
+        /* 3. 인쇄용 제목 표시 */
+        .print-only-title {
+            display: block !important;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        /* 4. 표 페이지 넘김 처리 (헤더 반복) */
+        table {
+            page-break-inside: auto;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tfoot {
+            display: table-footer-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            page-break-after: auto;
+        }
+        /* 5. 텍스트 선명하게 */
+        td, th {
+            color: black !important;
+            border-color: #000 !important;
+        }
+
+        .badge {
+            border: 1px solid #000;
+            color: #000 !important;
+            background: none !important;
+        }
+    }
+
+    .print-only-title {
+        display: none;
+    }
+</style>
+
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4 d-print-none">
+    @* 화면용 헤더 (인쇄 시 숨김) *@
+    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
         <h3 class="fw-bold text-primary"><i class="bi bi-calendar-check me-2"></i>월별 재정 장부</h3>
 
         <div class="btn-group">
@@ -18,14 +80,17 @@
                 <i class="bi bi-printer me-1"></i> 인쇄
             </button>
             <button class="btn btn-success btn-sm" @onclick="DownloadExcel">
-                <i class="bi bi-file-earmark-excel me-1"></i> 엑셀 다운로드
+                <i class="bi bi-file-earmark-excel me-1"></i> 엑셀
             </button>
         </div>
     </div>
 
-    @* 날짜 네비게이션 (인쇄 시 숨김) *@
-    <div class="card p-3 mb-4 bg-light shadow-sm border-0 d-print-none">
+    @* ========================================================= *@
+    @* [필터 컨트롤] (인쇄 시 숨김) *@
+    @* ========================================================= *@
+    <div class="card p-3 mb-4 bg-light shadow-sm border-0 no-print">
         <div class="row g-3 align-items-center text-center">
+            @* 1. 연도 *@
             <div class="col-md-3">
                 <label class="form-label fw-bold text-muted small">회계연도</label>
                 <div class="d-flex justify-content-center align-items-center gap-2">
@@ -34,6 +99,8 @@
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(1)">▶</button>
                 </div>
             </div>
+
+            @* 2. 월 *@
             <div class="col-md-3">
                 <label class="form-label fw-bold text-muted small">월 선택</label>
                 <div class="d-flex justify-content-center align-items-center gap-2">
@@ -48,6 +115,8 @@
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(1)">▶</button>
                 </div>
             </div>
+
+            @* 3. 분기 *@
             <div class="col-md-3">
                 <label class="form-label fw-bold text-muted small">분기 선택</label>
                 <select class="form-select form-select-sm w-auto fw-bold text-center mx-auto" @onchange="OnQuarterChanged" value="@CurrentQuarter">
@@ -58,36 +127,57 @@
                     <option value="4">4분기 (10~12월)</option>
                 </select>
             </div>
+
+            @* 4. 부서 선택 (관리자 기능) *@
             <div class="col-md-3">
                 <label class="form-label fw-bold text-muted small">부서</label>
-                <div class="fw-bold text-primary fs-5">@UserDepartment</div>
+                @if (IsAdmin)
+                {
+                    @* 관리자는 드롭다운으로 선택 *@
+                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartment">
+                        @foreach (var dept in GlobalConstants.Departments)
+                        {
+                            <option value="@dept">@dept</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    @* 일반 사용자는 텍스트 고정 *@
+                    <div class="fw-bold text-primary fs-5">@SelectedDepartment</div>
+                }
             </div>
         </div>
     </div>
 
-    @* 인쇄용 제목 (화면에는 안 보임) *@
-    <div class="d-none d-print-block text-center mb-4">
-        <h2>@CurrentYear 년 @(CurrentMonth > 0 ? CurrentMonth + "월" : "") @UserDepartment 재정 장부</h2>
+    @* ========================================================= *@
+    @* [인쇄 전용 제목] (화면에는 안 보임) *@
+    @* ========================================================= *@
+    <div class="print-only-title">
+        [ @CurrentYear 년 @(CurrentMonth > 0 ? CurrentMonth + "월" : "") @SelectedDepartment 재정 장부 ]
     </div>
 
+    @* ========================================================= *@
+    @* [메인 장부 테이블] *@
+    @* ========================================================= *@
     <div class="card shadow-sm border-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0 text-center table-bordered">
                 <thead class="table-light text-secondary">
                     <tr>
-                        <th style="width: 10%">날짜</th>
+                        <th style="width: 12%">날짜</th>
                         <th style="width: 8%">구분</th>
-                        <th style="width: 12%">항목</th>
+                        <th style="width: 15%">항목</th>
                         <th class="text-start">적요</th>
                         <th class="text-start" style="width: 15%">비고</th>
                         <th class="text-end" style="width: 10%">수입</th>
                         <th class="text-end" style="width: 10%">지출</th>
                         <th class="text-end table-active" style="width: 10%">잔액</th>
-                        <th style="width: 8%" class="d-print-none">관리</th>
+                        <th style="width: 8%" class="no-print">관리</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @* 전월 이월금 표시 *@
+                    @* 1. 전월 이월금 행 *@
                     <tr class="table-warning fw-bold">
                         <td>-</td>
                         <td><span class="badge bg-warning text-dark">이월</span></td>
@@ -97,13 +187,14 @@
                         <td class="text-end">@CarryOverAmount.ToString("N0")</td>
                         <td class="text-end">-</td>
                         <td class="text-end table-active text-primary">@CarryOverAmount.ToString("N0")</td>
-                        <td class="d-print-none"></td>
+                        <td class="no-print"></td>
                     </tr>
 
                     @{
                         decimal runningBalance = CarryOverAmount;
                     }
 
+                    @* 2. 데이터 반복 출력 *@
                     @if (Entries != null && Entries.Any())
                     {
                         @foreach (var item in Entries)
@@ -114,14 +205,13 @@
                                 <td>
                                     @if (item.Type == "수입")
                                     {
-                                        <span class="badge bg-primary bg-opacity-10 text-primary d-print-none">수입</span>
-                                        <span class="d-none d-print-inline">수입</span>
-         }
+                                        <span class="badge bg-primary bg-opacity-10 text-primary">수입</span>
+                                    }
                                     else
                                     {
-                                        <span class="badge bg-danger bg-opacity-10 text-danger d-print-none">지출</span>
-                                        <span class="d-none d-print-inline">지출</span>
-         }
+
+                                        <span class="badge bg-danger bg-opacity-10 text-danger">지출</span>
+                                    }
                                 </td>
                                 <td class="fw-bold">@item.Category</td>
                                 <td class="text-start">@item.Description</td>
@@ -129,7 +219,7 @@
                                 <td class="text-end text-primary">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
                                 <td class="text-end text-danger">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
                                 <td class="text-end table-active fw-bold">@runningBalance.ToString("N0")</td>
-                                <td class="d-print-none">
+                                <td class="no-print">
                                     <button class="btn btn-outline-danger btn-sm py-0" @onclick="() => DeleteEntry(item.Id)"><i class="bi bi-trash"></i></button>
                                 </td>
                             </tr>
@@ -146,7 +236,7 @@
                         <td class="text-end text-primary">@TotalIncome.ToString("N0")</td>
                         <td class="text-end text-danger">@TotalExpense.ToString("N0")</td>
                         <td class="text-end text-primary">@runningBalance.ToString("N0")</td>
-                        <td class="d-print-none"></td>
+                        <td class="no-print"></td>
                     </tr>
                 </tfoot>
             </table>
@@ -157,14 +247,19 @@
 @code {
     [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
 
+    // 상태 변수
     private int CurrentYear = DateTime.Now.Year;
     private int CurrentMonth = DateTime.Now.Month;
     private int CurrentQuarter = 0;
 
-    private string UserDepartment = "";
-    private List<LedgerEntry> Entries = new();
+    // 부서 관련 변수
+    private string LoggedInUserDept = "";   // 실제 로그인한 사용자의 부서
+    private string SelectedDepartment = ""; // 현재 화면에 보여줄 부서
+    private bool IsAdmin = false;           // 관리자 여부
 
-    private decimal CarryOverAmount = 0; // 전월 이월금
+    // 데이터 변수
+    private List<LedgerEntry> Entries = new();
+    private decimal CarryOverAmount = 0;
     private decimal TotalIncome = 0;
     private decimal TotalExpense = 0;
 
@@ -174,34 +269,52 @@
         {
             var authState = await authenticationStateTask;
             var user = authState.User;
+
             if (user.Identity != null && user.Identity.IsAuthenticated)
             {
-                // 부서 클레임 가져오기 (없으면 기본값 처리)
-                UserDepartment = user.FindFirst("Department")?.Value ?? "";
-                if (!string.IsNullOrEmpty(UserDepartment))
+                LoggedInUserDept = user.FindFirst("Department")?.Value ?? "";
+
+                // 관리자 체크 (교육국은 관리자 권한)
+                if (LoggedInUserDept == "교육국" || LoggedInUserDept == "관리자")
                 {
-                    await LoadData();
+                    IsAdmin = true;
+                    // 관리자는 기본값으로 목록의 첫 번째 부서 또는 유년부 선택
+                    SelectedDepartment = "유년부";
                 }
+                else
+                {
+                    IsAdmin = false;
+                    SelectedDepartment = LoggedInUserDept;
+                }
+
+                await LoadData();
             }
         }
     }
 
+    // 부서 변경 (관리자용)
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        SelectedDepartment = e.Value?.ToString() ?? "";
+        await LoadData();
+    }
+
     private async Task LoadData()
     {
-        // 1. 해당 연도의 모든 데이터 가져오기
-        var allData = await Accounting.GetLedgerAsync(UserDepartment, CurrentYear);
+        if (string.IsNullOrEmpty(SelectedDepartment)) return;
 
-        // 2. [수정됨] 전월 이월금 계산 로직
-        // 기초 이월금 (1월 1일 기준)
-        var budgetPlans = await Accounting.GetBudgetPlansAsync(UserDepartment, CurrentYear, "Income");
+        // 1. 해당 부서, 해당 연도의 모든 데이터 가져오기
+        var allData = await Accounting.GetLedgerAsync(SelectedDepartment, CurrentYear);
+
+        // 2. 이월금 계산 (전월 잔액 로직)
+        var budgetPlans = await Accounting.GetBudgetPlansAsync(SelectedDepartment, CurrentYear, "Income");
         decimal baseCarryOver = budgetPlans.FirstOrDefault(b => b.Category == "이월금" || b.Category.Contains("이월"))?.Amount ?? 0;
 
-        // 선택한 월 이전까지의 모든 수입/지출 합산
+        // 선택한 월 이전까지의 합계 계산
         var prevData = allData.Where(x => x.Date.Month < CurrentMonth).ToList();
         decimal prevIncome = prevData.Sum(x => x.Income);
         decimal prevExpense = prevData.Sum(x => x.Expense);
 
-        // 최종 이월금 = 기초 이월금 + 전월까지 수입 - 전월까지 지출
         CarryOverAmount = baseCarryOver + prevIncome - prevExpense;
 
         // 3. 현재 월 데이터 필터링
@@ -210,23 +323,50 @@
         {
             query = query.Where(x => x.Date.Month == CurrentMonth);
         }
+        else if (CurrentQuarter > 0)
+        {
+            // 분기 로직 (1분기: 1,2,3월 / 2분기: 4,5,6월 ...)
+            int startMonth = (CurrentQuarter - 1) * 3 + 1;
+            int endMonth = startMonth + 2;
+            query = query.Where(x => x.Date.Month >= startMonth && x.Date.Month <= endMonth);
+        }
 
         Entries = query.OrderBy(x => x.Date).ToList();
         TotalIncome = Entries.Sum(x => x.Income);
         TotalExpense = Entries.Sum(x => x.Expense);
     }
 
-    // 네비게이션 로직 생략 (기존과 동일) ...
+    // 날짜 네비게이션
     private async Task ChangeYear(int value) { CurrentYear += value; await LoadData(); }
+
     private async Task ChangeMonth(int value)
     {
         CurrentMonth += value;
         if (CurrentMonth > 12) { CurrentMonth = 1; CurrentYear++; }
         else if (CurrentMonth < 1) { CurrentMonth = 12; CurrentYear--; }
+        CurrentQuarter = 0; // 월 변경 시 분기 해제
         await LoadData();
     }
-    private async Task OnMonthChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int m)) { CurrentMonth = m; await LoadData(); } }
-    private async Task OnQuarterChanged(ChangeEventArgs e) { /* 분기 로직 생략 */ }
+
+    private async Task OnMonthChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int m))
+        {
+            CurrentMonth = m;
+            CurrentQuarter = 0;
+            await LoadData();
+        }
+    }
+
+    private async Task OnQuarterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int q))
+        {
+            CurrentQuarter = q;
+            CurrentMonth = 0; // 분기 변경 시 월 해제
+            await LoadData();
+        }
+    }
 
     private async Task DeleteEntry(int id)
     {
@@ -238,5 +378,6 @@
     }
 
     private async Task DownloadExcel() { await JSRuntime.InvokeVoidAsync("alert", "준비 중입니다."); }
+
     private async Task PrintPage() { await JSRuntime.InvokeVoidAsync("print"); }
 }
