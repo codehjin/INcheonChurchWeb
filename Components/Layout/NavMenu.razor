@@ -1,0 +1,55 @@
+﻿@using INcheonChurchWeb.Models
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">인천중앙교회 교육국</a>
+    </div>
+</div>
+
+<div class="nav-scrollable">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="bi bi-house-door-fill-nav-menu"></span> 대시보드
+            </NavLink>
+        </div>
+
+        @if (CurrentUser?.Role == "User")
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="bank-import">
+                    <span class="bi bi-list-nested-nav-menu"></span> 은행내역 불러오기
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="expense-report-quarterly">
+                    <span class="bi bi-file-earmark-text-fill-nav-menu"></span> 지출결의서
+                </NavLink>
+            </div>
+        }
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="monthly">
+                <span class="bi bi-calendar3-nav-menu"></span> 월별장부
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="receipt-query">
+                <span class="bi bi-receipt" aria-hidden="true"></span> 영수증 관리
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="settings">
+                <span class="bi bi-gear-fill-nav-menu"></span> 환경설정
+            </NavLink>
+        </div>
+    </nav>
+</div>
+
+@code {
+    // 부모(MainLayout)로부터 전달받는 파라미터로 변경
+    [Parameter] public User? CurrentUser { get; set; }
+}

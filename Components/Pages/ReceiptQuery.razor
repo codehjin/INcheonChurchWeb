@@ -1,0 +1,332 @@
+﻿@page "/receipt-query"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService AccService
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+@* [1] 화면 조회용 UI (인쇄 시 숨김) *@
+<div class="container mt-4 no-print">
+    <h3 class="fw-bold mb-4"><i class="bi bi-receipt me-2"></i>영수증 관리</h3>
+
+    @* 상단 컨트롤: 월 선택 및 부서 선택 *@
+    <div class="card p-3 mb-4 border-0 shadow-sm bg-light">
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+            @if (CurrentUser?.Role == "Admin")
+            {
+                <select class="form-select w-auto fw-bold" @bind="TargetDept">
+                    <option value="">부서 선택</option>
+                    @foreach (var d in new[] { "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" })
+                    {
+                        <option value="@d">@d</option>
+                    }
+                </select>
+            }
+
+            <div class="d-flex gap-1 align-items-center flex-wrap">
+                @* [수정] 연도 선택 추가 *@
+                <div class="input-group input-group-sm w-auto">
+                    <span class="input-group-text fw-bold bg-primary text-white">연도</span>
+                    <input type="number" class="form-control fw-bold text-center" style="width: 80px;" @bind="TargetYear" />
+                </div>
+
+                @for (int i = 1; i <= 12; i++)
+                {
+                    int m = i;
+                    <button class="btn btn-sm @(TargetMonth == m ? "btn-primary fw-bold" : "btn-outline-secondary")"
+                            @onclick="() => LoadData(m)">
+                        @m 월
+                    </button>
+                }
+            </div>
+
+            <div class="ms-auto">
+                <button class="btn btn-dark" onclick="window.print()">
+                    <i class="bi bi-printer-fill me-2"></i>A4 모아찍기 (인쇄)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @* 목록 테이블 *@
+    <table class="table table-hover align-middle">
+        <thead class="table-dark text-center">
+            <tr>
+                <th>날짜</th>
+                <th>항목</th>
+                <th>적요</th>
+                <th>금액</th>
+                <th width="200">증빙 관리</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Transactions)
+            {
+                <tr>
+                    <td class="text-center">@item.Date.ToString("MM-dd")</td>
+                    <td class="text-center"><span class="badge bg-secondary">@item.Category</span></td>
+                    <td>@item.Description</td>
+                    <td class="text-end text-danger fw-bold">@item.Expense.ToString("N0")</td>
+                    <td class="text-center">
+                        @if (!string.IsNullOrEmpty(item.ReceiptPath))
+                        {
+                            <button class="btn btn-sm btn-success" @onclick="() => ViewReceipt(item.ReceiptPath)">보기</button>
+                            <button class="btn btn-sm btn-outline-secondary ms-1" @onclick="() => TriggerUpload(item.Id)">교체</button>
+                            <button class="btn btn-sm btn-danger ms-1" @onclick="() => DeleteReceipt(item.Id)">삭제</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => TriggerUpload(item.Id)">등록</button>
+                        }
+                    </td>
+                </tr>
+            }
+            @if (!Transactions.Any())
+            {
+                <tr><td colspan="5" class="text-center py-5 text-muted">선택한 월에 지출 내역이 없습니다.</td></tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@* [2] 인쇄 전용 영역 (A4 모아찍기) *@
+<div class="print-area">
+    <div class="print-header text-center mb-4">
+        <h3>@TargetYear 년 @TargetMonth 월 지출 증빙서류</h3>
+        <h5>부서: @(CurrentUser?.Role == "Admin" && !string.IsNullOrEmpty(TargetDept) ? TargetDept : CurrentUser?.Department)</h5>
+    </div>
+
+    <div class="receipt-grid">
+        @foreach (var item in Transactions.Where(t => !string.IsNullOrEmpty(t.ReceiptPath)))
+        {
+            <div class="receipt-card">
+                <div class="header d-flex justify-content-between align-items-center p-2 border-bottom">
+                    <div>
+                        <span class="badge bg-secondary me-2">No.@item.Id</span>
+                        <strong>@item.Date.ToString("yyyy-MM-dd")</strong>
+                        <span class="mx-2">|</span>
+                        <span>@item.Category</span>
+                        <span class="mx-2">|</span>
+                        <span>@item.Description</span>
+                    </div>
+                    <span class="text-danger fw-bold fs-5">@item.Expense.ToString("N0") 원</span>
+                </div>
+                <div class="body p-2">
+                    @if (item.ReceiptPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <div class="text-center py-5 text-muted border rounded bg-light w-100">
+                            <p>PDF 파일은 별도 출력 바랍니다.</p>
+                            <small>파일명: @System.IO.Path.GetFileName(item.ReceiptPath)</small>
+                        </div>
+                    }
+                    else
+                    {
+                        // 자바스크립트로 이미지 로드 후 가로/세로 비율 체크하여 클래스 부여 (여기서는 CSS 트릭 사용)
+                        <img src="@item.ReceiptPath" class="receipt-img" onload="checkOrientation(this)" />
+                    }
+                </div>
+            </div>
+        }
+        @if (!Transactions.Any(t => !string.IsNullOrEmpty(t.ReceiptPath)))
+        {
+            <div class="text-center py-5 border rounded">
+                <h4>출력할 영수증 이미지가 없습니다.</h4>
+            </div>
+        }
+    </div>
+</div>
+
+@* 파일 업로드용 숨겨진 Input *@
+<InputFile id="fileInput" OnChange="HandleFileSelected" style="display:none;" accept=".jpg,.jpeg,.png,.pdf" />
+
+@* 영수증 보기 모달 *@
+@if (isViewingReceipt)
+{
+    <div class="modal fade show d-block no-print" style="background: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">🧾 영수증 미리보기</h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+                <div class="modal-body text-center bg-light">
+                    @if (viewPath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <iframe src="@viewPath" style="width:100%; height:500px;" frameborder="0"></iframe>
+                    }
+                    else
+                    {
+                        <img src="@viewPath" class="img-fluid rounded shadow-sm" style="max-height: 600px;" />
+                    }
+                </div>
+                <div class="modal-footer">
+                    <a href="@viewPath" download class="btn btn-primary">다운로드</a>
+                    <button type="button" class="btn btn-secondary" @onclick="CloseModal">닫기</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    /* 화면용 스타일: 인쇄 영역 숨김 */
+    .print-area {
+        display: none;
+    }
+
+    /* 인쇄용 스타일 */
+    @@media print {
+        /* 1. 불필요한 요소 완벽 제거 */
+        .no-print, .sidebar, .top-row, header, nav {
+            display: none !important;
+        }
+        /* 2. 페이지 설정 초기화 */
+        body, html {
+            background: white;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+        /* 3. 인쇄 영역 활성화 */
+        .print-area {
+            display: block !important;
+            width: 100%;
+            margin: 0;
+            padding: 10mm;
+            box-sizing: border-box;
+        }
+
+        .print-header {
+            margin-bottom: 20px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+        }
+
+        .receipt-grid {
+            display: block;
+            width: 100%;
+        }
+        /* 4. 영수증 카드 (A4 반 페이지) */
+        .receipt-card {
+            width: 100%;
+            height: 125mm; /* A4 절반보다 약간 작게 (여백 고려) */
+            border: 2px solid #000;
+            margin-bottom: 10mm; /* 영수증 간 간격 */
+            page-break-inside: avoid; /* 페이지 잘림 방지 */
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+
+            .receipt-card .header {
+                background-color: #f8f9fa !important;
+                border-bottom: 1px solid #000;
+                font-size: 14px;
+                height: 10mm; /* 헤더 높이 고정 */
+            }
+
+            .receipt-card .body {
+                flex-grow: 1;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                overflow: hidden;
+                position: relative;
+            }
+        /* 5. 이미지 자동 회전 로직 */
+        .receipt-img {
+            max-width: 95%;
+            max-height: 95%;
+            object-fit: contain;
+        }
+            /* 가로로 긴 이미지는 90도 회전 (JS로 .rotate 클래스 추가 시 적용) */
+            .receipt-img.rotate {
+                transform: rotate(90deg);
+                max-width: 110mm; /* 세로 공간에 맞게 조정 */
+                max-height: 180mm;
+            }
+    }
+</style>
+
+<script>
+    // 이미지 로드 시 가로/세로 비율 체크하여 회전 클래스 추가
+    function checkOrientation(img) {
+        if (img.naturalWidth > img.naturalHeight) {
+            img.classList.add('rotate');
+        }
+    }
+</script>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int TargetYear = DateTime.Now.Year;
+    private int TargetMonth = DateTime.Now.Month;
+    private string TargetDept = ""; // Admin용
+    private List<LedgerEntry> Transactions = new();
+
+    private int selectedIdForUpload = 0;
+    private bool isViewingReceipt = false;
+    private string viewPath = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        TargetDept = CurrentUser?.Department ?? "";
+        await LoadData(TargetMonth);
+    }
+
+    private async Task LoadData(int month)
+    {
+        TargetMonth = month;
+        if (CurrentUser == null) return;
+
+        string dept = (CurrentUser.Role == "Admin" && !string.IsNullOrEmpty(TargetDept)) ? TargetDept : CurrentUser.Department;
+
+        // 연도(TargetYear)도 인자에 포함
+        var all = await AccService.GetMonthlyTransactionsAsync(dept, TargetYear, month);
+        Transactions = all.Where(t => t.Type == "지출").OrderByDescending(t => t.Date).ToList();
+    }
+
+    // 파일 업로드 관련
+    private async Task TriggerUpload(int id)
+    {
+        selectedIdForUpload = id;
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('fileInput').click()");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        if (selectedIdForUpload == 0) return;
+        var file = e.File;
+        if (file.Size > 1024 * 1024 * 20)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "파일 크기는 20MB 이하여야 합니다.");
+            return;
+        }
+
+        var result = await AccService.UploadReceiptAsync(file, selectedIdForUpload);
+        if (result == "OK")
+        {
+            await LoadData(TargetMonth);
+            await JSRuntime.InvokeVoidAsync("alert", "영수증이 저장되었습니다.");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "오류: " + result);
+        }
+    }
+
+    private async Task DeleteReceipt(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "등록된 영수증을 삭제하시겠습니까? (내역은 유지됩니다)"))
+        {
+            await AccService.RemoveReceiptAsync(id);
+            await LoadData(TargetMonth);
+        }
+    }
+
+    private void ViewReceipt(string path) { viewPath = path; isViewingReceipt = true; }
+    private void CloseModal() => isViewingReceipt = false;
+}

@@ -1,0 +1,381 @@
+﻿@page "/settings"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService AccService
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container mt-4 mb-5">
+    <div class="card shadow-sm border-0">
+        @* 상단 헤더 *@
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom">
+            <h4 class="mb-0 fw-bold text-secondary"><i class="bi bi-gear-fill me-2"></i>환경 설정 (@(CurrentUser?.Department ?? "부서미정"))</h4>
+            @if (CurrentUser?.Role != "Admin")
+            {
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-light text-dark border">현재 작업 연도:</span>
+                    <select class="form-select form-select-sm w-auto fw-bold" @bind="TargetYear">
+                        @for (int y = 2025; y <= 2028; y++)
+                        {
+                            <option value="@y">@y 년</option>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-outline-primary" @onclick="SafeImportBaseBudget">🔄 기초예산 불러오기</button>
+                </div>
+            }
+        </div>
+
+        @* 탭 메뉴 (기존 동일) *@
+        <div class="card-header bg-light p-0 border-0">
+            <ul class="nav nav-tabs border-bottom-0">
+                @if (CurrentUser?.Role != "Admin")
+                {
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Income" ? "active fw-bold text-primary" : "")" @onclick='() => ChangeTab("Income")'>📥 수입 예산</button></li>
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Expense" ? "active fw-bold text-danger" : "")" @onclick='() => ChangeTab("Expense")'>📤 지출 예산</button></li>
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Mapping" ? "active fw-bold text-warning" : "")" @onclick='() => ChangeTab("Mapping")'>🏷️ 자동분류 설정</button></li>
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Quarter" ? "active fw-bold text-info" : "")" @onclick='() => ChangeTab("Quarter")'>📅 분기 설정</button></li>
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Backup" ? "active fw-bold text-success" : "")" @onclick='() => ChangeTab("Backup")'>📂 데이터 백업</button></li>
+                }
+                <li class="nav-item"><button class="nav-link @(activeTab == "MyInfo" ? "active fw-bold text-dark" : "")" @onclick='() => ChangeTab("MyInfo")'>🔒 정보 변경</button></li>
+                @if (CurrentUser?.Role == "Admin")
+                {
+                    <li class="nav-item"><button class="nav-link @(activeTab == "Users" ? "active fw-bold text-success" : "")" @onclick='() => ChangeTab("Users")'>👥 사용자 관리</button></li>
+                }
+            </ul>
+        </div>
+
+        <div class="card-body bg-white p-4">
+            @* 1. 예산 관리 탭 (수정됨: 상단 에디터 + 하단 히스토리) *@
+            @if (activeTab == "Income" || activeTab == "Expense")
+            {
+                <h5 class="fw-bold text-primary mb-3">
+                    ✏️ @TargetYear 년도 @(activeTab == "Income" ? "수입" : "지출") 예산 편집
+                </h5>
+
+                @* (A) 현재 연도 예산 입력 폼 *@
+                <div class="bg-light p-3 rounded mb-4 border shadow-sm">
+                    <div class="row g-2">
+                        <div class="col-md-3"><input class="form-control" @bind="newPlan.Category" placeholder="항목 (예: 주일헌금, 행사비)" /></div>
+                        @if (activeTab == "Expense")
+                        {
+                            <div class="col-md-2"><input class="form-control" @bind="newPlan.SubCategory" placeholder="상세내역" /></div>
+                        }
+                        <div class="col-md-3"><input class="form-control" @bind="newPlan.CalcDetail" placeholder="산출근거" /></div>
+                        <div class="col-md-2"><input type="number" class="form-control text-end" @bind="newPlan.Amount" placeholder="금액" /></div>
+                        <div class="col-md-2">
+                            <button class="btn btn-primary w-100 fw-bold" @onclick="SavePlan">
+                                @((newPlan.Id == 0) ? "추가" : "수정")
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                @* (B) 현재 연도 예산 목록 *@
+                <table class="table table-hover align-middle border-top mb-5">
+                    <thead class="@(activeTab == "Income" ? "table-primary" : "table-danger") text-center">
+                        <tr>
+                            <th>항목</th>
+                            @if (activeTab == "Expense")
+                            {
+                                <th>상세내역</th>
+                            }
+                            <th>산출근거</th>
+                            <th class="text-end">금액</th>
+                            <th width="120">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in budgetList.Where(b => b.Year == TargetYear))
+                        {
+                            <tr>
+                                <td class="fw-bold text-center">@item.Category</td>
+                                @if (activeTab == "Expense")
+                                {
+                                    <td>@item.SubCategory</td>
+                                }
+                                <td class="small text-muted">@item.CalcDetail</td>
+                                <td class="text-end fw-bold">@item.Amount.ToString("N0")</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => EditPlan(item)">수정</button>
+                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => SafeDeletePlan(item.Id)">삭제</button>
+                                </td>
+                            </tr>
+                        }
+                        @if (!budgetList.Any(b => b.Year == TargetYear))
+                        {
+                            <tr><td colspan="5" class="text-center py-4 text-muted">등록된 예산이 없습니다.</td></tr>
+                        }
+                    </tbody>
+                </table>
+
+                <hr class="my-5 border-2" />
+
+                @* (C) 과거 예산 히스토리 (아코디언) *@
+                <h5 class="fw-bold text-secondary mb-3">📜 연도별 예산 히스토리</h5>
+                <div class="accordion" id="budgetHistoryAccordion">
+                    @foreach (var group in budgetHistory.Where(g => g.Key != TargetYear).OrderByDescending(g => g.Key))
+                    {
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@group.Key">
+                                    📂 @group.Key 년도 예산 (총 @group.Sum(x => x.Amount).ToString("N0")원)
+                                </button>
+                            </h2>
+                            <div id="collapse-@group.Key" class="accordion-collapse collapse" data-bs-parent="#budgetHistoryAccordion">
+                                <div class="accordion-body p-0">
+                                    <table class="table table-sm table-striped mb-0">
+                                        <thead class="table-light">
+                                            <tr><th>항목</th><th>내역</th><th>금액</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var item in group)
+                                            {
+                                                <tr>
+                                                    <td>@item.Category</td>
+                                                    <td>@item.SubCategory @item.CalcDetail</td>
+                                                    <td class="text-end">@item.Amount.ToString("N0")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @* ... (Mapping, Quarter, Backup, Users, MyInfo 탭 기존과 동일) ... *@
+            @* 2. 매핑 설정 *@
+            else if (activeTab == "Mapping")
+            {
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="alert alert-info small flex-grow-1 me-3 mb-0">은행 적요 키워드를 감지하여 항목을 지정합니다.</div>
+                    <button class="btn btn-outline-warning fw-bold" @onclick="InitializeMappingsFrom2025">✨ 25년 장부 기반 초기화</button>
+                </div>
+                <div class="bg-light p-3 rounded mb-4 border">
+                    <div class="row g-2">
+                        <div class="col-5">
+                            <input class="form-control" @bind="newMapping.Keyword" placeholder="적요 키워드 (예: 다이소)" />
+                        </div>
+                        <div class="col-5">
+                            <select class="form-select" @bind="newMapping.Category">
+                                <option value="">항목 선택...</option>
+                                @foreach (var c in CategoryList)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-2">
+                            <button class="btn btn-warning w-100 fw-bold" @onclick="AddMapping">등록</button>
+                        </div>
+                    </div>
+                </div>
+                <table class="table table-sm table-bordered bg-white text-center shadow-sm">
+                    <thead class="table-dark"><tr><th>키워드</th><th>분류될 항목</th><th>관리</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in mappingList)
+                        {
+                            <tr><td>@m.Keyword</td><td>@m.Category</td><td><button class="btn btn-sm btn-link text-danger" @onclick="() => DeleteMapping(m.Id)">삭제</button></td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @* 3. 분기 설정 *@
+            else if (activeTab == "Quarter")
+            {
+                <div class="col-md-10 mx-auto mt-4">
+                    <h5 class="fw-bold mb-3 text-info">📌 @TargetYear 년도 분기 날짜 설정 (일 단위)</h5>
+                    <div class="card p-4 shadow-sm border-info">
+                        <div class="alert alert-light border small mb-4">
+                            <i class="bi bi-info-circle me-2"></i>각 분기의 <strong>시작일</strong>과 <strong>종료일</strong>을 정확하게 지정해주세요.<br />
+                            (예: 1분기 = 2025-12-01 ~ 2026-02-28)
+                        </div>
+                        @for (int q = 1; q <= 4; q++)
+                        {
+                            int localQ = q;
+                            <div class="mb-3 row align-items-center bg-light p-2 rounded">
+                                <label class="col-sm-2 col-form-label fw-bold text-center border-end">@q 분기</label>
+                                <div class="col d-flex gap-2 align-items-center">
+                                    <input type="date" class="form-control" @bind="QuarterDates[localQ - 1].Start" />
+                                    <span>~</span>
+                                    <input type="date" class="form-control" @bind="QuarterDates[localQ - 1].End" />
+                                </div>
+                                <div class="col-sm-2">
+                                    <button class="btn btn-sm btn-outline-primary w-100 fw-bold" @onclick="() => SaveQuarter(localQ)">저장</button>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            @* 4. 백업 *@
+            else if (activeTab == "Backup")
+            {
+                <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <span>현재 상태를 즉시 백업하여 나중에 복구할 수 있습니다.</span>
+                    <button class="btn btn-success btn-sm" @onclick='() => SafeBackup("User_Manual", "사용자 수동 백업")'>지금 백업하기</button>
+                </div>
+                <h6 class="fw-bold"><i class="bi bi-clock-history me-2"></i>백업 히스토리</h6>
+                <table class="table table-sm table-hover border">
+                    <thead class="table-light"><tr><th>백업 일시</th><th>구분</th><th>메모</th><th>관리</th></tr></thead>
+                    <tbody>
+                        @foreach (var b in backupList)
+                        {
+                            <tr>
+                                <td>@b.BackupDate.ToString("yyyy-MM-dd HH:mm")</td>
+                                <td><span class="badge bg-secondary">@b.DataType</span></td>
+                                <td class="small">@b.Memo</td>
+                                <td><button class="btn btn-sm btn-outline-primary" @onclick="() => RestoreData(b)">🔄 복구하기</button></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @* 5. 사용자 관리 *@
+            else if (activeTab == "Users" && CurrentUser?.Role == "Admin")
+            {
+                <h5 class="mb-3 fw-bold text-success">👥 부서 계정 관리</h5>
+                <div class="row g-2 mb-3 bg-light p-3 border rounded">
+                    <div class="col-3"><input class="form-control" @bind="newUser.Username" placeholder="ID" /></div>
+                    <div class="col-3"><input class="form-control" @bind="newUser.Password" placeholder="PW" /></div>
+                    <div class="col-3"><input class="form-control" @bind="newUser.Department" placeholder="부서명" /></div>
+                    <div class="col-2"><select class="form-select" @bind="newUser.Role"><option value="User">일반사용자</option><option value="Admin">관리자</option></select></div>
+                    <div class="col-1"><button class="btn btn-primary w-100" @onclick="AddUser">등록</button></div>
+                </div>
+                <table class="table border">
+                    <thead class="table-light text-center"><tr><th>아이디</th><th>소속 부서</th><th>권한</th><th>관리</th></tr></thead>
+                    <tbody>
+                        @foreach (var u in userList)
+                        {
+                            <tr>
+                                <td class="text-center">@u.Username</td>
+                                <td class="text-center">@u.Department</td>
+                                <td class="text-center">@u.Role</td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-warning me-1" @onclick="() => ResetPassword(u.Username)">초기화</button>
+                                    @if (u.Username != "admin")
+                                    {
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteUser(u.Username)">삭제</button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            @* 6. 내 정보 *@
+            else if (activeTab == "MyInfo")
+            {
+                <div class="col-md-6 mx-auto mt-5">
+                    <div class="card p-4 border-0 bg-light">
+                        <h5 class="mb-4 fw-bold text-center">🔒 내 비밀번호 변경</h5>
+                        <div class="mb-3"><label class="form-label small">새 비밀번호</label><input type="password" class="form-control" @bind="newSelfPassword" /></div>
+                        <button class="btn btn-dark w-100 py-2" @onclick="ChangeMyPassword">변경 내용 저장</button>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+    private string activeTab = "Income";
+    private int TargetYear { get => _targetYear; set { _targetYear = value; _ = LoadData(); } }
+    private int _targetYear = DateTime.Now.Year;
+
+    private List<BudgetPlan> budgetList = new(); // 현재 연도 + 전체 조회용
+    private IGrouping<int, BudgetPlan>[] budgetHistory = Array.Empty<IGrouping<int, BudgetPlan>>(); // 히스토리용 그룹
+
+    private BudgetPlan newPlan = new();
+    private List<CategoryMapping> mappingList = new();
+    private CategoryMapping newMapping = new();
+    private List<DataBackup> backupList = new();
+    private List<User> userList = new();
+    private User newUser = new();
+    private string newSelfPassword = "";
+    private List<string> CategoryList = new();
+
+    // 분기 날짜
+    class DateRange { public DateTime Start { get; set; } public DateTime End { get; set; } }
+    private DateRange[] QuarterDates = new DateRange[4] { new(), new(), new(), new() };
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+        activeTab = (CurrentUser.Role == "Admin") ? "Users" : "Income";
+        await LoadData();
+    }
+
+    private async Task ChangeTab(string tab) { activeTab = tab; newPlan = new(); await LoadData(); }
+
+    private async Task LoadData()
+    {
+        if (CurrentUser == null) return;
+        string dept = CurrentUser.Department;
+
+        if (activeTab == "Users") userList = await AccService.GetAllUsersAsync();
+        else if (activeTab == "Income" || activeTab == "Expense")
+        {
+            // 전체 예산 데이터를 가져와서
+            var allPlans = await AccService.GetAllBudgetPlansForDeptAsync(dept, activeTab);
+
+            // 1. 현재 선택된 연도만 편집용 리스트에 담기
+            budgetList = allPlans; // 전체를 가져오되, 화면에서 필터링하거나 여기서 나눌 수 있음.
+                                   // 여기서는 편의상 전체를 budgetList에 담고 화면에서 Year filter.
+
+            // 2. 히스토리용 그룹핑
+            budgetHistory = allPlans.GroupBy(b => b.Year).ToArray();
+        }
+        else if (activeTab == "Mapping")
+        {
+            mappingList = await AccService.GetMappingsAsync(dept);
+            CategoryList = await AccService.GetCategorySuggestionsAsync(dept, "Expense");
+        }
+        else if (activeTab == "Backup") backupList = await AccService.GetBackupsAsync(dept);
+        else if (activeTab == "Quarter")
+        {
+            for (int i = 1; i <= 4; i++)
+            {
+                var range = await AccService.GetQuarterDateRangeAsync(dept, TargetYear, i);
+                QuarterDates[i - 1] = new DateRange { Start = range.Start, End = range.End };
+            }
+        }
+    }
+
+    private async Task SavePlan()
+    {
+        if (string.IsNullOrWhiteSpace(newPlan.Category)) return;
+        newPlan.Year = TargetYear;
+        newPlan.Type = activeTab;
+        newPlan.Department = CurrentUser.Department;
+        await AccService.SaveBudgetPlanAsync(newPlan);
+        newPlan = new();
+        await LoadData();
+    }
+
+    private async Task SaveQuarter(int q)
+    {
+        var range = QuarterDates[q - 1];
+        await AccService.SaveQuarterSettingAsync(CurrentUser.Department, TargetYear, q, range.Start, range.End);
+        await JSRuntime.InvokeVoidAsync("alert", $"{q}분기 기간이 설정되었습니다.");
+    }
+
+    // ... (기존 CRUD 메서드 유지: SafeDeletePlan, SafeImportBaseBudget, SafeBackup, RestoreData 등) ...
+    // (코드 길이상 생략된 메서드들은 이전 답변과 동일하게 유지)
+    private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool>("confirm", "삭제?")) await AccService.DeleteBudgetPlanAsync(id); await LoadData(); }
+    private async Task SafeImportBaseBudget() { if (await JSRuntime.InvokeAsync<bool>("confirm", "초기화?")) await AccService.CopyBudgetFromBaseYearAsync(CurrentUser.Department, 2026, TargetYear); await LoadData(); }
+    private async Task SafeBackup(string t, string m) { await AccService.CreateBackupAsync(CurrentUser.Department, t, m); await LoadData(); }
+    private async Task RestoreData(DataBackup b) { if (await JSRuntime.InvokeAsync<bool>("confirm", "복구?")) await AccService.RestoreFromBackupAsync(b.Id); await LoadData(); }
+    private async Task InitializeMappingsFrom2025() { if (await JSRuntime.InvokeAsync<bool>("confirm", "초기화?")) await AccService.EnsureDetailedMappingsAsync(CurrentUser.Department); await LoadData(); }
+    private void EditPlan(BudgetPlan p) { newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, Department = p.Department }; }
+    private async Task AddMapping() { newMapping.Department = CurrentUser.Department; await AccService.SaveMappingAsync(newMapping); await LoadData(); }
+    private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
+    private async Task ResetPassword(string u) { await AccService.ResetPasswordAsync(u); }
+    private async Task AddUser() { await AccService.AddUserAsync(newUser); await LoadData(); }
+    private async Task DeleteUser(string u) { await AccService.DeleteUserAsync(u); await LoadData(); }
+    private async Task ChangeMyPassword() { await AccService.ChangePasswordAsync(CurrentUser.Username, newSelfPassword); }
+}

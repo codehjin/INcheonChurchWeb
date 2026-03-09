@@ -1,0 +1,259 @@
+﻿@page "/bank-import"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using ExcelDataReader
+@using System.Data
+@using System.IO
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AppDbContext DbContext
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<div class="container mt-4">
+    <h3 class="fw-bold text-primary mb-4"><i class="bi bi-bank me-2"></i>은행 거래내역 가져오기</h3>
+
+    <div class="card p-4 shadow-sm bg-light border-0 mb-4">
+        <div class="mb-3">
+            <label class="form-label fw-bold">1. 은행 거래내역 파일 선택</label>
+            @* 엑셀(.xls, .xlsx) 및 CSV 파일 허용 *@
+            <InputFile OnChange="LoadFiles" class="form-control" accept=".xls,.xlsx,.csv" />
+            <div class="form-text text-muted">은행에서 받은 엑셀 파일(.xls, .xlsx)을 그대로 업로드하세요.</div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="alert alert-info d-flex align-items-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                <span>파일을 분석하고 있습니다...</span>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>@errorMessage
+            </div>
+        }
+
+        @if (previewList != null && previewList.Any())
+        {
+            <div class="alert alert-success d-flex align-items-center">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <span>총 <strong>@previewList.Count</strong> 건의 내역을 불러왔습니다. 확인 후 저장 버튼을 눌러주세요.</span>
+            </div>
+        }
+    </div>
+
+    @if (previewList != null && previewList.Any())
+    {
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="fw-bold">미리보기 (자동 분류 결과)</h5>
+            <button class="btn btn-primary btn-lg fw-bold" @onclick="SaveToLedger" disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    <span>저장 중...</span>
+                }
+                else
+                {
+                    <i class="bi bi-save me-2"></i>
+            
+                    <span>장부에 저장하기</span>
+                }
+            </button>
+        </div>
+
+        <div class="table-responsive shadow-sm bg-white rounded" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0 text-center sticky-top">
+                <thead class="table-dark sticky-top" style="z-index: 1;">
+                    <tr>
+                        <th style="width: 120px;">날짜</th>
+                        <th class="text-start">적요 (내용)</th>
+                        <th class="text-start">비고 (의뢰인)</th> @* 비고 컬럼 추가 *@
+                        <th style="width: 100px;">수입</th>
+                        <th style="width: 100px;">지출</th>
+                        <th style="width: 100px;">부서</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in previewList)
+                    {
+                        <tr>
+                            <td>@item.Date.ToString("yyyy-MM-dd")</td>
+                            <td class="text-start">@item.Description</td>
+                            <td class="text-start text-muted small">@item.Note</td> @* 비고(Note) 표시 *@
+                            <td class="text-end text-primary fw-bold">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
+                            <td class="text-end text-danger fw-bold">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
+                            <td><span class="badge bg-secondary">@item.Department</span></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? authenticationStateTask { get; set; }
+
+    private string UserDepartment = ""; // 기본값
+    private List<LedgerEntry> previewList = new();
+    private bool isLoading = false;
+    private bool isSaving = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (authenticationStateTask != null)
+        {
+            var authState = await authenticationStateTask;
+            var user = authState.User;
+            if (user.Identity != null && user.Identity.IsAuthenticated)
+            {
+                var deptClaim = user.FindFirst("Department");
+                if (deptClaim != null)
+                {
+                    UserDepartment = deptClaim.Value;
+                }
+            }
+        }
+        // [추가] 부서 정보를 못 가져왔으면 경고 표시 (기본값 사용 X)
+        if (string.IsNullOrEmpty(UserDepartment))
+        {
+            errorMessage = "로그인 정보(부서)를 불러올 수 없습니다. 다시 로그인해주세요.";
+        }
+    }
+
+    private async Task LoadFiles(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        previewList.Clear();
+        errorMessage = "";
+
+        try
+        {
+            // 리눅스(도커) 환경 한글 깨짐 방지
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            var file = e.File;
+
+            // 엑셀 파일을 메모리로 읽기 (최대 10MB)
+            using (var stream = new MemoryStream())
+            {
+                await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(stream);
+                stream.Position = 0;
+
+                using (var reader = ExcelReaderFactory.CreateReader(stream))
+                {
+                    // 엑셀 데이터셋으로 변환
+                    var result = reader.AsDataSet();
+                    var table = result.Tables[0];
+                    bool headerFound = false;
+
+                    for (int i = 0; i < table.Rows.Count; i++)
+                    {
+                        var row = table.Rows[i];
+
+                        // 각 열의 데이터 가져오기 (문자열로 변환)
+                        var colDate = row[0]?.ToString()?.Trim();        // A열: 거래일시
+                        var colDesc = row[1]?.ToString()?.Trim();        // B열: 적요
+                        var colCounterparty = row[3]?.ToString()?.Trim();// D열: 의뢰인/수취인
+                        var colDeposit = row[4]?.ToString()?.Trim();     // E열: 입금
+                        var colWithdrawal = row[5]?.ToString()?.Trim();  // F열: 출금
+
+                        // 1. "거래일시" 헤더 찾기 (이전 행 무시)
+                        if (!headerFound)
+                        {
+                            if (colDate != null && colDate.Contains("거래일시")) headerFound = true;
+                            continue;
+                        }
+
+                        // 2. 날짜 없는 행 무시
+                        if (string.IsNullOrEmpty(colDate)) continue;
+                        if (!DateTime.TryParse(colDate, out DateTime dateValue)) continue;
+
+                        try
+                        {
+                            // 입금/출금 금액 파싱
+                            decimal income = ParseDecimal(colDeposit);
+                            decimal expense = ParseDecimal(colWithdrawal);
+
+                            var entry = new LedgerEntry
+                            {
+                                Date = dateValue,
+                                Description = colDesc ?? "",
+                                Note = colCounterparty ?? "", // [수정] 의뢰인 정보를 'Note' (비고)에 저장
+
+                                Income = income,
+                                Expense = expense,
+
+                                Department = UserDepartment,
+                                Category = "미분류",
+                                Type = income > 0 ? "수입" : "지출", // 금액이 있으면 자동으로 타입 결정
+                                FiscalYear = dateValue.Year,
+                                Quarter = (dateValue.Month - 1) / 3 + 1,
+                                IsAudited = false,
+                                ReceiptPath = "" // 필수 필드 기본값
+                            };
+
+                            previewList.Add(entry);
+                        }
+                        catch { continue; } // 파싱 실패 시 해당 줄 건너뜀
+                    }
+                }
+            }
+
+            if (previewList.Count == 0)
+            {
+                errorMessage = "데이터를 찾을 수 없습니다. 엑셀 파일 형식을 확인해주세요.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"파일 읽기 실패: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    // 금액(문자열)을 숫자로 변환하는 도우미 함수
+    private decimal ParseDecimal(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return 0;
+        // 쉼표(,) 제거 후 변환
+        if (decimal.TryParse(value.Replace(",", ""), out decimal result)) return result;
+        return 0;
+    }
+
+    private async Task SaveToLedger()
+    {
+        if (!previewList.Any()) return;
+
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"총 {previewList.Count}건을 장부에 등록하시겠습니까?");
+        if (confirmed)
+        {
+            isSaving = true;
+            try
+            {
+                // DB에 일괄 저장
+                DbContext.Transactions.AddRange(previewList);
+                await DbContext.SaveChangesAsync();
+
+                await JSRuntime.InvokeVoidAsync("alert", "성공적으로 저장되었습니다!");
+                Nav.NavigateTo("/monthly"); // 저장 후 월별 장부로 이동
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"저장 중 오류가 발생했습니다: {ex.Message}");
+            }
+            finally
+            {
+                isSaving = false;
+            }
+        }
+    }
+}

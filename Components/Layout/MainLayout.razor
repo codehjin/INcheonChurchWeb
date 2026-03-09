@@ -1,0 +1,44 @@
+﻿@inherits LayoutComponentBase
+@using INcheonChurchWeb.Models
+
+<div class="page">
+    @if (CurrentUser == null)
+    {
+        <INcheonChurchWeb.Components.Pages.Login OnLoginSuccess="HandleLoginSuccess" />
+    }
+    else
+    {
+        <div class="sidebar">
+            <NavMenu CurrentUser="CurrentUser" />
+        </div>
+
+        <main>
+            <div class="top-row px-4">
+                <span class="me-3">👤 <b>@CurrentUser.Username</b>님 (@CurrentUser.Department)</span>
+                <button class="btn btn-link text-danger text-decoration-none" @onclick="Logout">로그아웃</button>
+            </div>
+
+            <article class="content px-4">
+                <CascadingValue Value="CurrentUser">
+                    @Body
+                </CascadingValue>
+            </article>
+        </main>
+    }
+</div>
+
+@code {
+    private User? CurrentUser;
+
+    private void HandleLoginSuccess(User user)
+    {
+        CurrentUser = user;
+        StateHasChanged();
+    }
+
+    private void Logout()
+    {
+        CurrentUser = null;
+        StateHasChanged();
+    }
+}
