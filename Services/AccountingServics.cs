@@ -391,23 +391,29 @@ namespace INcheonChurchWeb.Services
 
         public async Task<bool> CopyBudgetFromBaseYearAsync(string department, int baseYear, int targetYear)
         {
-            // [수정] 대상 연도에 이미 데이터가 있으면 덮어쓰지 않음
-            var exists = await _db.BudgetPlans.AnyAsync(b => b.Department == department && b.Year == targetYear);
-            if (exists) return false;
-
-            // [수정] DB에서 baseYear 데이터 조회
+            // [수정] 기초데이터 원본 준비 (DB → 없으면 하드코딩 데이터)
             var sourceData = await _db.BudgetPlans.AsNoTracking()
                 .Where(b => b.Department == department && b.Year == baseYear)
                 .ToListAsync();
 
-            // [수정] DB에 원본 데이터가 없으면 하드코딩된 기초데이터 사용
             if (!sourceData.Any())
-            {
                 sourceData = GetOriginal2026Data(department);
-            }
 
-            // [수정] 그래도 없으면(다른 부서 등) false 반환
+            // 불러올 원본 자체가 없으면 false
             if (!sourceData.Any()) return false;
+
+            // [수정] 기존 데이터가 있으면 금액이 0인(빈) 항목만 삭제 후 재적재
+            //        실제 입력된 데이터가 있는 경우는 건드리지 않음
+            var existingData = await _db.BudgetPlans
+                .Where(b => b.Department == department && b.Year == targetYear)
+                .ToListAsync();
+
+            bool hasRealData = existingData.Any(b => b.Amount > 0);
+            if (hasRealData) return false; // 실제 입력된 예산이 있으면 중단
+
+            // 빈 데이터(Amount == 0)만 있거나 아예 없는 경우 → 모두 삭제 후 재적재
+            if (existingData.Any())
+                _db.BudgetPlans.RemoveRange(existingData);
 
             foreach (var plan in sourceData)
             {

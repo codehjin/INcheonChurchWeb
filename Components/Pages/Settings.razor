@@ -371,14 +371,20 @@
     private async Task SafeImportBaseBudget()
     {
         bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"{TargetYear}년도 기초예산을 불러옵니다.\n(이미 데이터가 있으면 중복 적재되지 않습니다)\n계속하시겠습니까?");
+            $"[{TargetYear}년도] 기초예산을 불러옵니다.\n\n" +
+            $"※ 금액이 0인 빈 항목만 있는 경우 자동으로 교체됩니다.\n" +
+            $"※ 이미 입력된 예산이 있으면 안전하게 유지됩니다.\n\n" +
+            $"계속하시겠습니까?");
         if (!confirmed) return;
 
         bool result = await AccService.CopyBudgetFromBaseYearAsync(CurrentUser.Department, 2026, TargetYear);
         if (result)
-            await JSRuntime.InvokeVoidAsync("alert", $"✅ {TargetYear}년도 기초예산이 성공적으로 불러와졌습니다!");
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"✅ {TargetYear}년도 기초예산 불러오기 완료!\n수입 및 지출 예산이 등록되었습니다.");
         else
-            await JSRuntime.InvokeVoidAsync("alert", $"⚠️ {TargetYear}년도 예산 데이터가 이미 존재합니다.\n기존 데이터를 삭제 후 다시 시도하거나 직접 수정해 주세요.");
+            await JSRuntime.InvokeVoidAsync("alert",
+                $"⚠️ {TargetYear}년도에 이미 입력된 예산 데이터가 있습니다.\n" +
+                $"기존 항목을 먼저 삭제하거나 직접 수정해 주세요.");
 
         await LoadData();
     }
