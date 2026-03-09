@@ -1,4 +1,4 @@
-﻿@page "/monthly"
+@page "/monthly"
 @using INcheonChurchWeb.Models
 @using INcheonChurchWeb.Services
 @inject AccountingService AccService
@@ -7,105 +7,62 @@
 
 <div class="container-fluid mt-3">
 
-    @* [1] 상단 요약 카드 (필터링된 결과 기준 실시간 반영) *@
-    <div class="row mb-3">
-        <div class="col-md-4">
-            <div class="card bg-primary text-white p-3 shadow-sm border-0">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-0 opacity-75">총 수입</h6>
-                        <h3 class="fw-bold mb-0">@FilteredTransactions.Sum(t => t.Income).ToString("N0") <small class="fs-6">원</small></h3>
-                    </div>
-                    <i class="bi bi-graph-up-arrow fs-1 opacity-25"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-danger text-white p-3 shadow-sm border-0">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-0 opacity-75">총 지출</h6>
-                        <h3 class="fw-bold mb-0">@FilteredTransactions.Sum(t => t.Expense).ToString("N0") <small class="fs-6">원</small></h3>
-                    </div>
-                    <i class="bi bi-graph-down-arrow fs-1 opacity-25"></i>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card bg-success text-white p-3 shadow-sm border-0">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="mb-0 opacity-75">잔액 (수입-지출)</h6>
-                        <h3 class="fw-bold mb-0">@((FilteredTransactions.Sum(t => t.Income) - FilteredTransactions.Sum(t => t.Expense)).ToString("N0")) <small class="fs-6">원</small></h3>
-                    </div>
-                    <i class="bi bi-wallet2 fs-1 opacity-25"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @* [2] 통합 컨트롤 패널: 기간 조회 + 필터 + 관리 기능 *@
+    @* ── [1] 기간 네비게이션 (좌우 화살표) ── *@
     <div class="card p-3 mb-3 bg-light border-0 shadow-sm">
+        <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between">
 
-        @* (A) 상단줄: 기간 조회 및 부서 선택 *@
-        <div class="d-flex flex-wrap gap-3 align-items-center justify-content-between mb-3 border-bottom pb-3">
-            <div class="d-flex gap-2 align-items-center">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+
                 @if (CurrentUser?.Role == "Admin")
                 {
-                    <select class="form-select form-select-sm w-auto fw-bold border-dark" @bind="SelectedDept">
+                    <select class="form-select form-select-sm w-auto fw-bold border-dark" @bind="SelectedDept" @bind:after="LoadData">
                         <option value="">부서 선택</option>
                         @foreach (var d in new[] { "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" })
                         {
                             <option value="@d">@d</option>
                         }
                     </select>
-                    <div class="vr mx-2"></div>
+                    <div class="vr mx-1"></div>
                 }
 
-                <div class="d-flex align-items-center">
-                    <input type="number" class="form-control form-control-sm w-auto fw-bold" @bind="CurrentYear" />
-                    <span class="ms-1 small text-muted">년</span>
+                @* 보기 모드 *@
+                <div class="btn-group btn-group-sm">
+                    <button class="btn @(ViewMode=="Month"?"btn-dark":"btn-outline-secondary")" @onclick='()=>ChangeMode("Month")'>월별</button>
+                    <button class="btn @(ViewMode=="Quarter"?"btn-dark":"btn-outline-secondary")" @onclick='()=>ChangeMode("Quarter")'>분기별</button>
+                    <button class="btn @(ViewMode=="Year"?"btn-dark":"btn-outline-secondary")" @onclick='()=>ChangeMode("Year")'>연도</button>
                 </div>
 
-                <div class="btn-group btn-group-sm" role="group">
-                    <input type="radio" class="btn-check" name="viewMode" id="vMonth" checked="@(ViewMode == "Month")" @onchange='() => ChangeMode("Month")'>
-                    <label class="btn btn-outline-primary" for="vMonth">월별</label>
+                <div class="vr mx-1"></div>
 
-                    <input type="radio" class="btn-check" name="viewMode" id="vQuarter" checked="@(ViewMode == "Quarter")" @onchange='() => ChangeMode("Quarter")'>
-                    <label class="btn btn-outline-primary" for="vQuarter">분기별</label>
-
-                    <input type="radio" class="btn-check" name="viewMode" id="vYear" checked="@(ViewMode == "Year")" @onchange='() => ChangeMode("Year")'>
-                    <label class="btn btn-outline-primary" for="vYear">년도</label>
+                @* 년도 화살표 *@
+                <div class="d-flex align-items-center gap-1">
+                    <button class="btn btn-sm btn-outline-secondary px-2" @onclick="PrevYear"><i class="bi bi-chevron-left"></i></button>
+                    <span class="fw-bold px-2" style="min-width:52px;text-align:center;">@CurrentYear년</span>
+                    <button class="btn btn-sm btn-outline-secondary px-2" @onclick="NextYear"><i class="bi bi-chevron-right"></i></button>
                 </div>
 
+                @* 월 화살표 *@
                 @if (ViewMode == "Month")
                 {
-                    <select class="form-select form-select-sm w-auto" @bind="CurrentValue">
-                        @for (int i = 1; i <= 12; i++)
-                        {
-                            <option value="@i">@i 월</option>
-                        }
-                    </select>
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-primary px-2" @onclick="PrevPeriod"><i class="bi bi-chevron-left"></i></button>
+                        <span class="fw-bold text-primary px-2" style="min-width:38px;text-align:center;">@CurrentValue월</span>
+                        <button class="btn btn-sm btn-outline-primary px-2" @onclick="NextPeriod"><i class="bi bi-chevron-right"></i></button>
+                    </div>
                 }
+                @* 분기 화살표 *@
                 else if (ViewMode == "Quarter")
                 {
-                    <select class="form-select form-select-sm w-auto" @bind="CurrentValue">
-                        <option value="1">1분기</option>
-                        <option value="2">2분기</option>
-                        <option value="3">3분기</option>
-                        <option value="4">4분기</option>
-                    </select>
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-primary px-2" @onclick="PrevPeriod"><i class="bi bi-chevron-left"></i></button>
+                        <span class="fw-bold text-primary px-2" style="min-width:52px;text-align:center;">@CurrentValue분기</span>
+                        <button class="btn btn-sm btn-outline-primary px-2" @onclick="NextPeriod"><i class="bi bi-chevron-right"></i></button>
+                    </div>
                 }
-
-                <button class="btn btn-sm btn-dark px-3 fw-bold" @onclick="LoadData">
-                    <i class="bi bi-search me-1"></i>조회
-                </button>
             </div>
-        </div>
 
-        @* (B) 하단줄: 데이터 필터링 및 일괄 작업 *@
-        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-            <div class="d-flex gap-2 align-items-center">
+            @* 필터 + 일괄변경 *@
+            <div class="d-flex gap-2 align-items-center flex-wrap">
                 <span class="badge bg-secondary">필터</span>
                 <select class="form-select form-select-sm w-auto" @bind="FilterType">
                     <option value="">전체 구분</option>
@@ -119,75 +76,145 @@
                         <option value="@cat">@cat</option>
                     }
                 </select>
+                @if (selectedIds.Count > 0)
+                {
+                    <div class="d-flex gap-1 align-items-center bg-white px-2 py-1 rounded border border-warning shadow-sm">
+                        <span class="fw-bold text-warning small">@selectedIds.Count 개</span>
+                        <select class="form-select form-select-sm w-auto border-warning" @bind="BulkTargetCategory">
+                            <option value="">항목 선택...</option>
+                            @foreach (var cat in CategoryList) { <option value="@cat">@cat</option> }
+                        </select>
+                        <button class="btn btn-sm btn-warning fw-bold text-dark" @onclick="ApplyBulkUpdate">
+                            <i class="bi bi-check-circle-fill"></i> 변경
+                        </button>
+                    </div>
+                }
             </div>
-
-            @* 일괄 작업 (선택된 항목이 있을 때만 표시) *@
-            @if (selectedIds.Count > 0)
-            {
-                <div class="d-flex gap-2 align-items-center bg-white p-1 ps-3 pe-2 rounded border border-warning shadow-sm animate__animated animate__fadeIn">
-                    <span class="fw-bold text-warning small">@selectedIds.Count 개 선택됨</span>
-                    <select class="form-select form-select-sm w-auto border-warning" @bind="BulkTargetCategory">
-                        <option value="">변경할 항목 선택...</option>
-                        @foreach (var cat in CategoryList)
-                        {
-                            <option value="@cat">@cat</option>
-                        }
-                    </select>
-                    <button class="btn btn-sm btn-warning fw-bold text-dark" @onclick="ApplyBulkUpdate">
-                        <i class="bi bi-check-circle-fill me-1"></i>일괄 변경
-                    </button>
-                </div>
-            }
         </div>
     </div>
 
-    @* [3] 장부 테이블 *@
-    <div class="table-responsive bg-white shadow-sm rounded" style="min-height: 500px;">
-        <table class="table table-bordered table-hover align-middle mb-0">
-            <thead class="table-dark text-center sticky-top">
+    @* ── [2] 요약 카드 6개 ── *@
+    <div class="row g-2 mb-3">
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm text-white" style="background:#1565C0;">
+                <div class="card-body p-3">
+                    <div class="small opacity-75 mb-1">@PeriodLabel 수입</div>
+                    <div class="fw-bold">@ThisIncome.ToString("N0") <small class="opacity-75" style="font-size:11px;">원</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm text-white" style="background:#C62828;">
+                <div class="card-body p-3">
+                    <div class="small opacity-75 mb-1">@PeriodLabel 지출</div>
+                    <div class="fw-bold">@ThisExpense.ToString("N0") <small class="opacity-75" style="font-size:11px;">원</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm text-white" style="background:@(ThisNet>=0?"#2E7D32":"#6A1B9A");">
+                <div class="card-body p-3">
+                    <div class="small opacity-75 mb-1">@PeriodLabel 손익</div>
+                    <div class="fw-bold">@(ThisNet>=0?"+":"")@ThisNet.ToString("N0") <small class="opacity-75" style="font-size:11px;">원</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm" style="background:#FFF8E1;">
+                <div class="card-body p-3">
+                    <div class="small text-muted mb-1">이월금</div>
+                    <div class="fw-bold text-dark">@Carryover.ToString("N0") <small class="text-muted" style="font-size:11px;">원</small></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm" style="background:#E3F2FD;">
+                <div class="card-body p-3">
+                    <div class="small text-muted mb-1">@QuarterLabel 누적</div>
+                    <div class="fw-bold @(QuarterNet>=0?"text-primary":"text-danger")">
+                        @(QuarterNet>=0?"+":"")@QuarterNet.ToString("N0") <small class="text-muted" style="font-size:11px;">원</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="card h-100 border-0 shadow-sm" style="background:#E8F5E9;">
+                <div class="card-body p-3">
+                    <div class="small text-muted mb-1">@CurrentYear년 누적</div>
+                    <div class="fw-bold @(YearNet>=0?"text-success":"text-danger")">
+                        @(YearNet>=0?"+":"")@YearNet.ToString("N0") <small class="text-muted" style="font-size:11px;">원</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ── [3] 장부 테이블 ── *@
+    <div class="table-responsive bg-white shadow-sm rounded" style="min-height:400px;">
+        <table class="table table-bordered table-hover align-middle mb-0 text-center">
+            <thead class="table-dark sticky-top">
                 <tr>
-                    <th width="40" class="bg-dark text-white">
+                    <th width="36">
                         <input type="checkbox" class="form-check-input" @onchange="ToggleSelectAll" checked="@IsAllSelected" />
                     </th>
-                    <th width="100">날짜</th>
-                    <th width="80">구분</th>
-                    <th width="150">항목</th>
-                    <th>적요</th>
-                    <th width="100">수입</th>
-                    <th width="100">지출</th>
+                    <th width="85">날짜</th>
+                    <th width="68">구분</th>
+                    <th width="120">항목</th>
+                    <th class="text-start">적요</th>
+                    <th width="95">수입</th>
+                    <th width="95">지출</th>
+                    <th width="105">잔액</th>
                     @if (CurrentUser?.Role != "Admin")
                     {
-                        <th width="100">관리</th>
+                        <th width="76">관리</th>
                     }
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in FilteredTransactions)
+                @{
+                    decimal running = Carryover;
+                    var sorted = FilteredTransactions.OrderBy(t => t.Date).ThenBy(t => t.Id).ToList();
+                }
+
+                @* 이월금 행 — 월별이고 필터 없을 때만 *@
+                @if (ViewMode == "Month" && string.IsNullOrEmpty(FilterType) && string.IsNullOrEmpty(FilterCategory) && Carryover != 0)
                 {
+                    <tr class="table-secondary text-muted" style="font-size:13px;">
+                        <td></td>
+                        <td>—</td>
+                        <td><span class="badge bg-secondary">이월</span></td>
+                        <td>전월이월</td>
+                        <td class="text-start">전월 이월금</td>
+                        <td class="text-end @(Carryover>0?"text-primary":"")">@(Carryover>0?Carryover.ToString("N0"):"-")</td>
+                        <td class="text-end @(Carryover<0?"text-danger":"")">@(Carryover<0?Math.Abs(Carryover).ToString("N0"):"-")</td>
+                        <td class="text-end fw-bold text-dark">@Carryover.ToString("N0")</td>
+                        @if (CurrentUser?.Role != "Admin") { <td></td> }
+                    </tr>
+                }
+
+                @foreach (var item in sorted)
+                {
+                    running += item.Income - item.Expense;
                     @if (editingId == item.Id)
                     {
                         <tr class="table-warning">
-                            <td class="text-center"><i class="bi bi-pencil-fill text-muted"></i></td>
+                            <td><i class="bi bi-pencil-fill text-muted small"></i></td>
                             <td><input type="date" class="form-control form-control-sm" @bind="editItem.Date" /></td>
                             <td>
                                 <select class="form-select form-select-sm" @bind="editItem.Type">
-                                    <option>수입</option>
-                                    <option>지출</option>
+                                    <option>수입</option><option>지출</option>
                                 </select>
                             </td>
                             <td>
-                                @* 수정 시 드롭다운 제공 *@
                                 <select class="form-select form-select-sm" @bind="editItem.Category">
-                                    @foreach (var c in CategoryList)
-                                    {
-                                        <option value="@c">@c</option>
-                                    }
+                                    @foreach (var c in CategoryList) { <option value="@c">@c</option> }
                                 </select>
                             </td>
                             <td><input class="form-control form-control-sm" @bind="editItem.Description" /></td>
-                            <td><input type="number" class="form-control form-control-sm" @bind="editItem.Income" disabled="@(editItem.Type == "지출")" /></td>
-                            <td><input type="number" class="form-control form-control-sm" @bind="editItem.Expense" disabled="@(editItem.Type == "수입")" /></td>
-                            <td class="text-center">
+                            <td><input type="number" class="form-control form-control-sm" @bind="editItem.Income" disabled="@(editItem.Type=="지출")" /></td>
+                            <td><input type="number" class="form-control form-control-sm" @bind="editItem.Expense" disabled="@(editItem.Type=="수입")" /></td>
+                            <td class="text-muted small">—</td>
+                            <td>
                                 <button class="btn btn-sm btn-success me-1" @onclick="SaveEdit"><i class="bi bi-check"></i></button>
                                 <button class="btn btn-sm btn-secondary" @onclick="CancelEdit"><i class="bi bi-x"></i></button>
                             </td>
@@ -195,38 +222,51 @@
                     }
                     else
                     {
-                        <tr class="@(selectedIds.Contains(item.Id) ? "table-active" : "")">
-                            <td class="text-center">
-                                <input type="checkbox" class="form-check-input" checked="@selectedIds.Contains(item.Id)" @onchange="() => ToggleSelection(item.Id)" />
-                            </td>
-                            <td class="text-center">@item.Date.ToString("MM-dd")</td>
-                            <td class="text-center">
-                                <span class="badge @(item.Type == "수입" ? "bg-primary" : "bg-danger")">@item.Type</span>
-                            </td>
-                            <td class="text-center fw-bold text-secondary">@item.Category</td>
-                            <td>
+                        <tr class="@(selectedIds.Contains(item.Id)?"table-active":"")">
+                            <td><input type="checkbox" class="form-check-input" checked="@selectedIds.Contains(item.Id)" @onchange="()=>ToggleSelection(item.Id)" /></td>
+                            <td>@item.Date.ToString("MM-dd")</td>
+                            <td><span class="badge @(item.Type=="수입"?"bg-primary":"bg-danger")">@item.Type</span></td>
+                            <td class="fw-bold text-secondary">@item.Category</td>
+                            <td class="text-start">
                                 @item.Description
+                                @if (!string.IsNullOrEmpty(item.Note))
+                                {
+                                    <small class="text-muted ms-1">(@item.Note)</small>
+                                }
                                 @if (!string.IsNullOrEmpty(item.ReceiptPath))
                                 {
                                     <i class="bi bi-paperclip text-primary ms-1" title="영수증 있음"></i>
                                 }
                             </td>
-                            <td class="text-end text-primary">@((item.Income > 0) ? item.Income.ToString("N0") : "-")</td>
-                            <td class="text-end text-danger">@((item.Expense > 0) ? item.Expense.ToString("N0") : "-")</td>
-
+                            <td class="text-end text-primary fw-bold">@(item.Income>0?item.Income.ToString("N0"):"-")</td>
+                            <td class="text-end text-danger fw-bold">@(item.Expense>0?item.Expense.ToString("N0"):"-")</td>
+                            <td class="text-end fw-semibold @(running>=0?"text-dark":"text-danger")">@running.ToString("N0")</td>
                             @if (CurrentUser?.Role != "Admin")
                             {
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-link text-decoration-none p-0 me-2" @onclick="() => StartEdit(item)">✏️</button>
-                                    <button class="btn btn-sm btn-link text-decoration-none p-0 text-danger" @onclick="() => DeleteItem(item)">🗑️</button>
+                                <td>
+                                    <button class="btn btn-sm btn-link p-0 me-1 text-decoration-none" @onclick="()=>StartEdit(item)">✏️</button>
+                                    <button class="btn btn-sm btn-link p-0 text-danger text-decoration-none" @onclick="()=>DeleteItem(item)">🗑️</button>
                                 </td>
                             }
                         </tr>
                     }
                 }
-                @if (!FilteredTransactions.Any())
+
+                @if (!sorted.Any())
                 {
-                    <tr><td colspan="8" class="text-center py-5 text-muted">조건에 맞는 내역이 없습니다.</td></tr>
+                    <tr><td colspan="9" class="text-center py-5 text-muted">조건에 맞는 내역이 없습니다.</td></tr>
+                }
+
+                @* 합계 행 *@
+                @if (sorted.Any())
+                {
+                    <tr class="table-dark fw-bold">
+                        <td colspan="5" class="text-end small">합 계</td>
+                        <td class="text-end text-info">@ThisIncome.ToString("N0")</td>
+                        <td class="text-end text-warning">@ThisExpense.ToString("N0")</td>
+                        <td class="text-end @(running>=0?"text-white":"text-danger")">@running.ToString("N0")</td>
+                        @if (CurrentUser?.Role != "Admin") { <td></td> }
+                    </tr>
                 }
             </tbody>
         </table>
@@ -236,32 +276,51 @@
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
-    // 조회 조건 변수
-    private int CurrentYear = DateTime.Now.Year;
-    private string ViewMode = "Month"; // Month, Quarter, Year
-    private int CurrentValue = DateTime.Now.Month; // 월 또는 분기 값
+    private int    CurrentYear  = DateTime.Now.Year;
+    private string ViewMode     = "Month";
+    private int    CurrentValue = DateTime.Now.Month;
     private string SelectedDept = "";
 
-    // 데이터
-    private List<LedgerEntry> RawTransactions = new();
-    private List<string> CategoryList = new();
+    private List<LedgerEntry> RawTransactions     = new();
+    private List<LedgerEntry> QuarterTransactions = new();
+    private List<LedgerEntry> YearTransactions    = new();
+    private List<string>      CategoryList        = new();
 
-    // 필터 & 선택 변수
-    private string FilterType = "";
-    private string FilterCategory = "";
-    private HashSet<int> selectedIds = new();
-    private string BulkTargetCategory = "";
+    private string       FilterType           = "";
+    private string       FilterCategory       = "";
+    private HashSet<int> selectedIds          = new();
+    private string       BulkTargetCategory   = "";
+    private int          editingId            = -1;
+    private LedgerEntry  editItem             = new();
 
-    // 수정용 변수
-    private int editingId = -1;
-    private LedgerEntry editItem = new();
-
-    // 필터 적용된 목록
+    // ── 집계 ──
     private IEnumerable<LedgerEntry> FilteredTransactions => RawTransactions
-        .Where(t => string.IsNullOrEmpty(FilterType) || t.Type == FilterType)
+        .Where(t => string.IsNullOrEmpty(FilterType)     || t.Type     == FilterType)
         .Where(t => string.IsNullOrEmpty(FilterCategory) || t.Category == FilterCategory);
 
-    private bool IsAllSelected => FilteredTransactions.Any() && selectedIds.Count == FilteredTransactions.Count();
+    private decimal ThisIncome  => FilteredTransactions.Sum(t => t.Income);
+    private decimal ThisExpense => FilteredTransactions.Sum(t => t.Expense);
+    private decimal ThisNet     => ThisIncome - ThisExpense;
+
+    // 이월금: 월별 보기일 때 해당 월 이전 누적 손익
+    private decimal Carryover => ViewMode == "Month"
+        ? YearTransactions.Where(t => t.Date.Month < CurrentValue).Sum(t => t.Income - t.Expense)
+        : 0;
+
+    private int CurrentQuarter => CurrentValue switch { <= 3=>1, <= 6=>2, <= 9=>3, _=>4 };
+    private string QuarterLabel => ViewMode == "Quarter" ? $"Q{CurrentValue}" : $"Q{CurrentQuarter}";
+    private decimal QuarterNet  => QuarterTransactions.Sum(t => t.Income - t.Expense);
+    private decimal YearNet     => YearTransactions.Sum(t => t.Income - t.Expense);
+
+    private string PeriodLabel => ViewMode switch
+    {
+        "Month"   => $"{CurrentValue}월",
+        "Quarter" => $"Q{CurrentValue}",
+        _         => $"{CurrentYear}년"
+    };
+
+    private bool IsAllSelected => FilteredTransactions.Any()
+        && selectedIds.Count == FilteredTransactions.Count();
 
     protected override async Task OnInitializedAsync()
     {
@@ -270,40 +329,55 @@
         await LoadData();
     }
 
+    // ── 좌우 화살표 네비게이션 ──
+    private async Task PrevYear()  { CurrentYear--; await LoadData(); }
+    private async Task NextYear()  { CurrentYear++; await LoadData(); }
+
+    private async Task PrevPeriod()
+    {
+        if (ViewMode == "Month")
+        {
+            if (--CurrentValue < 1)  { CurrentValue = 12; CurrentYear--; }
+        }
+        else if (ViewMode == "Quarter")
+        {
+            if (--CurrentValue < 1)  { CurrentValue = 4;  CurrentYear--; }
+        }
+        await LoadData();
+    }
+    private async Task NextPeriod()
+    {
+        if (ViewMode == "Month")
+        {
+            if (++CurrentValue > 12) { CurrentValue = 1;  CurrentYear++; }
+        }
+        else if (ViewMode == "Quarter")
+        {
+            if (++CurrentValue > 4)  { CurrentValue = 1;  CurrentYear++; }
+        }
+        await LoadData();
+    }
+
     private async Task ChangeMode(string mode)
     {
         ViewMode = mode;
-        if (mode == "Quarter") CurrentValue = 1;
-        else if (mode == "Month") CurrentValue = DateTime.Now.Month;
+        CurrentValue = mode == "Quarter" ? 1 : DateTime.Now.Month;
         await LoadData();
     }
 
     private async Task LoadData()
     {
-        string targetDept = (CurrentUser.Role == "Admin" && !string.IsNullOrEmpty(SelectedDept)) ? SelectedDept : CurrentUser.Department;
+        if (CurrentUser == null) return;
+        string dept = (CurrentUser.Role == "Admin" && !string.IsNullOrEmpty(SelectedDept))
+            ? SelectedDept : CurrentUser.Department;
 
-        // ★ [핵심] 서비스의 확장된 기간별 조회 메서드 사용
-        // (Services/AccountingService.cs에 GetLedgerByOptionAsync가 구현되어 있어야 함)
-        RawTransactions = await AccService.GetLedgerByOptionAsync(targetDept, CurrentYear, ViewMode, CurrentValue);
-
-        // 항목 리스트 조회 (드롭다운용)
-        CategoryList = await AccService.GetAllCategoriesAsync(targetDept);
-
-        // 상태 초기화
+        RawTransactions     = await AccService.GetLedgerByOptionAsync(dept, CurrentYear, ViewMode, CurrentValue);
+        int q               = ViewMode == "Quarter" ? CurrentValue : CurrentQuarter;
+        QuarterTransactions = await AccService.GetLedgerByOptionAsync(dept, CurrentYear, "Quarter", q);
+        YearTransactions    = await AccService.GetLedgerByOptionAsync(dept, CurrentYear, "Year", 0);
+        CategoryList        = await AccService.GetAllCategoriesAsync(dept);
         selectedIds.Clear();
         editingId = -1;
-    }
-
-    // --- 기능 로직들 ---
-    private void ToggleSelection(int id)
-    {
-        if (selectedIds.Contains(id)) selectedIds.Remove(id); else selectedIds.Add(id);
-    }
-
-    private void ToggleSelectAll(ChangeEventArgs e)
-    {
-        if ((bool)(e.Value ?? false)) { foreach (var item in FilteredTransactions) selectedIds.Add(item.Id); }
-        else selectedIds.Clear();
     }
 
     private async Task ApplyBulkUpdate()
@@ -313,35 +387,37 @@
         {
             await AccService.BulkUpdateCategoryAsync(selectedIds.ToList(), BulkTargetCategory);
             await LoadData();
-            await JSRuntime.InvokeVoidAsync("alert", "변경되었습니다.");
         }
+    }
+
+    private void ToggleSelection(int id)
+    {
+        if (selectedIds.Contains(id)) selectedIds.Remove(id); else selectedIds.Add(id);
+    }
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false)) foreach (var t in FilteredTransactions) selectedIds.Add(t.Id);
+        else selectedIds.Clear();
     }
 
     private void StartEdit(LedgerEntry item)
     {
         editingId = item.Id;
-        editItem = new LedgerEntry
+        editItem  = new LedgerEntry
         {
-            Id = item.Id,
-            Date = item.Date,
-            Type = item.Type,
-            Category = item.Category,
-            Description = item.Description,
-            Income = item.Income,
-            Expense = item.Expense,
-            Department = item.Department,
-            FiscalYear = item.FiscalYear,
+            Id = item.Id, Date = item.Date, Type = item.Type,
+            Category = item.Category, Description = item.Description,
+            Income = item.Income, Expense = item.Expense,
+            Department = item.Department, FiscalYear = item.FiscalYear,
             Note = item.Note ?? ""
         };
     }
-
     private async Task SaveEdit()
     {
         if (editItem.Type == "지출") editItem.Income = 0; else editItem.Expense = 0;
         await AccService.UpdateTransactionAsync(editItem);
         await LoadData();
     }
-
     private void CancelEdit() => editingId = -1;
 
     private async Task DeleteItem(LedgerEntry item)
