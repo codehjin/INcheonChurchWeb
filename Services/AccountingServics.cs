@@ -231,8 +231,26 @@ namespace INcheonChurchWeb.Services
 
         public async Task RemoveReceiptAsync(int id)
         {
-            var item = await _db.Transactions.FindAsync(id);
-            if (item != null) { item.ReceiptPath = null; await _db.SaveChangesAsync(); }
+            // 변수명을 'transaction'에서 'entry'로 변경하여 컨텍스트 오류 해결
+            var entry = await _db.Transactions.FindAsync(id);
+
+            if (entry != null)
+            {
+                // 1. 실제 서버에서 파일 삭제
+                if (!string.IsNullOrEmpty(entry.ReceiptPath))
+                {
+                    var fullPath = Path.Combine(_env.WebRootPath, entry.ReceiptPath.TrimStart('/'));
+                    if (File.Exists(fullPath))
+                    {
+                        File.Delete(fullPath);
+                    }
+                }
+
+                // 2. DB의 경로 값을 빈 문자열로 업데이트 (NOT NULL 제약조건 우회)
+                entry.ReceiptPath = "";
+
+                await _db.SaveChangesAsync();
+            }
         }
 
         // =========================================================
@@ -276,6 +294,48 @@ namespace INcheonChurchWeb.Services
         }
 
         public async Task AddTransactionAsync(LedgerEntry entry) { entry.Id = 0; if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; if (string.IsNullOrEmpty(entry.Category)) entry.Category = "미분류"; _db.Transactions.Add(entry); await _db.SaveChangesAsync(); }
+
+        // 배치 저장: 여러 건을 일괄 추가하며 회계연도/분기 및 기본값을 적용
+        public async Task AddTransactionsAsync(List<LedgerEntry> entries)
+        {
+            if (entries == null || entries.Count == 0) return;
+
+            foreach (var entry in entries)
+            {
+                entry.Id = 0;
+                if (string.IsNullOrEmpty(entry.Note)) entry.Note = "";
+                if (string.IsNullOrEmpty(entry.Category)) entry.Category = "미분류";
+                if (string.IsNullOrEmpty(entry.Department)) entry.Department = "유년부";
+
+                // 회계연도 계산: 기본은 거래년, 단 11~12월 특수 처리(프로젝트 로직과 일치)
+                int fiscalYear = entry.FiscalYear == 0 ? entry.Date.Year : entry.FiscalYear;
+                if (entry.Date.Month == 11 || entry.Date.Month == 12)
+                {
+                    var q4End = await GetQuarterDateRangeAsync(entry.Department, entry.Date.Year, 4);
+                    if (entry.Date > q4End.End) fiscalYear = entry.Date.Year + 1;
+                }
+
+                int quarter = await GetQuarterNumberAsync(entry.Department, fiscalYear, entry.Date);
+
+                entry.FiscalYear = fiscalYear;
+                entry.Quarter = quarter;
+
+                _db.Transactions.Add(entry);
+            }
+
+            await _db.SaveChangesAsync();
+        }
+
+        // 최근 거래일 반환 (UI에서 중복 방지용)
+        public async Task<DateTime?> GetLastTransactionDateAsync(string dept)
+        {
+            return await _db.Transactions.AsNoTracking()
+                .Where(t => t.Department == dept)
+                .OrderByDescending(t => t.Date)
+                .Select(t => (DateTime?)t.Date)
+                .FirstOrDefaultAsync();
+        }
+
         public async Task UpdateTransactionAsync(LedgerEntry entry) { var ex = await _db.Transactions.FindAsync(entry.Id); if (ex != null) { if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; _db.Entry(ex).CurrentValues.SetValues(entry); await _db.SaveChangesAsync(); } }
         public async Task DeleteTransactionAsync(int id) { var target = await _db.Transactions.FindAsync(id); if (target != null) { _db.Transactions.Remove(target); await _db.SaveChangesAsync(); } }
 

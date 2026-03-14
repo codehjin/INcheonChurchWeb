@@ -3,7 +3,6 @@ using INcheonChurchWeb.Data;
 using INcheonChurchWeb.Services;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.DataProtection;
 
 // =========================================================
 // [수정] 경로 변수 미리 준비 (CS8852 에러 해결)
@@ -42,9 +41,14 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
     .SetApplicationName("INcheonChurchWeb");
 
-// 서비스 등록
+// 💡 [여기서 수정됨!] 서비스 등록 및 SignalR(웹소켓) 최대 수신 크기 10MB로 확장
 builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents();
+    .AddInteractiveServerComponents()
+    .AddHubOptions(options =>
+    {
+        // 엑셀 파일 데이터가 중간에 끊기지 않도록 통신 제한을 10MB로 늘림
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024;
+    });
 
 // appsettings.json이나 시놀로지 환경변수에서 "DefaultConnection" 값을 가져옵니다.
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=church.db";

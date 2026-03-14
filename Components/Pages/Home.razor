@@ -1,303 +1,446 @@
 ﻿@page "/"
 @using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Data
 @using INcheonChurchWeb.Services
-@inject AccountingService AccService
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject AppDbContext DbContext
+@rendermode InteractiveServer
 
-<div class="container-fluid mt-4">
-    @* 상단 헤더: 제목 및 필터 *@
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div class="d-flex align-items-center gap-3">
-            <h2 class="fw-bold text-primary mb-0">
-                @TargetYear 년도 @(SelectedDepartment == "전체(통합)" ? "전체 부서 통합" : SelectedDepartment) 예산 현황
-            </h2>
-            @if (currentUser?.Role == "Admin")
-            {
-                <select class="form-select w-auto border-danger fw-bold shadow-sm" @onchange="OnDepartmentChange">
-                    <option value="전체(통합)" selected="@(SelectedDepartment == "전체(통합)")">전체(통합)</option>
-                    @foreach (var dept in Departments)
-                    {
-                        <option value="@dept" selected="@(dept == SelectedDepartment)">@dept</option>
-                    }
-                </select>
-            }
-        </div>
-        <select class="form-select w-auto border-primary shadow-sm" @bind="TargetYear">
-            @for (int y = 2025; y <= 2028; y++)
-            {
-                <option value="@y">@y 년</option>
-            }
-        </select>
-    </div>
+<PageTitle>인천중앙교회 재정 시스템</PageTitle>
 
-    @* ================================================================================= *@
-    @* 1. [Admin] 전체(통합) 뷰: 부서별 비교 테이블 *@
-    @* ================================================================================= *@
-    @if (SelectedDepartment == "전체(통합)")
+<div class="container mt-4">
+    @if (string.IsNullOrEmpty(CurrentUser?.Department))
     {
-        <div class="table-responsive shadow-sm rounded mb-4">
-            <table class="table table-bordered text-center align-middle bg-white mb-0">
-                <thead class="table-dark">
-                    <tr>
-                        <th class="py-3">구분</th>
-                        @foreach (var d in integratedStats)
-                        {
-                            <th>@d.ShortName</th>
-                        }
-                        <th class="bg-primary text-white">합계</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="fw-bold bg-light">예산액</td>
-                        @foreach (var d in integratedStats)
-                        {
-                            <td class="text-end">@d.Budget.ToString("N0")</td>
-                        }
-                        <td class="text-end fw-bold text-primary bg-light">@integratedStats.Sum(x => x.Budget).ToString("N0")</td>
-                    </tr>
-                    <tr>
-                        <td class="fw-bold bg-light">집행액</td>
-                        @foreach (var d in integratedStats)
-                        {
-                            <td class="text-end text-danger">@d.Spent.ToString("N0")</td>
-                        }
-                        <td class="text-end fw-bold text-danger bg-light">@integratedStats.Sum(x => x.Spent).ToString("N0")</td>
-                    </tr>
-                    <tr>
-                        <td class="fw-bold bg-light">잔액</td>
-                        @foreach (var d in integratedStats)
-                        {
-                            <td class="text-end text-success">@d.Balance.ToString("N0")</td>
-                        }
-                        <td class="text-end fw-bold text-success bg-light">@integratedStats.Sum(x => x.Balance).ToString("N0")</td>
-                    </tr>
-                    <tr>
-                        <td class="fw-bold bg-light">집행률</td>
-                        @foreach (var d in integratedStats)
-                        {
-                            <td>
-                                <span class="badge @(d.Rate > 90 ? "bg-danger" : "bg-secondary")">@d.Rate%</span>
-                            </td>
-                        }
-                        <td class="bg-light">
-                            @{
-                                var totalB = integratedStats.Sum(x => x.Budget);
-                                var totalS = integratedStats.Sum(x => x.Spent);
-                                var totalR = totalB == 0 ? 0 : (int)(totalS / totalB * 100);
-                            }
-                            <span class="badge bg-dark">@totalR%</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        @* 로그인 전 화면 *@
+        <div class="text-center py-5">
+            <i class="bi bi-shield-lock text-muted" style="font-size: 4rem;"></i>
+            <h4 class="mt-3 fw-bold text-secondary">로그인이 필요합니다</h4>
+            <p class="text-muted">좌측 메뉴에서 로그인 후 부서별 장부와 대시보드를 확인하세요.</p>
         </div>
     }
-
-    @* ================================================================================= *@
-    @* 2. [User/Admin] 개별 부서 뷰: 상세 통계 및 차트 *@
-    @* ================================================================================= *@
     else
     {
-        @* 요약 카드 *@
-        <div class="row mb-4">
-            <div class="col-md-3">
-                <div class="card shadow-sm border-0 bg-primary text-white text-center p-3 h-100">
-                    <small class="opacity-75">총 예산</small>
-                    <h3 class="fw-bold mb-0">@totalBudget.ToString("N0")원</h3>
+        @* 1. 환영 인사 및 부서/연도 선택 헤더 *@
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom flex-wrap gap-3">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-pie-chart-fill text-primary fs-1 me-3"></i>
+                <div>
+                    <h2 class="fw-bold mb-0">대시보드</h2>
+                    <p class="text-muted mb-0">@CurrentYear 년도 예산 및 지출 현황을 한눈에 확인하세요.</p>
                 </div>
             </div>
-            <div class="col-md-3">
-                <div class="card shadow-sm border-0 bg-danger text-white text-center p-3 h-100">
-                    <small class="opacity-75">현재 지출</small>
-                    <h3 class="fw-bold mb-0">@totalSpent.ToString("N0")원</h3>
+
+            <div class="d-flex align-items-center gap-3">
+                @* 연도 이동 컨트롤 *@
+                <div class="d-flex align-items-center gap-1 bg-light p-2 rounded shadow-sm border">
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="() => ChangeYear(-1)" disabled="@(CurrentYear <= 2024)">◀</button>
+                    <span class="fw-bold fs-5 px-2 text-primary" style="min-width: 80px; text-align: center;">@CurrentYear 년</span>
+                    <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="() => ChangeYear(1)" disabled="@(CurrentYear >= DateTime.Now.Year + 1)">▶</button>
                 </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card shadow-sm border-0 bg-success text-white text-center p-3 h-100">
-                    <small class="opacity-75">현재 잔액</small>
-                    <h3 class="fw-bold mb-0">@((totalBudget - totalSpent).ToString("N0"))원</h3>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="card shadow-sm border-0 bg-secondary text-white text-center p-3 h-100">
-                    <small class="opacity-75">전체 집행률</small>
-                    <h3 class="fw-bold mb-0">@(totalBudget == 0 ? 0 : (int)(totalSpent / totalBudget * 100))%</h3>
-                </div>
+
+                @* 관리자용 부서 필터 *@
+                @if (IsAdmin)
+                {
+                    <div class="d-flex align-items-center bg-light p-2 rounded shadow-sm border">
+                        <i class="bi bi-funnel-fill text-secondary me-2 ms-1"></i>
+                        <label class="fw-bold me-2 text-dark text-nowrap">부서 필터:</label>
+                        <select class="form-select border-primary fw-bold text-primary w-auto" @onchange="OnDeptChanged" value="@DashboardDept">
+                            @foreach (var dept in Departments)
+                            {
+                                <option value="@dept">@(dept == "전체" ? "전체 부서 통합보기" : dept)</option>
+                            }
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="badge bg-primary fs-5 p-2 shadow-sm">
+                        <i class="bi bi-person-badge me-2"></i>@DashboardDept
+                    </div>
+                }
             </div>
         </div>
 
-        <div class="row">
-            @* 지출 상세 테이블 *@
-            <div class="col-md-6 mb-4">
-                <div class="card h-100 shadow-sm border-top-danger">
-                    <div class="card-header bg-white fw-bold py-3"><i class="bi bi-dash-circle text-danger me-2"></i>📤 지출 예산 대비 집행 현황</div>
-                    <div class="card-body p-0">
-                        <table class="table table-hover mb-0 align-middle text-center">
-                            <thead class="table-light">
-                                <tr><th>항목</th><th>예산액</th><th>집행액</th><th>잔액</th><th>비율</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in budgetStats)
-                                {
-                                    var rate = item.Budget == 0 ? 0 : (int)(item.Spent / item.Budget * 100);
-                                    <tr class="@(item.Category.Contains("미분류") ? "table-warning" : "")">
-                                        <td class="fw-bold text-start ps-4">@item.Category</td>
-                                        <td class="text-end pe-3">@item.Budget.ToString("N0")</td>
-                                        <td class="text-end pe-3 text-danger fw-bold">@item.Spent.ToString("N0")</td>
-                                        <td class="text-end pe-3">@((item.Budget - item.Spent).ToString("N0"))</td>
-                                        <td>
-                                            @if (item.Budget > 0)
-                                            {
-                                                <div class="progress" style="height: 6px; width: 60px; margin: 0 auto;">
-                                                    <div class="progress-bar @(rate > 90 ? "bg-danger" : "bg-success")" role="progressbar" style="width: @rate%"></div>
-                                                </div>
-                                                <small class="text-muted" style="font-size: 0.75rem;">@rate%</small>
-                                            }
-                                            else
-                                            {
-
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            @* 수입 상세 테이블 *@
-            <div class="col-md-6 mb-4">
-                <div class="card h-100 shadow-sm border-top-primary">
-                    <div class="card-header bg-white fw-bold py-3"><i class="bi bi-plus-circle text-primary me-2"></i>📥 수입 예산 대비 달성 현황</div>
-                    <div class="card-body p-0">
-                        <table class="table table-hover mb-0 align-middle text-center">
-                            <thead class="table-light">
-                                <tr><th>항목</th><th>예산액</th><th>수입액</th><th>미달성</th><th>비율</th></tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in incomeStats)
-                                {
-                                    var rate = item.Budget == 0 ? 0 : (int)(item.Spent / item.Budget * 100);
-                                    var bal = item.Budget - item.Spent;
-                                    <tr class="@(item.Category.Contains("미분류") ? "table-warning" : "")">
-                                        <td class="fw-bold text-start ps-4">@item.Category</td>
-                                        <td class="text-end pe-3">@item.Budget.ToString("N0")</td>
-                                        <td class="text-end pe-3 text-primary fw-bold">@item.Spent.ToString("N0")</td>
-                                        <td class="text-end pe-3 @(bal <= 0 ? "text-success" : "text-muted")">@(bal <= 0 ? "완료" : bal.ToString("N0"))</td>
-                                        <td>
-                                            @if (item.Budget > 0)
-                                            {
-                                                <div class="progress" style="height: 6px; width: 60px; margin: 0 auto;">
-                                                    <div class="progress-bar bg-primary" role="progressbar" style="width: @rate%"></div>
-                                                </div>
-                                                <small class="text-muted" style="font-size: 0.75rem;">@rate%</small>
-                                            }
-                                            else
-                                            {
-
-                                                <span class="text-muted">-</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
-</div>
-
-<style>
-    .border-top-danger {
-        border-top: 3px solid #dc3545 !important;
-    }
-
-    .border-top-primary {
-        border-top: 3px solid #0d6efd !important;
-    }
-    /* 반응형 테이블 스크롤바 커스텀 */
-    .table-responsive::-webkit-scrollbar {
-        height: 8px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb {
-        background: #ccc;
-        border-radius: 4px;
-    }
-</style>
-
-@code {
-    [CascadingParameter] public User? currentUser { get; set; }
-
-    // 부서 목록
-    private List<string> Departments = new() { "영유아부", "유치부", "유년부", "초등부", "중고등부", "청년부", "교회학교운영팀" };
-    private string SelectedDepartment = "";
-    private int _targetYear = DateTime.Now.Year;
-    public int TargetYear { get => _targetYear; set { _targetYear = value; _ = LoadDashboard(); } }
-
-    // 단일 부서용 변수
-    private decimal totalBudget = 0;
-    private decimal totalSpent = 0;
-    private List<StatItem> budgetStats = new();
-    private List<StatItem> incomeStats = new();
-
-    // 통합 통계용 변수 (신규)
-    private List<DeptStat> integratedStats = new();
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (currentUser == null) return;
-        // 초기값 설정: Admin은 전체(통합), 일반 사용자는 본인 부서
-        if (string.IsNullOrEmpty(SelectedDepartment))
-            SelectedDepartment = (currentUser.Role == "Admin") ? "전체(통합)" : currentUser.Department;
-
-        await LoadDashboard();
-    }
-
-    private async Task OnDepartmentChange(ChangeEventArgs e)
-    {
-        SelectedDepartment = e.Value?.ToString() ?? "";
-        await LoadDashboard();
-    }
-
-    private async Task LoadDashboard()
-    {
-        if (SelectedDepartment == "전체(통합)")
+        @if (isLoading)
         {
-            // [Admin 기능] 통합 대시보드 로드
-            integratedStats = await AccService.GetIntegratedDashboardAsync(TargetYear);
+            <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">데이터를 불러오는 중...</p></div>
+        }
+        else if (IsAdmin)
+        {
+            @* 관리자는 기존 방식대로 진척도와 최근 활동 내역만 보여줌 *@
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card shadow-sm border-0 mb-4 h-100">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-dark mb-4"><i class="bi bi-graph-up-arrow text-primary me-2"></i>@(DashboardDept == "전체" ? "전체 부서" : DashboardDept) 예산 소진율</h5>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="text-muted">총 지출 예산</span>
+                                <span class="fw-bold fs-5">@TotalBudget.ToString("N0") 원</span>
+                            </div>
+                            <div class="progress mb-3" style="height: 25px; border-radius: 12px;">
+                                <div class="progress-bar @ProgressBarColor progress-bar-striped progress-bar-animated fw-bold fs-6" role="progressbar" style="width: @ProgressPercentage.ToString("0.0")%">
+                                    @ProgressPercentage.ToString("0.0")%
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted small">
+                                <span>현재 지출: <strong><span class="text-danger">@TotalExpense.ToString("N0")</span> 원</strong></span>
+                                <span>남은 예산: <strong class="text-primary">@RemainingBudget.ToString("N0") 원</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="card shadow-sm border-0 mb-5">
+                        <div class="card-body p-4">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-info me-2"></i>최근 활동 내역</h5>
+                            </div>
+                            @if (RecentActivities.Any())
+                            {
+                                <ul class="list-group list-group-flush">
+                                    @foreach (var log in RecentActivities)
+                                    {
+                                        <li class="list-group-item px-0 py-3">
+                                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="bi bi-info-circle-fill text-primary me-2"></i>
+                                                    <strong class="text-dark">[@log.Username]</strong> 님이 <span class="text-secondary">@log.Action</span>
+                                                    <div class="text-muted small mt-1 ms-4">@log.Details</div>
+                                                </div>
+                                                <small class="text-muted text-nowrap ms-3">@GetTimeAgo(log.Timestamp)</small>
+                                            </div>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            else
+                            {
+                                <div class="text-center text-muted py-4 border rounded bg-light">최근 기록된 활동이 없습니다.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
         }
         else
         {
-            // [User 기능] 개별 부서 대시보드 로드
-            var result = await AccService.GetDashboardDataAsync(SelectedDepartment, TargetYear);
-            var inResult = await AccService.GetDashboardDataAsync(SelectedDepartment, TargetYear); // 수입용 데이터 재호출 (또는 로직 분리 가능)
+            @* ======================================================= *@
+            @* 🚀 USER 대시보드 전용 (진척도 2개 + 항목 비율 + 보조금 표) *@
+            @* ======================================================= *@
 
-            // 지출 데이터 바인딩
-            totalSpent = result.TotalOut;
-            budgetStats = result.Stats;
-            totalBudget = budgetStats.Sum(s => s.Budget);
+            @* 1. 예산 및 보조금 진척도 *@
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100 p-4">
+                        <h5 class="fw-bold text-danger mb-3"><i class="bi bi-pie-chart-fill me-2"></i>총 지출 예산 진척도</h5>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">사용액: <strong>@TotalExpense.ToString("N0")</strong>원</span>
+                            <span class="text-muted">예산: <strong>@TotalBudget.ToString("N0")</strong>원</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar @ProgressBarColor progress-bar-striped progress-bar-animated fw-bold fs-6" role="progressbar" style="width: @ProgressPercentage.ToString("0.0")%">
+                                @ProgressPercentage.ToString("0.0")%
+                            </div>
+                        </div>
+                        <div class="text-end mt-2 small fw-bold text-secondary">잔여 예산: @RemainingBudget.ToString("N0") 원</div>
+                    </div>
+                </div>
 
-            // 수입 데이터 로드 (AccountingService에 수입용 메서드 분리가 이상적이나, 여기서는 로직 재사용)
-            // 실제 구현 시 GetDashboardDataAsync를 개선하여 In/Out 예산을 모두 가져오도록 하면 더 효율적임.
-            // 현재 구조상 수입 예산 로직을 별도로 구현하여 바인딩
-            var inPlans = await AccService.GetBudgetPlansAsync(SelectedDepartment, TargetYear, "Income");
-            var trans = await AccService.GetAllTransactionsAsync(TargetYear);
-            var myTrans = trans.Where(t => t.Department == SelectedDepartment && t.Type == "수입").ToList();
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100 p-4 bg-primary bg-opacity-10">
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-piggy-bank-fill me-2"></i>교회보조금 수입 진척도</h5>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">입금액: <strong class="text-primary">@SubsidyReceived.ToString("N0")</strong>원</span>
+                            <span class="text-muted">예산: <strong>@SubsidyBudget.ToString("N0")</strong>원</span>
+                        </div>
+                        <div class="progress" style="height: 25px;">
+                            <div class="progress-bar bg-primary fw-bold fs-6" role="progressbar" style="width: @SubsidyRate%;">@SubsidyRate%</div>
+                        </div>
+                        <div class="text-end mt-2 small fw-bold text-secondary">미수령 보조금: @((SubsidyBudget - SubsidyReceived).ToString("N0")) 원</div>
+                    </div>
+                </div>
+            </div>
 
-            incomeStats = inPlans.GroupBy(p => p.Category).Select(g => new StatItem
-            {
-                Category = g.Key,
-                Budget = g.Sum(x => x.Amount),
-                Spent = myTrans.Where(t => t.Category == g.Key).Sum(t => t.Income)
-            }).ToList();
+            @* 2. 수입/지출 항목별 통계 차트 (가로 바) *@
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-graph-up-arrow me-2"></i>모든 수입 항목 비율 (총 @TotalIncome.ToString("N0")원)</h6>
+                        </div>
+                        <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                            @if (!IncomeStats.Any())
+                            {
+                                <div class="text-muted text-center py-4">수입 내역이 없습니다.</div>
+                            }
+                            @foreach (var stat in IncomeStats)
+                            {
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-bold">@stat.Category</span>
+                                        <span class="text-primary">@stat.Amount.ToString("N0")원 (@stat.Percentage%)</span>
+                                    </div>
+                                    <div class="progress" style="height: 12px;">
+                                        <div class="progress-bar bg-primary opacity-75" role="progressbar" style="width: @stat.Percentage%;"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
 
-            var unmappedIn = myTrans.Where(t => t.Category == "미분류").Sum(t => t.Income);
-            if (unmappedIn > 0) incomeStats.Add(new StatItem { Category = "미분류", Budget = 0, Spent = unmappedIn });
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white border-bottom py-3">
+                            <h6 class="fw-bold text-danger mb-0"><i class="bi bi-graph-down-arrow me-2"></i>모든 지출 항목 비율 (총 @TotalExpense.ToString("N0")원)</h6>
+                        </div>
+                        <div class="card-body" style="max-height: 350px; overflow-y: auto;">
+                            @if (!ExpenseStats.Any())
+                            {
+                                <div class="text-muted text-center py-4">지출 내역이 없습니다.</div>
+                            }
+                            @foreach (var stat in ExpenseStats)
+                            {
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between small mb-1">
+                                        <span class="fw-bold">@stat.Category</span>
+                                        <span class="text-danger">@stat.Amount.ToString("N0")원 (@stat.Percentage%)</span>
+                                    </div>
+                                    <div class="progress" style="height: 12px;">
+                                        <div class="progress-bar bg-danger opacity-75" role="progressbar" style="width: @stat.Percentage%;"></div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* 3. 교회보조금 신청현황 (지출결의서 & 장부 자동 매칭) *@
+            <div class="card border-0 shadow-sm mb-5">
+                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-check-fill text-success me-2"></i>교회보조금 신청 및 입금 현황</h5>
+                    <span class="badge bg-light text-dark border">지출결의서 작성액 자동 추적</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle text-center mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>결의서 작성일</th>
+                                <th class="text-start">결의서 제목 (적요)</th>
+                                <th class="text-end">신청 금액</th>
+                                <th>상태</th>
+                                <th>실제 입금일 (장부)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var req in SubsidyRequests)
+                            {
+                                <tr>
+                                    <td>@req.RequestDate.ToString("yyyy-MM-dd")</td>
+                                    <td class="text-start fw-bold">@req.Title</td>
+                                    <td class="text-end text-primary fw-bold pe-4">@req.Amount.ToString("N0") 원</td>
+                                    <td>
+                                        @if (req.DepositDate.HasValue)
+                                        {
+                                            <span class="badge bg-success px-3 py-2"><i class="bi bi-check-circle me-1"></i>입금완료</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-hourglass-split me-1"></i>미입금(대기)</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (req.DepositDate.HasValue)
+                                        {
+                                            <strong class="text-success">@req.DepositDate.Value.ToString("yyyy-MM-dd")</strong>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!SubsidyRequests.Any())
+                            {
+                                <tr><td colspan="5" class="py-5 text-muted">해당 연도에 작성된 지출결의서가 없습니다.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         }
+    }
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int CurrentYear = DateTime.Now.Year;
+    private bool IsAdmin = false;
+    private string DashboardDept = "전체";
+    private bool isLoading = true;
+
+    private readonly string[] Departments = new[] { "전체", "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" };
+
+    // 예산 및 지출 관련 변수
+    private decimal TotalBudget = 0;
+    private decimal TotalExpense = 0;
+    private decimal RemainingBudget => TotalBudget - TotalExpense;
+    private double ProgressPercentage = 0;
+    private string ProgressBarColor = "bg-success";
+
+    // 교회보조금 전용 변수
+    private decimal SubsidyBudget = 0;
+    private decimal SubsidyReceived = 0;
+    private int SubsidyRate = 0;
+
+    // 항목별 통계 리스트
+    public class CategoryStat { public string Category { get; set; } = ""; public decimal Amount { get; set; } public int Percentage { get; set; } }
+    private decimal TotalIncome = 0;
+    private List<CategoryStat> IncomeStats = new();
+    private List<CategoryStat> ExpenseStats = new();
+
+    // 보조금 신청 내역 매칭
+    public class SubsidyRequestItem { public DateTime RequestDate { get; set; } public string Title { get; set; } = ""; public decimal Amount { get; set; } public DateTime? DepositDate { get; set; } }
+    private List<SubsidyRequestItem> SubsidyRequests = new();
+
+    // 관리자 전용 최근 활동 로그
+    private List<ActivityLog> RecentActivities = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser != null && !string.IsNullOrEmpty(CurrentUser.Department))
+        {
+            if (CurrentUser.Department == "교육국" || CurrentUser.Department == "관리자")
+            {
+                IsAdmin = true;
+                DashboardDept = "전체";
+            }
+            else
+            {
+                IsAdmin = false;
+                DashboardDept = CurrentUser.Department;
+            }
+
+            await LoadDashboardData();
+        }
+        else
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ChangeYear(int offset)
+    {
+        CurrentYear += offset;
+        await LoadDashboardData();
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        DashboardDept = e.Value?.ToString() ?? "전체";
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            // 1. 예산 데이터 로드
+            var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
+            if (DashboardDept != "전체") budgetQuery = budgetQuery.Where(b => b.Department == DashboardDept);
+            var budgetList = await budgetQuery.ToListAsync();
+
+            TotalBudget = budgetList.Where(b => b.Type == "Expense").Sum(b => b.Amount);
+            SubsidyBudget = budgetList.Where(b => b.Type == "Income" && b.Category == "교회보조금").Sum(b => b.Amount);
+
+            // 2. 장부 데이터 로드
+            var transQuery = DbContext.Transactions.AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
+            if (DashboardDept != "전체") transQuery = transQuery.Where(t => t.Department == DashboardDept);
+            var transactions = await transQuery.ToListAsync();
+
+            TotalExpense = transactions.Where(t => t.Type == "지출").Sum(t => t.Expense);
+            TotalIncome = transactions.Where(t => t.Type == "수입").Sum(t => t.Income);
+            SubsidyReceived = transactions.Where(t => t.Type == "수입" && t.Category == "교회보조금").Sum(t => t.Income);
+
+            // 3. 진척도 % 계산 및 색상 결정
+            if (TotalBudget > 0)
+            {
+                ProgressPercentage = (double)(TotalExpense / TotalBudget) * 100;
+                if (ProgressPercentage > 100) ProgressPercentage = 100;
+                if (ProgressPercentage >= 90) ProgressBarColor = "bg-danger";
+                else if (ProgressPercentage >= 70) ProgressBarColor = "bg-warning";
+                else ProgressBarColor = "bg-success";
+            }
+            else { ProgressPercentage = 0; ProgressBarColor = "bg-success"; }
+
+            SubsidyRate = SubsidyBudget > 0 ? (int)Math.Round((SubsidyReceived / SubsidyBudget) * 100) : 0;
+            if (SubsidyRate > 100) SubsidyRate = 100;
+
+            // 4. User 전용: 수입/지출 항목별 % 통계 계산
+            if (!IsAdmin)
+            {
+                IncomeStats = transactions.Where(t => t.Type == "수입" && t.Income > 0)
+                    .GroupBy(t => t.Category)
+                    .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Income), Percentage = TotalIncome > 0 ? (int)Math.Round((g.Sum(x => x.Income) / TotalIncome) * 100) : 0 })
+                    .OrderByDescending(x => x.Amount).ToList();
+
+                ExpenseStats = transactions.Where(t => t.Type == "지출" && t.Expense > 0)
+                    .GroupBy(t => t.Category)
+                    .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Expense), Percentage = TotalExpense > 0 ? (int)Math.Round((g.Sum(x => x.Expense) / TotalExpense) * 100) : 0 })
+                    .OrderByDescending(x => x.Amount).ToList();
+
+                // 5. User 전용: 지출결의서-장부 자동 매칭 (보조금 추적)
+                var reports = await DbContext.ExpenseReports.AsNoTracking()
+                    .Where(r => r.Department == DashboardDept && r.FiscalYear == CurrentYear)
+                    .OrderByDescending(r => r.Date).ToListAsync();
+
+                var incomeListForMatching = transactions.Where(t => t.Type == "수입").OrderBy(t => t.Date).ToList();
+                SubsidyRequests.Clear();
+
+                foreach (var rep in reports)
+                {
+                    var matchedIncome = incomeListForMatching.FirstOrDefault(t => t.Date.Date >= rep.Date.Date && t.Income == rep.TotalAmount);
+                    SubsidyRequests.Add(new SubsidyRequestItem { RequestDate = rep.Date, Title = rep.Title, Amount = rep.TotalAmount, DepositDate = matchedIncome?.Date });
+                    if (matchedIncome != null) incomeListForMatching.Remove(matchedIncome);
+                }
+            }
+            // 6. Admin 전용: 최근 활동 내역
+            else
+            {
+                var logList = await DbContext.ActivityLogs.AsNoTracking().OrderByDescending(log => log.Timestamp).ToListAsync();
+                if (DashboardDept != "전체")
+                {
+                    var targetUsers = await DbContext.Users.Where(u => u.Department == DashboardDept).Select(u => u.Username).ToListAsync();
+                    logList = logList.Where(log => targetUsers.Contains(log.Username) || log.Details.Contains(DashboardDept) || log.Action.Contains(DashboardDept)).ToList();
+                }
+                RecentActivities = logList.Take(8).ToList();
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"대시보드 로드 오류: {ex.Message}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private string GetTimeAgo(DateTime dt)
+    {
+        var ts = new TimeSpan(DateTime.Now.Ticks - dt.Ticks);
+        double delta = Math.Abs(ts.TotalSeconds);
+        if (delta < 60) return "방금 전";
+        if (delta < 3600) return ts.Minutes + "분 전";
+        if (delta < 86400) return ts.Hours + "시간 전";
+        return ts.Days + "일 전";
     }
 }
