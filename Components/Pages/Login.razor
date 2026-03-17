@@ -15,11 +15,11 @@
 
         <div class="mb-3">
             <label class="form-label fw-bold">아이디</label>
-            <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="admin" />
+            <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="" />
         </div>
         <div class="mb-4">
             <label class="form-label fw-bold">비밀번호</label>
-            <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="1234" />
+            <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="" />
         </div>
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -40,7 +40,7 @@
         </button>
 
         <div class="text-center mt-3">
-            <small class="text-muted">기본 계정: admin / 1234</small>
+            <small class="text-muted">인천중앙성결교회 교육국</small>
         </div>
     </div>
 </div>
