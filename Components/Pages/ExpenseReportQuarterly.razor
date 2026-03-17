@@ -9,79 +9,83 @@
 @* ══════════════════════════════════════════
    화면 전용 UI (인쇄 시 숨김)
 ══════════════════════════════════════════ *@
-<div class="no-print">
+<div class="container mt-4 no-print">
 
-    @* 상단 타이틀 바 *@
-    <div class="card p-3 border-0 shadow-sm mb-3 bg-light">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <div class="d-flex gap-3 align-items-center">
-                <h4 class="fw-bold mb-0 text-primary">
-                    <i class="bi bi-file-earmark-text me-2"></i>지출결의서 작성
-                </h4>
-                <div class="vr"></div>
-                @* 회계연도 좌우 화살표 *@
-                <div class="d-flex align-items-center gap-1">
-                    <button class="btn btn-sm btn-outline-secondary px-2" @onclick="PrevYear">
-                        <i class="bi bi-chevron-left"></i>
-                    </button>
-                    <span class="fw-bold px-2" style="min-width:60px;text-align:center;">@(TargetYear)년</span>
-                    <button class="btn btn-sm btn-outline-secondary px-2" @onclick="NextYear">
-                        <i class="bi bi-chevron-right"></i>
-                    </button>
-                </div>
+    @* 1. 상단 타이틀 바 *@
+    <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom flex-wrap gap-3">
+        <div class="d-flex align-items-center">
+            <h3 class="fw-bold mb-0 text-primary">
+                <i class="bi bi-file-earmark-text me-2"></i>지출결의서 작성
+            </h3>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            @* 회계연도 좌우 화살표 *@
+            <div class="d-flex align-items-center gap-1 bg-light p-2 rounded shadow-sm border">
+                <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="PrevYear">◀</button>
+                <span class="fw-bold fs-5 px-2 text-primary" style="min-width: 80px; text-align: center;">@(TargetYear) 년</span>
+                <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="NextYear">▶</button>
             </div>
+
+            @* 버튼 그룹 *@
             <div class="d-flex gap-2">
-                <button class="btn btn-warning fw-bold" @onclick="NewReport">
+                <button class="btn btn-warning fw-bold shadow-sm" @onclick="NewReport">
                     <i class="bi bi-plus-circle me-1"></i>신규 작성
                 </button>
-                <button class="btn btn-dark" @onclick="PrintPage">
-                    <i class="bi bi-printer-fill me-1"></i>인쇄
+                <button class="btn btn-secondary fw-bold shadow-sm" @onclick="PrintPage">
+                    <i class="bi bi-printer me-1"></i>인쇄
                 </button>
             </div>
         </div>
     </div>
 
-    <div class="row g-3">
+    @* 2. 상단 좌/우 2단 배치 (기존 내역 & 신규 입력) *@
+    <div class="row g-4 mb-4">
 
-        @* ── ① 기존 신청 내역 ── *@
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-secondary text-white fw-bold d-flex justify-content-between align-items-center">
-                    <span><i class="bi bi-clock-history me-2"></i>① 기존 신청 내역</span>
-                    <span class="badge bg-light text-dark">
-                        @(TargetYear)년 · 총 @(reportHistory.Count)건 · @(reportHistory.Sum(r => r.TotalAmount).ToString("N0"))원
+        @* ── ① 기존 신청 내역 (상단 좌측) ── *@
+        <div class="col-lg-5">
+            <div class="card shadow-sm h-100 border-0 bg-light">
+                <div class="card-header bg-white border-bottom fw-bold d-flex justify-content-between align-items-center py-3">
+                    <span class="text-secondary"><i class="bi bi-clock-history me-2"></i>① 신청 내역</span>
+                    <span class="badge bg-secondary rounded-pill">
+                        총 @(reportHistory.Count)건
                     </span>
                 </div>
-                <div class="card-body p-0 table-responsive" style="max-height:200px;">
-                    <table class="table table-hover mb-0 text-center small align-middle">
-                        <thead class="table-light sticky-top">
+                <div class="card-body p-0 table-responsive" style="height: 480px; overflow-y: auto;">
+                    <table class="table table-hover mb-0 text-center small align-middle bg-white">
+                        <thead class="table-light sticky-top shadow-sm">
                             <tr>
-                                <th width="80">작성일</th>
+                                <th width="75">작성일</th>
                                 <th class="text-start">청구인/제목</th>
-                                <th width="110">금액</th>
-                                <th width="60">관리</th>
+                                <th width="90">금액</th>
+                                <th width="120">관리</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var report in reportHistory)
                             {
-                                <tr class="@(CurrentReport.Id == report.Id ? "table-warning" : "")"
+                                <tr class="@(CurrentReport.Id == report.Id ? "table-primary fw-bold" : "")"
                                     style="cursor:pointer" @onclick="() => LoadReport(report)">
-                                    <td>@report.Date.ToString("yy-MM-dd")</td>
-                                    <td class="text-start">@report.Title</td>
-                                    <td class="text-end fw-bold text-danger">@report.TotalAmount.ToString("N0")</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-link text-danger p-0"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => DeleteReport(report)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                    <td>@report.Date.ToString("MM-dd")</td>
+                                    <td class="text-start text-truncate" style="max-width: 100px;">@report.Title</td>
+                                    <td class="text-end text-danger pe-2">@report.TotalAmount.ToString("N0")</td>
+                                    <td class="text-center">
+                                        <div class="d-flex justify-content-center gap-1">
+                                            <button class="btn btn-sm btn-outline-primary py-0 px-2 fw-bold"
+                                                    @onclick:stopPropagation="true" @onclick="() => LoadReport(report)">
+                                                수정
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-bold"
+                                                    @onclick:stopPropagation="true" @onclick="() => DeleteReport(report)">
+                                                삭제
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             }
                             @if (!reportHistory.Any())
                             {
-                                <tr><td colspan="4" class="py-3 text-muted">신청 내역이 없습니다.</td></tr>
+                                <tr><td colspan="4" class="py-5 text-muted">해당 연도의 신청 내역이 없습니다.</td></tr>
                             }
                         </tbody>
                     </table>
@@ -89,31 +93,30 @@
             </div>
         </div>
 
-        @* ── ② 내역 입력 ── *@
-        <div class="col-lg-5">
-            <div class="card shadow-sm border-primary h-100">
-                <div class="card-header bg-primary text-white fw-bold">
-                    ② 내역 입력 (@(CurrentReport.Id == 0 ? "신규" : "수정중"))
+        @* ── ② 내역 입력 (상단 우측) ── *@
+        <div class="col-lg-7">
+            <div class="card shadow-sm border-primary h-100 border-opacity-50">
+                <div class="card-header bg-primary text-white fw-bold py-3">
+                    <i class="bi bi-pencil-square me-2"></i>② 내역 입력 (@(CurrentReport.Id == 0 ? "신규" : "수정중"))
                 </div>
-                <div class="card-body bg-light">
-                    @* 잔액 현황 *@
-                    <div class="alert alert-warning small mb-3 py-2">
-                        <div class="d-flex justify-content-between">
-                            <span>총 예산(수령액):</span>
+                <div class="card-body bg-white d-flex flex-column">
+                    <div class="alert alert-primary bg-opacity-10 border-primary border-opacity-25 small mb-4 py-3">
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">총 예산(수령액)</span>
                             <span class="fw-bold">@TotalBudget.ToString("N0") 원</span>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span>기 신청액:</span>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span class="text-muted">기 신청액</span>
                             <span class="fw-bold text-danger">－ @UsedBudget.ToString("N0") 원</span>
                         </div>
-                        <div class="d-flex justify-content-between">
-                            <span>이번 신청액:</span>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">이번 신청액</span>
                             <span class="fw-bold text-primary">－ @CurrentRequestTotal.ToString("N0") 원</span>
                         </div>
-                        <hr class="my-1" />
-                        <div class="d-flex justify-content-between fw-bold">
-                            <span>신청 후 잔액:</span>
-                            <span class="@((TotalBudget - UsedBudget - CurrentRequestTotal) < 0 ? "text-danger" : "")">
+                        <div class="border-top border-primary border-opacity-25 my-2"></div>
+                        <div class="d-flex justify-content-between fw-bold fs-6">
+                            <span>신청 후 잔액</span>
+                            <span class="@((TotalBudget - UsedBudget - CurrentRequestTotal) < 0 ? "text-danger" : "text-success")">
                                 @((TotalBudget - UsedBudget - CurrentRequestTotal).ToString("N0")) 원
                             </span>
                         </div>
@@ -121,83 +124,97 @@
 
                     <div class="row g-2 mb-3">
                         <div class="col-6">
-                            <label class="form-label small fw-bold mb-1">청구일자</label>
+                            <label class="form-label small fw-bold text-secondary mb-1">청구일자</label>
                             <input type="date" class="form-control form-control-sm" @bind="CurrentReport.Date" />
                         </div>
                         <div class="col-6">
-                            <label class="form-label small fw-bold mb-1">청구인</label>
-                            <input class="form-control form-control-sm" @bind="CurrentReport.Title" placeholder="이름" />
+                            <label class="form-label small fw-bold text-secondary mb-1">청구인 이름</label>
+                            <input class="form-control form-control-sm" @bind="CurrentReport.Title" placeholder="이름 입력" />
                         </div>
                     </div>
 
-                    <div class="card p-2 border mb-3">
-                        <div class="row g-1 mb-2">
+                    <div class="card p-3 border border-secondary border-opacity-25 bg-light mb-3">
+                        <div class="row g-2 mb-2">
                             <div class="col-4">
-                                <input class="form-control form-control-sm" list="expCats"
-                                       @bind="newItem.Category" placeholder="지출항목" />
+                                <label class="form-label small fw-bold text-secondary mb-1">지출항목</label>
+                                <input class="form-control form-control-sm" list="expCats" @bind="newItem.Category" placeholder="선택/입력" />
                                 <datalist id="expCats">
-                                    @foreach (var c in catList) { <option value="@c" /> }
+                                    @foreach (var c in catList)
+                                    {
+                                        <option value="@c" />
+                                    }
                                 </datalist>
                             </div>
                             <div class="col-5">
-                                <input class="form-control form-control-sm"
-                                       @bind="newItem.CalcDetail" placeholder="산출근거" />
+                                <label class="form-label small fw-bold text-secondary mb-1">산출근거 (내용)</label>
+                                <input class="form-control form-control-sm" @bind="newItem.CalcDetail" placeholder="상세 내용" />
                             </div>
                             <div class="col-3">
-                                <input type="number" class="form-control form-control-sm"
-                                       @bind="newItem.Amount" placeholder="금액" @onkeyup="EnterKey" />
+                                <label class="form-label small fw-bold text-secondary mb-1">청구 금액</label>
+                                <input type="number" class="form-control form-control-sm" @bind="newItem.Amount" placeholder="금액" @onkeyup="EnterKey" />
                             </div>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary w-100" @onclick="AddItem">
-                            <i class="bi bi-arrow-down me-1"></i>명세에 추가
+                        <button class="btn btn-outline-primary fw-bold mt-2" @onclick="AddItem">
+                            <i class="bi bi-arrow-down-circle me-1"></i>명세표에 추가
                         </button>
                     </div>
 
-                    @* 입력된 항목 목록 *@
-                    @if (itemList.Any())
-                    {
-                        <div class="table-responsive mb-3" style="max-height:160px;overflow-y:auto;">
-                            <table class="table table-sm table-bordered mb-0" style="font-size:12px;">
-                                <tbody>
-                                    @foreach (var item in itemList)
-                                    {
-                                        <tr>
-                                            <td class="fw-bold" style="width:30%">@item.Category</td>
-                                            <td>@item.CalcDetail</td>
-                                            <td class="text-end fw-bold" style="width:25%">@item.Amount.ToString("N0")</td>
-                                            <td style="width:30px;text-align:center;">
-                                                <button class="btn btn-sm btn-link text-danger p-0"
-                                                        @onclick="() => RemoveItem(item)">×</button>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    }
+                    <div class="table-responsive flex-grow-1 border rounded bg-white" style="max-height: 140px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0 small text-center align-middle">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th width="30%">항목</th>
+                                    <th class="text-start">내용</th>
+                                    <th width="25%">금액</th>
+                                    <th width="40"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in itemList)
+                                {
+                                    <tr>
+                                        <td class="fw-bold text-truncate" style="max-width: 60px;">@item.Category</td>
+                                        <td class="text-start text-truncate" style="max-width: 100px;">@item.CalcDetail</td>
+                                        <td class="text-end fw-bold text-primary">@item.Amount.ToString("N0")</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-link text-danger p-0" @onclick="() => RemoveItem(item)">
+                                                <i class="bi bi-x-circle-fill"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                                @if (!itemList.Any())
+                                {
+                                    <tr><td colspan="4" class="py-3 text-muted">추가된 명세가 없습니다.</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
 
-                    <button class="btn btn-primary w-100 fw-bold" @onclick="SaveReport">
-                        <i class="bi bi-save me-1"></i>결의서 저장
+                    <button class="btn btn-primary btn-lg fw-bold w-100 shadow-sm mt-3" @onclick="SaveReport">
+                        <i class="bi bi-save me-2"></i>결의서 저장
                     </button>
                 </div>
             </div>
         </div>
+    </div>
 
-        @* ── ③ 미리보기 (실제 크기) ── *@
+    @* ── ③ 미리보기 (하단 중앙, 크게) ── *@
+    <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-header bg-dark text-white fw-bold">
-                    <i class="bi bi-eye me-2"></i>③ 지출결의서 미리보기
+            <div class="card shadow-sm border-0 bg-dark w-100 mb-5">
+                <div class="card-header border-bottom border-secondary text-white fw-bold py-3 d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-eye me-2"></i>③ 지출결의서 미리보기</span>
+                    <span class="badge bg-secondary"><i class="bi bi-printer me-1"></i>인쇄 크기 100%</span>
                 </div>
-                <div class="card-body d-flex align-items-start justify-content-center py-3"
-                     style="background:#e9ecef;overflow-x:auto;overflow-y:auto;max-height:860px;">
-                    <div class="expense-paper">
+                <div class="card-body d-flex align-items-start justify-content-center p-5"
+                     style="background:#6c757d; overflow-x:auto; overflow-y:auto; height: auto;">
+                    <div class="expense-paper shadow" style="margin: 0 auto; transform: scale(1);">
                         @PaperMarkup
                     </div>
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
@@ -206,9 +223,12 @@
 ══════════════════════════════════════════ *@
 <div class="print-only">
     <div class="a4-sheet">
-        <div class="cut-line-v"><span class="scissors">✂</span></div>
-        <div class="cut-line-h"><span class="scissors-h">✂</span></div>
-        <div class="expense-paper">
+        <div class="cut-line-top"><span class="scissors-h">✂</span></div>
+        <div class="cut-line-bottom"><span class="scissors-h">✂</span></div>
+        <div class="cut-line-left"><span class="scissors-v">✂</span></div>
+        <div class="cut-line-right"><span class="scissors-v">✂</span></div>
+
+        <div class="expense-paper print-center">
             @PaperMarkup
         </div>
     </div>
@@ -218,201 +238,407 @@
    결의서 본문 마크업 (미리보기 + 인쇄 공용)
 ══════════════════════════════════════════ *@
 @{
-    // 결의서 공용 마크업을 변수로 선언 (RenderFragment 아님 - 직접 인라인)
+    // 결의서 공용 마크업을 변수로 선언 (RenderFragment)
 }
 
 <style>
-/* ── 화면 ── */
-@@media screen {
-    .print-only { display: none !important; }
+    /* ── 화면 ── */
+    @@media screen {
+        .print-only {
+            display: none !important;
+        }
+
+        .expense-paper {
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 20px rgba(0,0,0,.3);
+            background: #fff;
+        }
+    }
+
+    /* ── 공통 결의서 스타일 (12pt 강제 적용 및 규격 135x195 고정) ── */
     .expense-paper {
-        border: 1px solid #bbb;
-        box-shadow: 0 2px 12px rgba(0,0,0,.12);
+        width: 135mm;
+        height: 195mm; /* 🚀 전체 높이 195mm로 고정 */
+        padding: 2mm 5mm 5mm 5mm;
+        background: #fff;
+        font-family: 'Malgun Gothic','Dotum','돋움',sans-serif;
+        font-size: 12pt !important;
+        box-sizing: border-box;
+        color: #000;
     }
-}
 
-/* ── 공통 결의서 스타일 ── */
-.expense-paper {
-    width: 135mm;
-    min-height: 195mm;
-    padding: 5mm 6mm 4mm;
-    background: #fff;
-    font-family: 'Malgun Gothic','Dotum','돋움',sans-serif;
-    font-size: 8pt;
-    box-sizing: border-box;
-    color: #000;
-}
-.ep-title {
-    text-align: center;
-    font-size: 15pt;
-    font-weight: 900;
-    letter-spacing: 7px;
-    margin-bottom: 3mm;
-}
-.ep-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 2mm;
-}
-.ep-date-box {
-    font-size: 8pt;
-    display: flex;
-    align-items: center;
-    gap: 1px;
-    padding-top: 2mm;
-}
-.ep-date-num {
-    font-weight: bold;
-    font-size: 9pt;
-    min-width: 16px;
-    text-align: center;
-}
-/* 결재란 */
-.ep-approval { border-collapse: collapse; font-size: 7pt; }
-.ep-approval td { border: 1px solid #222; text-align: center; padding: 0; }
-.ep-apr-side {
-    background: #ebebeb;
-    font-weight: bold;
-    width: 12px;
-    font-size: 7pt;
-    line-height: 1.6;
-    padding: 2px 3px;
-    vertical-align: middle;
-    writing-mode: vertical-lr;
-    letter-spacing: 2px;
-}
-.ep-apr-title { width: 21mm; font-size: 7pt; padding: 2px; height: 6mm; vertical-align: middle; }
-.ep-apr-sign  { height: 15mm; }
-.ep-apr-sign td { width: 21mm; }
+        .expense-paper table, .expense-paper th, .expense-paper td, .expense-paper div, .expense-paper span {
+            font-size: inherit;
+        }
 
-.ep-request {
-    font-size: 8pt;
-    font-weight: bold;
-    border-bottom: 1.5px solid #000;
-    padding-bottom: 1.5mm;
-    margin-bottom: 0;
-}
-/* 메인 테이블 */
-.ep-main { width: 100%; border-collapse: collapse; border-top: 1px solid #444; }
-.ep-main td { border: 1px solid #555; vertical-align: middle; }
-.ep-lbl {
-    background: #f0f0f0;
-    font-weight: bold;
-    text-align: center;
-    white-space: nowrap;
-    width: 16mm;
-    padding: 2px;
-    font-size: 8pt;
-}
-.ep-val { padding: 2px 5px; font-size: 8pt; }
-.ep-amount-kr  { font-weight: bold; margin-bottom: 1px; }
-.ep-amount-num { font-weight: bold; font-size: 8.5pt; }
-/* 명세 */
-.ep-detail-cell { padding: 0 !important; vertical-align: top; }
-.ep-detail { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-.ep-detail th {
-    background: #f0f0f0; border: 1px solid #aaa;
-    text-align: center; padding: 1.5px 2px; font-size: 7pt;
-}
-.ep-detail td {
-    border: 1px solid #ccc; padding: 0.5px 3px;
-    height: 5.5mm; text-align: center;
-}
-.ep-td-left  { text-align: left  !important; }
-.ep-td-right { text-align: right !important; font-weight: bold; }
-.ep-sum td {
-    background: #e8e8e8; font-weight: bold;
-    text-align: right; border-top: 1.5px solid #444; padding: 1.5px 3px;
-}
-/* 계좌 */
-.ep-account { width: 100%; border-collapse: collapse; margin-top: 1.5mm; font-size: 7pt; }
-.ep-account td { border: 1px solid #555; }
-.ep-acc-hd  { background: #f0f0f0; text-align: center; padding: 1.5px 2px; font-weight: bold; }
-.ep-acc-val { text-align: center; padding: 1px 2px; height: 6mm; vertical-align: middle; }
-/* 청구 정보 */
-.ep-claim { width: 100%; border-collapse: collapse; margin-top: 1mm; font-size: 8pt; }
-.ep-claim td { border: 1px solid #555; }
-.ep-cval { padding: 2px 6px; height: 7mm; vertical-align: middle; }
-.ep-seal { color: #666; font-size: 7.5pt; }
-.ep-footer { text-align: right; font-size: 8.5pt; font-weight: bold; margin-top: 1.5mm; }
+    /* 🚀 2줄 방지 원천 차단 클래스 */
+    .text-nowrap-squish {
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: clip !important;
+        display: block;
+        width: 100%;
+    }
 
-/* ── 인쇄 ── */
-@@media print {
-    /* 화면 UI 숨김 */
-    .no-print { display: none !important; }
+    /* 상단 제목 */
+    .ep-title {
+        text-align: center;
+        font-size: 22pt !important;
+        font-weight: 900;
+        letter-spacing: 10px;
+        margin-bottom: 1.5mm;
+        line-height: 1.2;
+    }
 
-    /* ★ Blazor MainLayout 사이드바·헤더·네비 전체 숨김 */
-    nav, header, aside, footer,
-    .sidebar, .top-row, .navbar, .nav-menu,
-    .bi-list, [class*="sidebar"], [class*="nav-"],
-    .mud-drawer, .mud-appbar,
-    .layout-sidebar, .page-header,
-    a.nav-link { display: none !important; }
+    /* 결재란 */
+    .ep-approval {
+        border-collapse: collapse;
+        margin-left: auto;
+        margin-bottom: 1.5mm;
+        font-size: 12pt;
+    }
 
-    /* 레이아웃 여백 초기화 */
-    .page, .main, article, .content,
-    .page > main, main > article {
-        margin: 0 !important;
+        .ep-approval td {
+            border: 1px solid #222;
+            text-align: center;
+            padding: 0;
+        }
+
+    .ep-apr-side {
+        background: #ebebeb;
+        font-weight: bold;
+        width: 20px;
+        line-height: 1.4;
+        padding: 1px;
+        vertical-align: middle;
+        writing-mode: vertical-lr;
+        letter-spacing: 2px;
+    }
+
+    .ep-apr-title {
+        width: 18mm;
+        height: 5.5mm;
+        vertical-align: middle;
+        font-weight: bold;
+    }
+
+    .ep-apr-sign {
+        height: 13mm;
+    }
+
+        .ep-apr-sign td {
+            width: 18mm;
+        }
+
+    .ep-request {
+        font-weight: bold;
+        font-size: 12pt;
+        border-bottom: 1.5px solid #000;
+        padding-bottom: 1mm;
+        margin-bottom: 0;
+    }
+
+    /* 🚀 통합 메인 테이블 (모든 표를 하나로 묶음) */
+    .ep-main {
+        width: 100%;
+        border-collapse: collapse;
+        border-top: 1px solid #444;
+        font-size: 12pt;
+    }
+
+        .ep-main td {
+            border: 1px solid #555;
+            vertical-align: middle;
+        }
+
+    .ep-lbl {
+        background: #f0f0f0;
+        font-weight: bold;
+        text-align: center;
+        white-space: nowrap;
+        width: 15%;
+        padding: 2px;
+    }
+
+    .ep-val {
+        padding: 2px 6px;
+    }
+
+    /* 적요 영역 레이아웃 (고정 60mm div 안에 flex로 분배, 테두리 이중출력 방지) */
+    .ep-detail-cell {
         padding: 0 !important;
-        max-width: none !important;
-        width: 100% !important;
+        vertical-align: top;
     }
 
-    @@page { size: A4; margin: 0; }
+    .ep-detail-header {
+        display: flex;
+        width: 100%;
+        background: #f0f0f0;
+        font-weight: bold;
+        text-align: center;
+        border-bottom: 1px solid #aaa;
+        font-size: 11pt;
+    }
 
-    body, html { margin: 0 !important; padding: 0 !important; background: white !important; }
+        .ep-detail-header > div {
+            padding: 2px;
+            border-right: 1px solid #ccc;
+        }
 
-    .print-only { display: block !important; }
+            .ep-detail-header > div:last-child {
+                border-right: none;
+            }
 
-    .a4-sheet {
-        position: relative;
-        width: 210mm;
-        height: 297mm;
-        background: white;
+    .ep-detail-body {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        height: 60mm; /* 적요 60mm 철벽 고정 */
         overflow: hidden;
     }
 
-    .a4-sheet .expense-paper {
-        position: absolute;
-        top: 10mm;
-        left: 10mm;
-        width: 135mm !important;
-        height: 195mm !important;
-        min-height: unset !important;
-        padding: 5mm 6mm 4mm !important;
-        border: none !important;
-        box-shadow: none !important;
-        overflow: hidden;
+    .ep-detail-row {
+        display: flex;
+        width: 100%;
+        flex: 1;
+        border-bottom: 1px solid #eee;
+        align-items: center;
+        text-align: center;
+        box-sizing: border-box;
     }
 
-    /* 가위선 — 세로 (우측) */
-    .cut-line-v {
-        position: absolute;
-        top: 0; left: 153mm;
-        width: 0; height: 215mm;
-        border-left: 1px dashed #999;
-        display: flex; justify-content: center; align-items: flex-start;
-    }
-    .scissors { font-size: 10pt; margin-top: 3mm; transform: rotate(90deg); display: inline-block; color: #777; }
+        .ep-detail-row:last-child {
+            border-bottom: none;
+        }
 
-    /* 가위선 — 가로 (하단) */
-    .cut-line-h {
-        position: absolute;
-        top: 213mm; left: 0;
-        height: 0; width: 162mm;
-        border-top: 1px dashed #999;
-        display: flex; align-items: center;
-    }
-    .scissors-h { font-size: 10pt; margin-left: 3mm; color: #777; }
+        .ep-detail-row > div {
+            border-right: 1px solid #ccc;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            overflow: hidden;
+            padding: 0 4px;
+        }
 
-    /* 배경색 강제 출력 */
-    .ep-lbl, .ep-apr-side, .ep-apr-title,
-    .ep-acc-hd, .ep-detail th, .ep-sum td {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+            .ep-detail-row > div:last-child {
+                border-right: none;
+            }
+
+    /* 컬럼 비율 지정 */
+    .col-cat {
+        width: 25%;
     }
-}
+
+    .col-desc {
+        width: 50%;
+        justify-content: flex-start !important;
+        text-align: left;
+    }
+
+    .col-amt {
+        width: 25%;
+        justify-content: flex-end !important;
+        text-align: right;
+        font-weight: bold;
+    }
+
+    .ep-sum-row {
+        display: flex;
+        width: 100%;
+        background: #e8e8e8;
+        font-weight: bold;
+        border-top: 1.5px solid #444;
+        align-items: center;
+        font-size: 12pt;
+    }
+
+    .ep-sum-lbl {
+        width: 75%;
+        text-align: center;
+        padding: 2px 5px;
+        border-right: 1px solid #ccc;
+    }
+
+    .ep-sum-val {
+        width: 25%;
+        text-align: right;
+        padding: 2px 5px;
+    }
+
+    /* 통합된 내부 헤더/셀 스타일 */
+    .ep-acc-hd {
+        background: #f0f0f0;
+        text-align: center;
+        padding: 1.5px;
+        font-weight: bold;
+        border-left: 1px solid #555;
+    }
+
+    .ep-acc-val {
+        text-align: center;
+        padding: 0px 2px;
+        height: 6mm;
+        vertical-align: middle;
+        border-left: 1px solid #555;
+    }
+
+    .ep-cval {
+        padding: 1.5px 6px;
+        height: 6mm;
+        vertical-align: middle;
+    }
+
+    .ep-seal {
+        color: #666;
+    }
+
+    .ep-footer {
+        text-align: right;
+        font-weight: bold;
+        margin-top: 1mm;
+        letter-spacing: 2px;
+        font-size: 12pt;
+    }
+
+    /* ── 인쇄 ── */
+    @@media print {
+        .no-print {
+            display: none !important;
+        }
+
+        nav, header, aside, footer,
+        .sidebar, .top-row, .navbar, .nav-menu,
+        .bi-list, [class*="sidebar"], [class*="nav-"],
+        .mud-drawer, .mud-appbar,
+        .layout-sidebar, .page-header,
+        a.nav-link {
+            display: none !important;
+        }
+
+        .container {
+            margin-left: 0 !important;
+            padding-left: 0 !important;
+            max-width: 100% !important;
+        }
+
+        .page, .main, article, .content,
+        .page > main, main > article {
+            margin: 0 !important;
+            padding: 0 !important;
+            max-width: none !important;
+            width: 100% !important;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 0;
+        }
+
+        body, html {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+        }
+
+        .print-only {
+            display: block !important;
+        }
+
+        .a4-sheet {
+            position: relative;
+            width: 210mm;
+            height: 297mm;
+            background: white;
+            overflow: hidden;
+        }
+            /* 🚀 인쇄 용지 195mm 반영 */
+            .a4-sheet .print-center {
+                position: absolute;
+                top: 9mm;
+                left: 0;
+                right: 0;
+                margin: 0 auto;
+                width: 135mm !important;
+                height: 197mm !important;
+                min-height: unset !important;
+                padding: 5mm !important;
+                border: none !important;
+                box-shadow: none !important;
+                overflow: hidden;
+            }
+        /* 가위선 위치 조정 (195mm 기준) */
+        .cut-line-top {
+            position: absolute;
+            top: 0mm;
+            left: 37.4mm;
+            height: 0;
+            width: 135mm;
+            border-top: 1px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .cut-line-bottom {
+            position: absolute;
+            top: 208mm; /* 9(top) + 197(height) = 208 */
+            left: 37.4mm;
+            height: 0;
+            width: 135mm;
+            border-top: 1px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .scissors-h {
+            font-size: 10pt !important;
+            color: #777;
+            background: #fff;
+            padding: 0 2px;
+        }
+
+        .cut-line-left {
+            position: absolute;
+            top: 9mm;
+            left: 37.4mm;
+            width: 0;
+            height: 195mm;
+            border-left: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cut-line-right {
+            position: absolute;
+            top: 9mm;
+            left: 172.5mm;
+            width: 0;
+            height: 195mm;
+            border-left: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .scissors-v {
+            font-size: 10pt !important;
+            transform: rotate(90deg);
+            display: inline-block;
+            color: #777;
+            background: #fff;
+            padding: 2px 0;
+        }
+
+        .ep-lbl, .ep-apr-side, .ep-apr-title,
+        .ep-acc-hd, .ep-detail-header, .ep-sum-row {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+    }
 </style>
 
 @* ══════════════════════════════════════════
@@ -421,34 +647,38 @@
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
-    private int    TargetYear    = DateTime.Now.Year;
-    private decimal TotalBudget  = 0;
-    private decimal UsedBudget   = 0;
+    private int TargetYear = DateTime.Now.Year;
+    private decimal TotalBudget = 0;
+    private decimal UsedBudget = 0;
 
-    private ExpenseReport        CurrentReport = new() { Date = DateTime.Now };
-    private List<BudgetPlan>     itemList      = new();
-    private BudgetPlan           newItem       = new();
-    private List<ExpenseReport>  reportHistory = new();
-    private List<string>         catList       = new();
+    private ExpenseReport CurrentReport = new() { Date = DateTime.Now };
+    private List<BudgetPlan> itemList = new();
+    private BudgetPlan newItem = new();
+    private List<ExpenseReport> reportHistory = new();
+    private List<string> catList = new();
 
     private decimal CurrentRequestTotal => itemList.Sum(x => x.Amount);
 
-    // ── 결의서 공용 마크업 (RenderFragment) ──
+    // 🚀 글자가 길어지면 폰트를 자동으로 좁히고 줄여주는 마법의 C# 함수
+    private string GetDynamicStyle(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        if (text.Length > 28) return "font-size: 7.5pt !important; letter-spacing: -1.5px;";
+        if (text.Length > 20) return "font-size: 8.5pt !important; letter-spacing: -1px;";
+        if (text.Length > 14) return "font-size: 9.5pt !important; letter-spacing: -0.5px;";
+        return "font-size: 10pt !important;";
+    }
+
     private RenderFragment PaperMarkup => __builder =>
     {
-        // 제목
+        // 🚀 기본 6줄 고정
+        int rowCount = Math.Max(6, itemList.Count);
+
         <div class="ep-title">지 출 결 의 서</div>
 
-        // 날짜 + 결재란
-        <div class="ep-header-row">
-            <div class="ep-date-box">
-                <span>20</span>
-                <span class="ep-date-num">@CurrentReport.Date.ToString("yy")</span>
-                <span>년&nbsp;</span>
-                <span class="ep-date-num">@CurrentReport.Date.ToString("MM")</span>
-                <span>월&nbsp;</span>
-                <span class="ep-date-num">@CurrentReport.Date.ToString("dd")</span>
-                <span>일</span>
+        <div class="d-flex flex-column align-items-end mb-2">
+            <div class="mb-1" style="font-weight: bold; text-align: right; width: 100%; font-size: 11pt;">
+                @CurrentReport.Date.ToString("yyyy 년 MM 월 dd 일")
             </div>
             <table class="ep-approval">
                 <tbody>
@@ -460,113 +690,114 @@
                         <td class="ep-apr-title">담임목사</td>
                     </tr>
                     <tr class="ep-apr-sign">
-                        <td></td><td></td><td></td><td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        // 부탁 문구
-        <div class="ep-request">아래와 같이 지출하여 주시기 바랍니다.</div>
+        <div class="ep-request text-center">아래와 같이 지출하여 주시기 바랍니다.</div>
 
-        // 메인 테이블
+        @* 🚀 모든 표를 하나의 <table>로 통합 *@
         <table class="ep-main">
             <tr>
-                <td class="ep-lbl">금&nbsp;&nbsp;액</td>
-                <td class="ep-val" colspan="2">
-                    <div class="ep-amount-kr">一金 @AmountInKorean</div>
-                    <div class="ep-amount-num">₩ @CurrentRequestTotal.ToString("N0")</div>
+                <td class="ep-lbl" rowspan="2">금&nbsp;&nbsp;액</td>
+                <td class="ep-val text-start fw-bold" colspan="4" style="border-bottom: 1px dashed #ccc;">
+                    일금 @AmountInKorean
                 </td>
             </tr>
+            <tr>
+                <td class="ep-val text-start fw-bold" colspan="4">
+                    ₩ @CurrentRequestTotal.ToString("N0")
+                </td>
+            </tr>
+
             <tr>
                 <td class="ep-lbl">지출항목</td>
-                <td class="ep-val" colspan="2">@CurrentUser?.Department</td>
+                <td class="ep-val text-start" colspan="4">@CurrentUser?.Department</td>
             </tr>
+
             <tr>
                 <td class="ep-lbl" style="vertical-align:middle;">적&nbsp;&nbsp;요</td>
-                <td class="ep-detail-cell" colspan="2">
-                    <table class="ep-detail">
-                        <thead>
-                            <tr>
-                                <th style="width:30%">지출항목</th>
-                                <th style="width:50%">산출근거</th>
-                                <th style="width:20%">금액</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in itemList)
-                            {
-                                <tr>
-                                    <td>@item.Category</td>
-                                    <td class="ep-td-left">@item.CalcDetail</td>
-                                    <td class="ep-td-right">@item.Amount.ToString("N0")</td>
-                                </tr>
-                            }
-                            @for (int i = 0; i < Math.Max(0, 7 - itemList.Count); i++)
-                            {
-                                <tr><td>&nbsp;</td><td></td><td></td></tr>
-                            }
-                        </tbody>
-                        <tfoot>
-                            <tr class="ep-sum">
-                                <td colspan="2">합 계 :</td>
-                                <td class="ep-td-right">@CurrentRequestTotal.ToString("N0")</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+                <td class="ep-detail-cell" colspan="4">
+                    <div class="ep-detail-header">
+                        <div class="col-cat">지출항목</div>
+                        <div class="col-desc" style="text-align: center !important; justify-content: center !important;">산출근거</div>
+                        <div class="col-amt" style="text-align: center !important; justify-content: center !important;">금액</div>
+                    </div>
+
+                    <div class="ep-detail-body">
+                        @foreach (var item in itemList)
+                        {
+                            <div class="ep-detail-row">
+                                <div class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category)">@item.Category</span></div>
+                                <div class="col-desc"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.CalcDetail)">@item.CalcDetail</span></div>
+                                <div class="col-amt"><span class="text-nowrap-squish" style="font-size: 10pt !important;">@item.Amount.ToString("N0")</span></div>
+                            </div>
+                        }
+                        @* 데이터가 6개 미만일 때 빈칸 렌더링 *@
+                        @for (int i = 0; i < Math.Max(0, 6 - itemList.Count); i++)
+                        {
+                            <div class="ep-detail-row">
+                                <div class="col-cat">&nbsp;</div>
+                                <div class="col-desc"></div>
+                                <div class="col-amt"></div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="ep-sum-row">
+                        <div class="ep-sum-lbl">합 계 :</div>
+                        <div class="ep-sum-val">@CurrentRequestTotal.ToString("N0")</div>
+                    </div>
                 </td>
             </tr>
-        </table>
 
-        // 계좌
-        <table class="ep-account">
             <tr>
-                <td class="ep-lbl" rowspan="2">계&nbsp;&nbsp;좌</td>
-                <td class="ep-acc-hd">지급방법</td>
-                <td class="ep-acc-hd">은행명</td>
-                <td class="ep-acc-hd">계좌번호</td>
-                <td class="ep-acc-hd">예금주</td>
+                <td class="ep-lbl" rowspan="2" style="vertical-align: middle;">계&nbsp;&nbsp;좌</td>
+                <td class="ep-acc-hd" style="width: 18%;">지급방법</td>
+                <td class="ep-acc-hd" style="width: 18%;">은행명</td>
+                <td class="ep-acc-hd" style="width: 29%;">계좌번호</td>
+                <td class="ep-acc-hd" style="width: 20%;">예금주</td>
             </tr>
             <tr>
-                <td class="ep-acc-val">현금□ 계좌□</td>
-                <td class="ep-acc-val">하나은행</td>
-                <td class="ep-acc-val">449-910027-73104</td>
-                <td class="ep-acc-val">인천중앙교회(유년부)</td>
+                <td class="ep-acc-val fw-bold"><span class="text-nowrap-squish" style="font-size: 9pt !important; letter-spacing: -0.5px;">현금□ 계좌☑</span></td>
+                <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important;">하나은행</span></td>
+                <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important; letter-spacing: -0.5px;">449-910027-73104</span></td>
+                <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important; letter-spacing: -0.5px;">인천중앙교회</span></td>
             </tr>
-        </table>
 
-        // 청구정보
-        <table class="ep-claim">
             <tr>
                 <td class="ep-lbl">청구날짜</td>
-                <td class="ep-cval">@CurrentReport.Date.ToString("yyyy년 M월 d일")</td>
+                <td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Date.ToString("yyyy년 MM월 dd일")</td>
             </tr>
             <tr>
                 <td class="ep-lbl">청&nbsp;구&nbsp;인</td>
-                <td class="ep-cval">@CurrentReport.Title <span class="ep-seal">(인)</span></td>
+                <td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Title <span class="ep-seal fw-bold ms-2">(인)</span></td>
             </tr>
             <tr>
                 <td class="ep-lbl">지출날짜</td>
-                <td class="ep-cval">&nbsp;</td>
+                <td class="ep-cval text-end pe-3 fw-bold" colspan="4">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</td>
             </tr>
         </table>
 
-        <div class="ep-footer">인천중앙교회</div>
+        <div class="ep-footer text-end" style="text-align: right;">인천중앙성결교회</div>
     };
 
-    // ── 회계연도 화살표 ──
     private async Task PrevYear() { TargetYear--; await LoadData(); }
     private async Task NextYear() { TargetYear++; await LoadData(); }
 
-    // ── 한글 금액 ──
     private string AmountInKorean
     {
         get
         {
             long n = (long)CurrentRequestTotal;
             if (n == 0) return "영원정";
-            string[] ones     = { "", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구" };
-            string[] units    = { "", "십", "백", "천" };
+            string[] ones = { "", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구" };
+            string[] units = { "", "십", "백", "천" };
             string[] bigUnits = { "", "만", "억", "조" };
             string result = "";
             int groupIdx = 0;
@@ -599,9 +830,9 @@
     private async Task LoadData()
     {
         if (CurrentUser == null) return;
-        var status    = await AccService.GetSubsidyStatusForReportAsync(CurrentUser.Department, TargetYear);
-        TotalBudget   = status.TotalReceived;
-        UsedBudget    = status.TotalUsed;
+        var status = await AccService.GetSubsidyStatusForReportAsync(CurrentUser.Department, TargetYear);
+        TotalBudget = status.TotalReceived;
+        UsedBudget = status.TotalUsed;
         reportHistory = await AccService.GetExpenseReportsAsync(CurrentUser.Department, TargetYear);
     }
 
@@ -609,7 +840,7 @@
     {
         CurrentReport = new ExpenseReport
         {
-            Date       = DateTime.Now,
+            Date = DateTime.Now,
             Department = CurrentUser?.Department ?? "",
             FiscalYear = TargetYear
         };
@@ -627,12 +858,15 @@
         }
         itemList.Add(new BudgetPlan
         {
-            Category   = newItem.Category,
+            Category = newItem.Category,
             CalcDetail = newItem.CalcDetail,
-            Amount     = newItem.Amount
+            Amount = newItem.Amount
         });
+
+        // 추가 후 입력칸 초기화
+        newItem.Category = "";
         newItem.CalcDetail = "";
-        newItem.Amount     = 0;
+        newItem.Amount = 0;
     }
 
     private void RemoveItem(BudgetPlan item) => itemList.Remove(item);
@@ -647,8 +881,8 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", "청구인을 입력하세요."); return;
         }
-        CurrentReport.Department  = CurrentUser?.Department ?? "";
-        CurrentReport.FiscalYear  = TargetYear;
+        CurrentReport.Department = CurrentUser?.Department ?? "";
+        CurrentReport.FiscalYear = TargetYear;
         CurrentReport.TotalAmount = CurrentRequestTotal;
         CurrentReport.DetailsJson = JsonSerializer.Serialize(itemList);
         await AccService.SaveExpenseReportAsync(CurrentReport);
@@ -660,14 +894,14 @@
     {
         CurrentReport = new ExpenseReport
         {
-            Id         = report.Id,
-            Date       = report.Date,
-            Title      = report.Title,
+            Id = report.Id,
+            Date = report.Date,
+            Title = report.Title,
             FiscalYear = report.FiscalYear,
             Department = report.Department,
             TotalAmount = report.TotalAmount
         };
-        try   { itemList = JsonSerializer.Deserialize<List<BudgetPlan>>(report.DetailsJson) ?? new(); }
+        try { itemList = JsonSerializer.Deserialize<List<BudgetPlan>>(report.DetailsJson) ?? new(); }
         catch { itemList = new(); }
     }
 
@@ -685,7 +919,6 @@
 
     private async Task PrintPage()
     {
-        // 인쇄 전: 사이드바/헤더 숨김 → 인쇄 → 복원
         await JSRuntime.InvokeVoidAsync("eval", @"
             (function(){
                 var style = document.createElement('style');

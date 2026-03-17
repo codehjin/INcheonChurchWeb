@@ -9,7 +9,7 @@
 
 <PageTitle>인천중앙교회 재정 시스템</PageTitle>
 
-<div class="container mt-4">
+<div class="container mt-4 mb-5">
     @if (string.IsNullOrEmpty(CurrentUser?.Department))
     {
         @* 로그인 전 화면 *@
@@ -66,70 +66,8 @@
         {
             <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">데이터를 불러오는 중...</p></div>
         }
-        else if (IsAdmin)
-        {
-            @* 관리자는 기존 방식대로 진척도와 최근 활동 내역만 보여줌 *@
-            <div class="row g-4">
-                <div class="col-lg-7">
-                    <div class="card shadow-sm border-0 mb-4 h-100">
-                        <div class="card-body p-4">
-                            <h5 class="fw-bold text-dark mb-4"><i class="bi bi-graph-up-arrow text-primary me-2"></i>@(DashboardDept == "전체" ? "전체 부서" : DashboardDept) 예산 소진율</h5>
-                            <div class="d-flex justify-content-between mb-2">
-                                <span class="text-muted">총 지출 예산</span>
-                                <span class="fw-bold fs-5">@TotalBudget.ToString("N0") 원</span>
-                            </div>
-                            <div class="progress mb-3" style="height: 25px; border-radius: 12px;">
-                                <div class="progress-bar @ProgressBarColor progress-bar-striped progress-bar-animated fw-bold fs-6" role="progressbar" style="width: @ProgressPercentage.ToString("0.0")%">
-                                    @ProgressPercentage.ToString("0.0")%
-                                </div>
-                            </div>
-                            <div class="d-flex justify-content-between text-muted small">
-                                <span>현재 지출: <strong><span class="text-danger">@TotalExpense.ToString("N0")</span> 원</strong></span>
-                                <span>남은 예산: <strong class="text-primary">@RemainingBudget.ToString("N0") 원</strong></span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-12">
-                    <div class="card shadow-sm border-0 mb-5">
-                        <div class="card-body p-4">
-                            <div class="d-flex justify-content-between align-items-center mb-4">
-                                <h5 class="fw-bold text-dark mb-0"><i class="bi bi-clock-history text-info me-2"></i>최근 활동 내역</h5>
-                            </div>
-                            @if (RecentActivities.Any())
-                            {
-                                <ul class="list-group list-group-flush">
-                                    @foreach (var log in RecentActivities)
-                                    {
-                                        <li class="list-group-item px-0 py-3">
-                                            <div class="d-flex w-100 justify-content-between align-items-center">
-                                                <div>
-                                                    <i class="bi bi-info-circle-fill text-primary me-2"></i>
-                                                    <strong class="text-dark">[@log.Username]</strong> 님이 <span class="text-secondary">@log.Action</span>
-                                                    <div class="text-muted small mt-1 ms-4">@log.Details</div>
-                                                </div>
-                                                <small class="text-muted text-nowrap ms-3">@GetTimeAgo(log.Timestamp)</small>
-                                            </div>
-                                        </li>
-                                    }
-                                </ul>
-                            }
-                            else
-                            {
-                                <div class="text-center text-muted py-4 border rounded bg-light">최근 기록된 활동이 없습니다.</div>
-                            }
-                        </div>
-                    </div>
-                </div>
-            </div>
-        }
         else
         {
-            @* ======================================================= *@
-            @* 🚀 USER 대시보드 전용 (진척도 2개 + 항목 비율 + 보조금 표) *@
-            @* ======================================================= *@
-
             @* 1. 예산 및 보조금 진척도 *@
             <div class="row g-4 mb-4">
                 <div class="col-md-6">
@@ -144,21 +82,23 @@
                                 @ProgressPercentage.ToString("0.0")%
                             </div>
                         </div>
-                        <div class="text-end mt-2 small fw-bold text-secondary">잔여 예산: @RemainingBudget.ToString("N0") 원</div>
+                        <div class="text-end mt-2 small fw-bold text-secondary">잔여 지출 예산: @RemainingBudget.ToString("N0") 원</div>
                     </div>
                 </div>
 
                 <div class="col-md-6">
                     <div class="card border-0 shadow-sm h-100 p-4 bg-primary bg-opacity-10">
-                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-piggy-bank-fill me-2"></i>교회보조금 수입 진척도</h5>
+                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-piggy-bank-fill me-2"></i>총 수입(교회보조금 포함) 진척도</h5>
                         <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">입금액: <strong class="text-primary">@SubsidyReceived.ToString("N0")</strong>원</span>
-                            <span class="text-muted">예산: <strong>@SubsidyBudget.ToString("N0")</strong>원</span>
+                            <span class="text-muted">수입/입금액: <strong class="text-primary">@TotalIncome.ToString("N0")</strong>원</span>
+                            <span class="text-muted">수입 예산: <strong>@TotalIncomeBudget.ToString("N0")</strong>원</span>
                         </div>
                         <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-primary fw-bold fs-6" role="progressbar" style="width: @SubsidyRate%;">@SubsidyRate%</div>
+                            <div class="progress-bar bg-primary fw-bold fs-6" role="progressbar" style="width: @IncomeRate%;">@IncomeRate%</div>
                         </div>
-                        <div class="text-end mt-2 small fw-bold text-secondary">미수령 보조금: @((SubsidyBudget - SubsidyReceived).ToString("N0")) 원</div>
+                        <div class="text-end mt-2 small fw-bold text-secondary">
+                            (참고: 보조금 수령액 @SubsidyReceived.ToString("N0")원 / 예산 @SubsidyBudget.ToString("N0")원)
+                        </div>
                     </div>
                 </div>
             </div>
@@ -168,7 +108,7 @@
                 <div class="col-md-6">
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-graph-up-arrow me-2"></i>모든 수입 항목 비율 (총 @TotalIncome.ToString("N0")원)</h6>
+                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-graph-up-arrow me-2"></i>수입 항목 비율 (장부 기준 총 @TotalIncome.ToString("N0")원)</h6>
                         </div>
                         <div class="card-body" style="max-height: 350px; overflow-y: auto;">
                             @if (!IncomeStats.Any())
@@ -194,7 +134,7 @@
                 <div class="col-md-6">
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold text-danger mb-0"><i class="bi bi-graph-down-arrow me-2"></i>모든 지출 항목 비율 (총 @TotalExpense.ToString("N0")원)</h6>
+                            <h6 class="fw-bold text-danger mb-0"><i class="bi bi-graph-down-arrow me-2"></i>지출 항목 비율 (장부 기준 총 @TotalExpense.ToString("N0")원)</h6>
                         </div>
                         <div class="card-body" style="max-height: 350px; overflow-y: auto;">
                             @if (!ExpenseStats.Any())
@@ -221,8 +161,9 @@
             @* 3. 교회보조금 신청현황 (지출결의서 & 장부 자동 매칭) *@
             <div class="card border-0 shadow-sm mb-5">
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-check-fill text-success me-2"></i>교회보조금 신청 및 입금 현황</h5>
-                    <span class="badge bg-light text-dark border">지출결의서 작성액 자동 추적</span>
+                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-check-fill text-success me-2"></i>지출결의서 신청 및 입금 현황</h5>
+                    @* 🚀 총 신청액 누계 추가 *@
+                    <span class="badge bg-light text-dark border fs-6">총 신청액 누계: <span class="text-primary fw-bold">@SubsidyRequests.Sum(r => r.Amount).ToString("N0")원</span></span>
                 </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle text-center mb-0">
@@ -232,7 +173,7 @@
                                 <th class="text-start">결의서 제목 (적요)</th>
                                 <th class="text-end">신청 금액</th>
                                 <th>상태</th>
-                                <th>실제 입금일 (장부)</th>
+                                <th>실제 입금일 (장부 매칭)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -286,36 +227,30 @@
 
     private readonly string[] Departments = new[] { "전체", "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" };
 
-    // 예산 및 지출 관련 변수
     private decimal TotalBudget = 0;
     private decimal TotalExpense = 0;
     private decimal RemainingBudget => TotalBudget - TotalExpense;
     private double ProgressPercentage = 0;
     private string ProgressBarColor = "bg-success";
 
-    // 교회보조금 전용 변수
+    private decimal TotalIncomeBudget = 0;
+    private int IncomeRate = 0;
     private decimal SubsidyBudget = 0;
     private decimal SubsidyReceived = 0;
-    private int SubsidyRate = 0;
 
-    // 항목별 통계 리스트
     public class CategoryStat { public string Category { get; set; } = ""; public decimal Amount { get; set; } public int Percentage { get; set; } }
     private decimal TotalIncome = 0;
     private List<CategoryStat> IncomeStats = new();
     private List<CategoryStat> ExpenseStats = new();
 
-    // 보조금 신청 내역 매칭
     public class SubsidyRequestItem { public DateTime RequestDate { get; set; } public string Title { get; set; } = ""; public decimal Amount { get; set; } public DateTime? DepositDate { get; set; } }
     private List<SubsidyRequestItem> SubsidyRequests = new();
-
-    // 관리자 전용 최근 활동 로그
-    private List<ActivityLog> RecentActivities = new();
 
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser != null && !string.IsNullOrEmpty(CurrentUser.Department))
         {
-            if (CurrentUser.Department == "교육국" || CurrentUser.Department == "관리자")
+            if (CurrentUser.Department == "교육국" || CurrentUser.Role == "Admin" || CurrentUser.Department == "관리자")
             {
                 IsAdmin = true;
                 DashboardDept = "전체";
@@ -325,6 +260,21 @@
                 IsAdmin = false;
                 DashboardDept = CurrentUser.Department;
             }
+
+            try
+            {
+                var latestBudgetYear = await DbContext.BudgetPlans
+                    .Where(b => DashboardDept == "전체" || b.Department == DashboardDept)
+                    .OrderByDescending(b => b.Year)
+                    .Select(b => b.Year)
+                    .FirstOrDefaultAsync();
+
+                if (latestBudgetYear > 0)
+                {
+                    CurrentYear = latestBudgetYear;
+                }
+            }
+            catch { /* ignore */ }
 
             await LoadDashboardData();
         }
@@ -346,6 +296,9 @@
         await LoadDashboardData();
     }
 
+    private bool IsExpenseType(string t) => string.Equals(t, "Expense", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "지출", StringComparison.OrdinalIgnoreCase);
+    private bool IsIncomeType(string t) => string.Equals(t, "Income", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "수입", StringComparison.OrdinalIgnoreCase);
+
     private async Task LoadDashboardData()
     {
         isLoading = true;
@@ -353,24 +306,24 @@
 
         try
         {
-            // 1. 예산 데이터 로드
             var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
             if (DashboardDept != "전체") budgetQuery = budgetQuery.Where(b => b.Department == DashboardDept);
             var budgetList = await budgetQuery.ToListAsync();
 
-            TotalBudget = budgetList.Where(b => b.Type == "Expense").Sum(b => b.Amount);
-            SubsidyBudget = budgetList.Where(b => b.Type == "Income" && b.Category == "교회보조금").Sum(b => b.Amount);
+            TotalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
+            TotalIncomeBudget = budgetList.Where(b => IsIncomeType(b.Type)).Sum(b => b.Amount);
 
-            // 2. 장부 데이터 로드
+            SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
+
+            // 해당 연도 장부 데이터 로드 (차트 및 진척도 용)
             var transQuery = DbContext.Transactions.AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
             if (DashboardDept != "전체") transQuery = transQuery.Where(t => t.Department == DashboardDept);
             var transactions = await transQuery.ToListAsync();
 
-            TotalExpense = transactions.Where(t => t.Type == "지출").Sum(t => t.Expense);
-            TotalIncome = transactions.Where(t => t.Type == "수입").Sum(t => t.Income);
-            SubsidyReceived = transactions.Where(t => t.Type == "수입" && t.Category == "교회보조금").Sum(t => t.Income);
+            TotalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
+            TotalIncome = transactions.Where(t => IsIncomeType(t.Type)).Sum(t => t.Income);
+            SubsidyReceived = transactions.Where(t => IsIncomeType(t.Type) && t.Category == "교회보조금").Sum(t => t.Income);
 
-            // 3. 진척도 % 계산 및 색상 결정
             if (TotalBudget > 0)
             {
                 ProgressPercentage = (double)(TotalExpense / TotalBudget) * 100;
@@ -381,47 +334,41 @@
             }
             else { ProgressPercentage = 0; ProgressBarColor = "bg-success"; }
 
-            SubsidyRate = SubsidyBudget > 0 ? (int)Math.Round((SubsidyReceived / SubsidyBudget) * 100) : 0;
-            if (SubsidyRate > 100) SubsidyRate = 100;
+            IncomeRate = TotalIncomeBudget > 0 ? (int)Math.Round((TotalIncome / TotalIncomeBudget) * 100) : 0;
+            if (IncomeRate > 100) IncomeRate = 100;
 
-            // 4. User 전용: 수입/지출 항목별 % 통계 계산
-            if (!IsAdmin)
+            IncomeStats = transactions.Where(t => IsIncomeType(t.Type) && t.Income > 0)
+                .GroupBy(t => t.Category)
+                .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Income), Percentage = TotalIncome > 0 ? (int)Math.Round((g.Sum(x => x.Income) / TotalIncome) * 100) : 0 })
+                .OrderByDescending(x => x.Amount).ToList();
+
+            ExpenseStats = transactions.Where(t => IsExpenseType(t.Type) && t.Expense > 0)
+                .GroupBy(t => t.Category)
+                .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Expense), Percentage = TotalExpense > 0 ? (int)Math.Round((g.Sum(x => x.Expense) / TotalExpense) * 100) : 0 })
+                .OrderByDescending(x => x.Amount).ToList();
+
+            // ========================================================
+            // 🚀 핵심 로직: 지출결의서-장부 매칭 (과거 연도 데이터까지 모두 로드)
+            // ========================================================
+            var reportsQuery = DbContext.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == CurrentYear);
+            if (DashboardDept != "전체") reportsQuery = reportsQuery.Where(r => r.Department == DashboardDept);
+            var reports = await reportsQuery.OrderByDescending(r => r.Date).ToListAsync();
+
+            // 입금 내역은 CurrentYear 필터를 걸지 않고 모두 로드하여 매칭 성공률 100% 확보
+            var allIncomeQuery = DbContext.Transactions.AsNoTracking().Where(t => t.Type == "수입" || t.Type == "Income");
+            if (DashboardDept != "전체") allIncomeQuery = allIncomeQuery.Where(t => t.Department == DashboardDept);
+            var incomeListForMatching = await allIncomeQuery.OrderBy(t => t.Date).ToListAsync();
+
+            SubsidyRequests.Clear();
+
+            foreach (var rep in reports)
             {
-                IncomeStats = transactions.Where(t => t.Type == "수입" && t.Income > 0)
-                    .GroupBy(t => t.Category)
-                    .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Income), Percentage = TotalIncome > 0 ? (int)Math.Round((g.Sum(x => x.Income) / TotalIncome) * 100) : 0 })
-                    .OrderByDescending(x => x.Amount).ToList();
+                var matchedIncome = incomeListForMatching.FirstOrDefault(t => t.Date.Date >= rep.Date.Date && t.Income == rep.TotalAmount && (DashboardDept != "전체" || t.Department == rep.Department));
 
-                ExpenseStats = transactions.Where(t => t.Type == "지출" && t.Expense > 0)
-                    .GroupBy(t => t.Category)
-                    .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Expense), Percentage = TotalExpense > 0 ? (int)Math.Round((g.Sum(x => x.Expense) / TotalExpense) * 100) : 0 })
-                    .OrderByDescending(x => x.Amount).ToList();
+                SubsidyRequests.Add(new SubsidyRequestItem { RequestDate = rep.Date, Title = (DashboardDept == "전체" ? $"[{rep.Department}] " : "") + rep.Title, Amount = rep.TotalAmount, DepositDate = matchedIncome?.Date });
 
-                // 5. User 전용: 지출결의서-장부 자동 매칭 (보조금 추적)
-                var reports = await DbContext.ExpenseReports.AsNoTracking()
-                    .Where(r => r.Department == DashboardDept && r.FiscalYear == CurrentYear)
-                    .OrderByDescending(r => r.Date).ToListAsync();
-
-                var incomeListForMatching = transactions.Where(t => t.Type == "수입").OrderBy(t => t.Date).ToList();
-                SubsidyRequests.Clear();
-
-                foreach (var rep in reports)
-                {
-                    var matchedIncome = incomeListForMatching.FirstOrDefault(t => t.Date.Date >= rep.Date.Date && t.Income == rep.TotalAmount);
-                    SubsidyRequests.Add(new SubsidyRequestItem { RequestDate = rep.Date, Title = rep.Title, Amount = rep.TotalAmount, DepositDate = matchedIncome?.Date });
-                    if (matchedIncome != null) incomeListForMatching.Remove(matchedIncome);
-                }
-            }
-            // 6. Admin 전용: 최근 활동 내역
-            else
-            {
-                var logList = await DbContext.ActivityLogs.AsNoTracking().OrderByDescending(log => log.Timestamp).ToListAsync();
-                if (DashboardDept != "전체")
-                {
-                    var targetUsers = await DbContext.Users.Where(u => u.Department == DashboardDept).Select(u => u.Username).ToListAsync();
-                    logList = logList.Where(log => targetUsers.Contains(log.Username) || log.Details.Contains(DashboardDept) || log.Action.Contains(DashboardDept)).ToList();
-                }
-                RecentActivities = logList.Take(8).ToList();
+                // 중복 매칭 방지
+                if (matchedIncome != null) incomeListForMatching.Remove(matchedIncome);
             }
         }
         catch (Exception ex)
@@ -432,15 +379,5 @@
         {
             isLoading = false;
         }
-    }
-
-    private string GetTimeAgo(DateTime dt)
-    {
-        var ts = new TimeSpan(DateTime.Now.Ticks - dt.Ticks);
-        double delta = Math.Abs(ts.TotalSeconds);
-        if (delta < 60) return "방금 전";
-        if (delta < 3600) return ts.Minutes + "분 전";
-        if (delta < 86400) return ts.Hours + "시간 전";
-        return ts.Days + "일 전";
     }
 }

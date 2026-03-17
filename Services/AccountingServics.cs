@@ -587,7 +587,32 @@ namespace INcheonChurchWeb.Services
         // 5. 예산 및 분류 설정
         // =========================================================
         public async Task<List<BudgetPlan>> GetBudgetPlansAsync(string dept, int year, string type) => await _db.BudgetPlans.AsNoTracking().Where(b => b.Department == dept && b.Year == year && b.Type == type).ToListAsync();
-        public async Task SaveBudgetPlanAsync(BudgetPlan plan) { if (plan.Id == 0) _db.BudgetPlans.Add(plan); else { var ex = await _db.BudgetPlans.FindAsync(plan.Id); if (ex != null) _db.Entry(ex).CurrentValues.SetValues(plan); } await _db.SaveChangesAsync(); }
+        public async Task SaveBudgetPlanAsync(BudgetPlan plan)
+        {
+            if (plan == null) return;
+
+            // 정규화: UI에서 한글("수입"/"지출")로 들어와도 DB는 "Income"/"Expense"로 저장
+            if (!string.IsNullOrEmpty(plan.Type))
+            {
+                if (plan.Type.Equals("수입", StringComparison.OrdinalIgnoreCase)) plan.Type = "Income";
+                else if (plan.Type.Equals("지출", StringComparison.OrdinalIgnoreCase)) plan.Type = "Expense";
+            }
+
+            if (plan.Id == 0)
+            {
+                _db.BudgetPlans.Add(plan);
+            }
+            else
+            {
+                var ex = await _db.BudgetPlans.FindAsync(plan.Id);
+                if (ex != null)
+                {
+                    _db.Entry(ex).CurrentValues.SetValues(plan);
+                }
+            }
+
+            await _db.SaveChangesAsync();
+        }
         public async Task DeleteBudgetPlanAsync(int id) { var t = await _db.BudgetPlans.FindAsync(id); if (t != null) { _db.BudgetPlans.Remove(t); await _db.SaveChangesAsync(); } }
         public async Task<List<CategoryMapping>> GetMappingsAsync(string dept) => await _db.CategoryMappings.AsNoTracking().Where(m => m.Department == dept).ToListAsync();
         public async Task SaveMappingAsync(CategoryMapping m) { if (m.Id == 0) _db.CategoryMappings.Add(m); else { var ex = await _db.CategoryMappings.FindAsync(m.Id); if (ex != null) _db.Entry(ex).CurrentValues.SetValues(m); } await _db.SaveChangesAsync(); }
