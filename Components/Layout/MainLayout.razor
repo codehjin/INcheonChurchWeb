@@ -14,7 +14,8 @@
 
         <main>
             <div class="top-row px-4">
-                <span class="me-3">👤 <b>@CurrentUser.Username</b>님 (@CurrentUser.Department)</span>
+                @* 🚀 아이디(Username)와 소속 부서(Department.Name)를 조합해서 보여줍니다 *@
+                <span class="me-3">👤 <b>@CurrentUser.Username</b>님 (@(CurrentUser.Department?.Name ?? "소속없음"))</span>
                 <button class="btn btn-link text-danger text-decoration-none" @onclick="Logout">로그아웃</button>
             </div>
 

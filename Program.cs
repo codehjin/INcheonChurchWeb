@@ -75,16 +75,15 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// DB 자동 생성 및 초기 데이터 설정
+// 🚀 [수정됨] DB 자동 생성 및 초기 데이터 설정
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var db = services.GetRequiredService<AppDbContext>();
-    var accService = services.GetRequiredService<AccountingService>();
 
-    db.Database.EnsureCreated();
-    accService.EnsureDefaultUsersAsync().Wait();
-    accService.EnsureDefaultMappingsAsync().Wait();
+    // 이 한 줄이 부서(Department) 테이블을 만들고, 
+    // admin 계정과 초기 예산 세팅을 한 번에 완벽하게 처리해 줍니다!
+    DbInitializer.Initialize(db);
 }
 
 app.Run();

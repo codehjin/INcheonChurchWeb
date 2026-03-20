@@ -1,22 +1,40 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace INcheonChurchWeb.Models
 {
-    // 사용자 (기존 유지)
+    // 🚀 1. 신규 추가: 부서 관리 테이블
+    public class Department
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+    }
+
+    // 🚀 2. 사용자 (전면 개편)
     public partial class User
     {
         [Key]
-        public string Username { get; set; }
-        public string Password { get; set; }
-        public string Role { get; set; }
-        public string Department { get; set; }
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+        public string Role { get; set; } = "";
+
+        // 신규 필드: 사용자 이름 및 활성화 상태
+        public string FullName { get; set; } = "";
+        public bool IsActive { get; set; } = true;
+
+        // 부서 연결 (string -> int 교체)
+        public int DepartmentId { get; set; }
+
+        [ForeignKey("DepartmentId")]
+        public virtual Department? Department { get; set; }
     }
 
-    // 회계 장부 (속성 중복 해결 및 partial 추가)
+    // 🚀 3. 회계 장부
     public partial class LedgerEntry
     {
         public int Id { get; set; }
-        public string Department { get; set; } = "";
+        public int DepartmentId { get; set; } // 교체됨
         public DateTime Date { get; set; }
         public int FiscalYear { get; set; }
         public int Quarter { get; set; }
@@ -26,66 +44,62 @@ namespace INcheonChurchWeb.Models
         public decimal Income { get; set; }
         public decimal Expense { get; set; }
         public bool IsAudited { get; set; }
-
-        // SQLite 'NOT NULL' 제약 조건 오류 방지
         public string Note { get; set; } = "";
+        public string ReceiptPath { get; set; } = "";
     }
 
-    // 예산 계획표 (partial 추가)
+    // 🚀 4. 예산 계획표
     public partial class BudgetPlan
     {
         public int Id { get; set; }
-        public string Department { get; set; } // 부서
-        public int Year { get; set; }          // 연도
-        public string Type { get; set; }       // 구분 (수입/지출)
-        public string Category { get; set; }   // 항 (예: 행사비)
-        public string? SubCategory { get; set; } // 목 (예: 부활절 특별활동비)
-        public string? CalcDetail { get; set; }  // 산출내역
-        public decimal Amount { get; set; }      // 금액
+        public int DepartmentId { get; set; } // 교체됨
+        public int Year { get; set; }
+        public string Type { get; set; } = "";
+        public string Category { get; set; } = "";
+        public string? SubCategory { get; set; }
+        public string? CalcDetail { get; set; }
+        public decimal Amount { get; set; }
     }
 
-    // ★ 신규 추가: 자동 분류 매핑 규칙
+    // 🚀 5. 자동 분류 매핑 규칙
     public partial class CategoryMapping
     {
         public int Id { get; set; }
-        public string Department { get; set; } // 부서
-        public string Keyword { get; set; }    // 은행 적요에 포함된 단어 (예: 다이소)
-        public string Category { get; set; }   // 매핑할 항목 (예: 행사비)
+        public int DepartmentId { get; set; } // 교체됨
+        public string Keyword { get; set; } = "";
+        public string Category { get; set; } = "";
     }
+
+    // 🚀 6. 분기 마감
     public class QuarterClose
     {
         public int Id { get; set; }
-        public string Department { get; set; }
+        public int DepartmentId { get; set; } // 교체됨
         public int Year { get; set; }
         public int Quarter { get; set; }
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public bool IsClosed { get; set; }
     }
-        public partial class LedgerEntry
-    {
-        // 기존 필드들...
-        public string ReceiptPath { get; set; } = ""; // 영수증 파일 경로 (예: /uploads/2026-01-01_간식_빵.jpg)
-    }
 
-    // [신규] 활동 로그 (로그인, 데이터 변경 등)
+    // 🚀 7. 활동 로그 (이건 로그인 아이디 기준이므로 그대로 유지)
     public class ActivityLog
     {
         public int Id { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.Now;
         public string Username { get; set; } = "";
-        public string Action { get; set; } = ""; // Login, Import, Delete 등
+        public string Action { get; set; } = "";
         public string Details { get; set; } = "";
     }
 
-    // [신규] 데이터 백업 스냅샷
+    // 🚀 8. 데이터 백업 스냅샷
     public class DataBackup
     {
         public int Id { get; set; }
         public DateTime BackupDate { get; set; } = DateTime.Now;
-        public string Department { get; set; } = "";
+        public int DepartmentId { get; set; } // 교체됨
         public string Memo { get; set; } = "";
-        public string DataType { get; set; } = ""; // Ledger, Budget, Mapping 등
-        public string JsonData { get; set; } = ""; // 실제 데이터 직렬화본
+        public string DataType { get; set; } = "";
+        public string JsonData { get; set; } = "";
     }
 }

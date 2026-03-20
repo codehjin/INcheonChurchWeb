@@ -59,18 +59,21 @@
                 <label class="form-label fw-bold text-muted small">부서</label>
                 @if (IsAdmin)
                 {
-                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartment">
-                        <option value="">부서 전체보기</option>
+                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
+                        <option value="0">부서 전체보기</option>
                         @foreach (var dept in Departments)
                         {
-                            <option value="@dept">@dept</option>
+                            @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
+                            {
+                                <option value="@dept.Id">@dept.Name</option>
+                            }
                         }
                     </select>
                 }
                 else
                 {
                     <div class="fw-bold text-primary fs-5">
-                        @(string.IsNullOrEmpty(SelectedDepartment) ? "로그인 필요" : SelectedDepartment)
+                        @(CurrentUser?.Department?.Name ?? "로그인 필요")
                     </div>
                 }
             </div>
@@ -128,9 +131,9 @@
                             <td class="text-center"><span class="badge bg-secondary">@item.Category</span></td>
                             <td>
                                 @item.Description
-                                @if (IsAdmin && string.IsNullOrEmpty(SelectedDepartment))
+                                @if (IsAdmin && SelectedDepartmentId == 0)
                                 {
-                                    <span class="badge bg-light text-dark border ms-2">@item.Department</span>
+                                    <span class="badge bg-light text-dark border ms-2">@(item.Department)</span>
                                 }
                             </td>
                             <td class="text-end text-danger fw-bold pe-4">@item.Expense.ToString("N0")</td>
@@ -177,7 +180,10 @@
 <div class="print-area">
     <div class="print-header text-center mb-4">
         <h3>@CurrentYear 년 @(CurrentMonth > 0 ? CurrentMonth + "월" : (CurrentQuarter > 0 ? CurrentQuarter + "분기" : "전체")) 지출 증빙서류</h3>
-        <h5>부서: @(IsAdmin && string.IsNullOrEmpty(SelectedDepartment) ? "전체 부서 통합" : SelectedDepartment)</h5>
+        @{
+            string printDeptName = SelectedDepartmentId == 0 ? "전체 부서 통합" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "";
+        }
+        <h5>부서: @printDeptName</h5>
     </div>
 
     <div class="receipt-grid">
@@ -189,9 +195,9 @@
                         <span class="badge bg-secondary me-2">No.@item.Id</span>
                         <strong>@item.Date.ToString("yyyy-MM-dd")</strong>
                         <span class="mx-2">|</span>
-                        @if (IsAdmin && string.IsNullOrEmpty(SelectedDepartment))
+                        @if (IsAdmin && SelectedDepartmentId == 0)
                         {
-                            <span class="badge border border-dark text-dark me-2">@item.Department</span>
+                            <span class="badge border border-dark text-dark me-2">@(item.Department)</span>
                         }
                         <span>@item.Category</span>
                         <span class="mx-2">|</span>
@@ -360,15 +366,13 @@
     private int CurrentYear = DateTime.Now.Year;
     private int CurrentMonth = DateTime.Now.Month;
     private int CurrentQuarter = 0;
-    private string SelectedDepartment = "";
+    private int SelectedDepartmentId = 0;
     private bool IsAdmin = false;
-
-    private readonly string[] Departments = new[] { "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" };
+    private List<Department> Departments = new();
 
     private List<LedgerEntry> AllTransactions = new();
     private List<LedgerEntry> FilteredTransactions = new();
 
-    // 🚀 2. 동적 자동완성을 위한 변수 (카테고리, 적요)
     private List<string> UniqueCategories = new();
     private List<string> UniqueDescriptions = new();
 
@@ -383,23 +387,32 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser != null && !string.IsNullOrEmpty(CurrentUser.Department))
+        Departments = await AccService.GetDepartmentsAsync();
+        if (CurrentUser != null && CurrentUser.Department != null)
         {
-            if (CurrentUser.Department == "교육국" || CurrentUser.Department == "관리자" || CurrentUser.Role == "Admin")
+            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin")
             {
                 IsAdmin = true;
-                SelectedDepartment = "";
+                SelectedDepartmentId = 0;
             }
             else
             {
                 IsAdmin = false;
-                SelectedDepartment = CurrentUser.Department;
+                SelectedDepartmentId = CurrentUser.DepartmentId;
             }
             await LoadData();
         }
     }
 
-    private async Task OnDeptChanged(ChangeEventArgs e) { SelectedDepartment = e.Value?.ToString() ?? ""; await LoadData(); }
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int deptId))
+        {
+            SelectedDepartmentId = deptId;
+            await LoadData();
+        }
+    }
+
     private async Task ChangeYear(int value) { CurrentYear += value; await LoadData(); }
     private async Task ChangeMonth(int value) { CurrentMonth += value; if (CurrentMonth > 12) { CurrentMonth = 1; CurrentYear++; } else if (CurrentMonth < 1) { CurrentMonth = 12; CurrentYear--; } CurrentQuarter = 0; await LoadData(); }
     private async Task OnMonthChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int m)) { CurrentMonth = m; CurrentQuarter = 0; await LoadData(); } }
@@ -407,17 +420,16 @@
 
     private async Task LoadData()
     {
-        var query = DbContext.Transactions.AsNoTracking().Where(t => t.FiscalYear == CurrentYear && t.Type == "지출");
-
-        if (!string.IsNullOrEmpty(SelectedDepartment))
+        // 🚀 에러 원인 해결: .Include(t => t.DepartmentInfo) 로 수정 완료
+        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
+                             .Where(t => t.FiscalYear == CurrentYear && t.Type == "지출");
+        if (SelectedDepartmentId != 0)
         {
-            query = query.Where(t => t.Department == SelectedDepartment);
+            query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
         }
 
-        // 전체년도 데이터를 모두 가져옴
         var allYearData = await query.OrderByDescending(t => t.Date).ToListAsync();
 
-        // 선택된 기간에 맞게 1차 필터링
         if (CurrentMonth > 0)
         {
             AllTransactions = allYearData.Where(t => t.Date.Month == CurrentMonth).ToList();
@@ -442,20 +454,8 @@
         if (!string.IsNullOrEmpty(filterDesc)) temp = temp.Where(x => x.Description.Contains(filterDesc, StringComparison.OrdinalIgnoreCase));
         FilteredTransactions = temp.ToList();
 
-        // 🚀 3. 텍스트 필터링까지 완료된 "현재 화면의 내역(FilteredTransactions)"에서만 단어 추출
-        UniqueCategories = FilteredTransactions
-            .Where(t => !string.IsNullOrWhiteSpace(t.Category))
-            .Select(t => t.Category.Trim())
-            .Distinct()
-            .OrderBy(c => c)
-            .ToList();
-
-        UniqueDescriptions = FilteredTransactions
-            .Where(t => !string.IsNullOrWhiteSpace(t.Description))
-            .Select(t => t.Description.Trim())
-            .Distinct()
-            .OrderBy(d => d)
-            .ToList();
+        UniqueCategories = FilteredTransactions.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
+        UniqueDescriptions = FilteredTransactions.Where(t => !string.IsNullOrWhiteSpace(t.Description)).Select(t => t.Description.Trim()).Distinct().OrderBy(d => d).ToList();
     }
 
     private async Task TriggerUpload(int id)
@@ -468,14 +468,12 @@
     private async Task HandleFileSelected(InputFileChangeEventArgs e)
     {
         if (IsAdmin || selectedIdForUpload == 0) return;
-
         var file = e.File;
         if (file.Size > 1024 * 1024 * 20)
         {
             await JSRuntime.InvokeVoidAsync("alert", "파일 크기는 20MB 이하여야 합니다.");
             return;
         }
-
         var result = await AccService.UploadReceiptAsync(file, selectedIdForUpload);
         if (result == "OK")
         {
@@ -491,7 +489,6 @@
     private async Task DeleteReceipt(int id)
     {
         if (IsAdmin) return;
-
         if (await JSRuntime.InvokeAsync<bool>("confirm", "등록된 영수증을 삭제하시겠습니까? (내역은 유지됩니다)"))
         {
             await AccService.RemoveReceiptAsync(id);

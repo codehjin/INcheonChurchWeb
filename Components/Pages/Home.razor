@@ -10,7 +10,7 @@
 <PageTitle>인천중앙교회 재정 시스템</PageTitle>
 
 <div class="container mt-4 mb-5">
-    @if (string.IsNullOrEmpty(CurrentUser?.Department))
+    @if (string.IsNullOrEmpty(CurrentUser?.Username))
     {
         @* 로그인 전 화면 *@
         <div class="text-center py-5">
@@ -45,10 +45,16 @@
                     <div class="d-flex align-items-center bg-light p-2 rounded shadow-sm border">
                         <i class="bi bi-funnel-fill text-secondary me-2 ms-1"></i>
                         <label class="fw-bold me-2 text-dark text-nowrap">부서 필터:</label>
-                        <select class="form-select border-primary fw-bold text-primary w-auto" @onchange="OnDeptChanged" value="@DashboardDept">
+                        @* 🚀 value를 숫자로 받도록 수정 *@
+                        <select class="form-select border-primary fw-bold text-primary w-auto" @onchange="OnDeptChanged" value="@DashboardDeptId">
+                            <option value="0">전체 부서 통합보기</option>
                             @foreach (var dept in Departments)
                             {
-                                <option value="@dept">@(dept == "전체" ? "전체 부서 통합보기" : dept)</option>
+                                @* 관리자용 특수 부서는 제외하고 보여줌 *@
+                                @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
+                                {
+                                    <option value="@dept.Id">@dept.Name</option>
+                                }
                             }
                         </select>
                     </div>
@@ -56,7 +62,9 @@
                 else
                 {
                     <div class="badge bg-primary fs-5 p-2 shadow-sm">
-                        <i class="bi bi-person-badge me-2"></i>@DashboardDept
+                        <i class="bi bi-person-badge me-2"></i>
+                        @* 🚀 수정: .Name이 null일 경우를 대비해 Username이라도 출력 *@
+                        @(CurrentUser?.Department?.Name ?? CurrentUser?.Username ?? "사용자")
                     </div>
                 }
             </div>
@@ -162,7 +170,6 @@
             <div class="card border-0 shadow-sm mb-5">
                 <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
                     <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-check-fill text-success me-2"></i>지출결의서 신청 및 입금 현황</h5>
-                    @* 🚀 총 신청액 누계 추가 *@
                     <span class="badge bg-light text-dark border fs-6">총 신청액 누계: <span class="text-primary fw-bold">@SubsidyRequests.Sum(r => r.Amount).ToString("N0")원</span></span>
                 </div>
                 <div class="table-responsive">
@@ -222,10 +229,15 @@
 
     private int CurrentYear = DateTime.Now.Year;
     private bool IsAdmin = false;
-    private string DashboardDept = "전체";
+
+    // 🚀 DashboardDept (string) -> DashboardDeptId (int) 로 교체
+    // 0 이면 "전체"를 의미합니다.
+    private int DashboardDeptId = 0;
+
     private bool isLoading = true;
 
-    private readonly string[] Departments = new[] { "전체", "영유아부", "유치부", "유년부", "초등부", "중고등부", "교회학교운영팀" };
+    // 🚀 문자열 배열 대신 실제 DB의 Department 목록을 가져옵니다.
+    private List<Department> Departments = new();
 
     private decimal TotalBudget = 0;
     private decimal TotalExpense = 0;
@@ -248,23 +260,27 @@
 
     protected override async Task OnInitializedAsync()
     {
-        if (CurrentUser != null && !string.IsNullOrEmpty(CurrentUser.Department))
+        // 🚀 부서 목록을 DB에서 가져옵니다.
+        Departments = await Accounting.GetDepartmentsAsync();
+
+        if (CurrentUser != null && CurrentUser.Department != null)
         {
-            if (CurrentUser.Department == "교육국" || CurrentUser.Role == "Admin" || CurrentUser.Department == "관리자")
+            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Role == "Admin" || CurrentUser.Department.Name == "관리자")
             {
                 IsAdmin = true;
-                DashboardDept = "전체";
+                DashboardDeptId = 0; // 0 = 전체보기
             }
             else
             {
                 IsAdmin = false;
-                DashboardDept = CurrentUser.Department;
+                DashboardDeptId = CurrentUser.DepartmentId; // 자기 부서 고정
             }
 
             try
             {
+                // 🚀 문자열이 아닌 Id 기반으로 필터링
                 var latestBudgetYear = await DbContext.BudgetPlans
-                    .Where(b => DashboardDept == "전체" || b.Department == DashboardDept)
+                    .Where(b => DashboardDeptId == 0 || b.DepartmentId == DashboardDeptId)
                     .OrderByDescending(b => b.Year)
                     .Select(b => b.Year)
                     .FirstOrDefaultAsync();
@@ -292,8 +308,12 @@
 
     private async Task OnDeptChanged(ChangeEventArgs e)
     {
-        DashboardDept = e.Value?.ToString() ?? "전체";
-        await LoadDashboardData();
+        // 🚀 선택된 옵션의 value를 int로 변환
+        if (int.TryParse(e.Value?.ToString(), out int deptId))
+        {
+            DashboardDeptId = deptId;
+            await LoadDashboardData();
+        }
     }
 
     private bool IsExpenseType(string t) => string.Equals(t, "Expense", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "지출", StringComparison.OrdinalIgnoreCase);
@@ -307,7 +327,8 @@
         try
         {
             var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
-            if (DashboardDept != "전체") budgetQuery = budgetQuery.Where(b => b.Department == DashboardDept);
+            // 🚀 문자열 필터 대신 Id 필터 적용 (0이면 조건 무시)
+            if (DashboardDeptId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == DashboardDeptId);
             var budgetList = await budgetQuery.ToListAsync();
 
             TotalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
@@ -315,9 +336,9 @@
 
             SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
 
-            // 해당 연도 장부 데이터 로드 (차트 및 진척도 용)
+            // 해당 연도 장부 데이터 로드
             var transQuery = DbContext.Transactions.AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
-            if (DashboardDept != "전체") transQuery = transQuery.Where(t => t.Department == DashboardDept);
+            if (DashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == DashboardDeptId);
             var transactions = await transQuery.ToListAsync();
 
             TotalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
@@ -348,26 +369,44 @@
                 .OrderByDescending(x => x.Amount).ToList();
 
             // ========================================================
-            // 🚀 핵심 로직: 지출결의서-장부 매칭 (과거 연도 데이터까지 모두 로드)
+            // 🚀 지출결의서-장부 매칭 로직 수정 부분
             // ========================================================
             var reportsQuery = DbContext.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == CurrentYear);
-            if (DashboardDept != "전체") reportsQuery = reportsQuery.Where(r => r.Department == DashboardDept);
+
+            // 373줄: .Department를 .DepartmentId로 수정
+            if (DashboardDeptId != 0) reportsQuery = reportsQuery.Where(r => r.DepartmentId == DashboardDeptId);
             var reports = await reportsQuery.OrderByDescending(r => r.Date).ToListAsync();
 
-            // 입금 내역은 CurrentYear 필터를 걸지 않고 모두 로드하여 매칭 성공률 100% 확보
             var allIncomeQuery = DbContext.Transactions.AsNoTracking().Where(t => t.Type == "수입" || t.Type == "Income");
-            if (DashboardDept != "전체") allIncomeQuery = allIncomeQuery.Where(t => t.Department == DashboardDept);
+            if (DashboardDeptId != 0) allIncomeQuery = allIncomeQuery.Where(t => t.DepartmentId == DashboardDeptId);
             var incomeListForMatching = await allIncomeQuery.OrderBy(t => t.Date).ToListAsync();
 
             SubsidyRequests.Clear();
 
             foreach (var rep in reports)
             {
-                var matchedIncome = incomeListForMatching.FirstOrDefault(t => t.Date.Date >= rep.Date.Date && t.Income == rep.TotalAmount && (DashboardDept != "전체" || t.Department == rep.Department));
+                // 384줄: t.Department == rep.Department 를 t.DepartmentId == rep.DepartmentId 로 수정
+                var matchedIncome = incomeListForMatching.FirstOrDefault(t =>
+                    t.Date.Date >= rep.Date.Date &&
+                    t.Income == rep.TotalAmount &&
+                    (DashboardDeptId == 0 || t.DepartmentId == rep.DepartmentId));
 
-                SubsidyRequests.Add(new SubsidyRequestItem { RequestDate = rep.Date, Title = (DashboardDept == "전체" ? $"[{rep.Department}] " : "") + rep.Title, Amount = rep.TotalAmount, DepositDate = matchedIncome?.Date });
+                // 390줄: rep.Department 를 rep.DepartmentId 로 수정 (부서 이름을 가져오기 위해 List에서 찾음)
+                string deptPrefix = "";
+                if (DashboardDeptId == 0)
+                {
+                    var repDept = Departments.FirstOrDefault(d => d.Id == rep.DepartmentId);
+                    if (repDept != null) deptPrefix = $"[{repDept.Name}] ";
+                }
 
-                // 중복 매칭 방지
+                SubsidyRequests.Add(new SubsidyRequestItem
+                {
+                    RequestDate = rep.Date,
+                    Title = deptPrefix + rep.Title,
+                    Amount = rep.TotalAmount,
+                    DepositDate = matchedIncome?.Date
+                });
+
                 if (matchedIncome != null) incomeListForMatching.Remove(matchedIncome);
             }
         }

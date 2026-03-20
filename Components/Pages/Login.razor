@@ -1,12 +1,13 @@
 ﻿@page "/login"
 @using INcheonChurchWeb.Models
 @using INcheonChurchWeb.Services
-@inject AccountingService AccService
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext DbContext
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
 <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center;">
-
     <div class="card shadow-lg p-4 border-0" style="width: 100%; max-width: 400px; border-radius: 15px;">
         <div class="text-center mb-4">
             <h2 class="fw-bold text-primary">⛪ 교회학교 회계 시스템</h2>
@@ -15,11 +16,11 @@
 
         <div class="mb-3">
             <label class="form-label fw-bold">아이디</label>
-            <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="" />
+            <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="ID 입력" />
         </div>
         <div class="mb-4">
             <label class="form-label fw-bold">비밀번호</label>
-            <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="" />
+            <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="Password 입력" />
         </div>
 
         @if (!string.IsNullOrEmpty(ErrorMessage))
@@ -27,14 +28,15 @@
             <div class="alert alert-danger p-2 text-center small mb-3">@ErrorMessage</div>
         }
 
-        <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" @onclick="TryLogin">
+        <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" @onclick="TryLogin" disabled="@isLoading">
             @if (isLoading)
             {
-                <span>🔄 확인 중...</span>
+                <span class="spinner-border spinner-border-sm me-2"></span>
+            
+                <span>확인 중...</span>
             }
             else
             {
-
                 <span>로그인</span>
             }
         </button>
@@ -53,40 +55,50 @@
     private string ErrorMessage = "";
     private bool isLoading = false;
 
-    // 페이지 로드 시 계정 점검
-    protected override async Task OnInitializedAsync()
-    {
-        await AccService.EnsureDefaultUsersAsync();
-    }
-
     private async Task TryLogin()
     {
+        if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
+        {
+            ErrorMessage = "아이디와 비밀번호를 입력하세요.";
+            return;
+        }
+
         isLoading = true;
         ErrorMessage = "";
 
-        var users = await AccService.GetAllUsersAsync();
-
-        // 안전장치: 사용자 없으면 생성 후 다시 조회
-        if (users.Count == 0)
+        try
         {
-            await AccService.EnsureDefaultUsersAsync();
-            users = await AccService.GetAllUsersAsync();
+            // 🚀 핵심 수정: .Include(u => u.Department)를 사용하여 부서 정보를 함께 로드합니다.
+            // 이 처리가 없으면 화면에서 CurrentUser.Department.Name이 모두 null로 나옵니다.
+            var user = await DbContext.Users
+                .Include(u => u.Department)
+                .FirstOrDefaultAsync(u => u.Username == Username && u.Password == Password);
+
+            if (user != null)
+            {
+                if (!user.IsActive)
+                {
+                    ErrorMessage = "비활성화된 계정입니다. 관리자에게 문의하세요.";
+                }
+                else
+                {
+                    // 부모 컴포넌트(MainLayout 등)에 로그인 성공 알림
+                    await OnLoginSuccess.InvokeAsync(user);
+                }
+            }
+            else
+            {
+                ErrorMessage = "아이디 또는 비밀번호가 틀렸습니다.";
+            }
         }
-
-        var user = users.FirstOrDefault(u => u.Username == Username && u.Password == Password);
-
-        if (user != null)
+        catch (Exception ex)
         {
-            // ★★★ 핵심 수정: Nav.NavigateTo(...) 코드가 절대 있으면 안 됩니다!
-            // 오직 부모에게 신호만 보냅니다.
-            await OnLoginSuccess.InvokeAsync(user);
+            ErrorMessage = "로그인 처리 중 오류 발생: " + ex.Message;
         }
-        else
+        finally
         {
-            ErrorMessage = "아이디 또는 비밀번호가 틀렸습니다.";
+            isLoading = false;
         }
-
-        isLoading = false;
     }
 
     private async Task EnterKey(KeyboardEventArgs e)
