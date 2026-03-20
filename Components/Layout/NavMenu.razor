@@ -6,57 +6,58 @@
     </div>
 </div>
 
-<div class="nav-scrollable">
+@* 🚀 C#이나 JS 대신 순수 CSS로 동작하는 체크박스 햄버거 버튼 *@
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+@* 🚀 메뉴 항목을 클릭하면 체크박스를 다시 눌러서 창을 닫게 만듦 *@
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu"></span> 대시보드
+                <i class="bi bi-house-door-fill fs-5 me-2"></i> 대시보드
             </NavLink>
         </div>
 
-        @* 관리자가 아닌 일반 사용자(부서)에게만 보이는 메뉴 *@
-        @if (!IsAdmin)
+        @if (!CanViewAll)
         {
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="bank-import">
-                    <span class="bi bi-list-nested-nav-menu"></span> 은행내역 불러오기
+                    <i class="bi bi-bank fs-5 me-2"></i> 은행내역 불러오기
                 </NavLink>
             </div>
 
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="expense-report-quarterly">
-                    <span class="bi bi-file-earmark-text-fill-nav-menu"></span> 지출결의서
+                    <i class="bi bi-file-earmark-text-fill fs-5 me-2"></i> 지출결의서
                 </NavLink>
             </div>
         }
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="monthly">
-                <span class="bi bi-calendar3-nav-menu"></span> 월별장부
+                <i class="bi bi-calendar3 fs-5 me-2"></i> 월별장부
             </NavLink>
         </div>
 
-        @* 🚀 권한에 따라 영수증 메뉴 이름 변경 *@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="receipt-query">
-                <span class="bi bi-receipt" aria-hidden="true"></span> @(IsAdmin ? "영수증 보기" : "영수증 관리")
+                <i class="bi bi-receipt fs-5 me-2"></i> @(CanViewAll ? "영수증 보기" : "영수증 관리")
             </NavLink>
         </div>
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="settings">
-                <span class="bi bi-gear-fill-nav-menu"></span> 환경설정
+                <i class="bi bi-gear-fill fs-5 me-2"></i> 환경설정
             </NavLink>
         </div>
     </nav>
 </div>
 
 @code {
-    // 부모(MainLayout)로부터 전달받는 파라미터
     [Parameter] public User? CurrentUser { get; set; }
 
-    // 💡 부서명이나 Role을 확인하여 관리자인지 판별하는 속성
-    private bool IsAdmin => CurrentUser?.Department?.Name == "교육국" ||
-                            CurrentUser?.Department?.Name == "관리자" ||
-                            CurrentUser?.Role == "Admin";
+    private bool CanViewAll => CurrentUser?.Role == "Admin" ||
+                               CurrentUser?.Role == "Auditor" ||
+                               CurrentUser?.Department?.Name == "교육국" ||
+                               CurrentUser?.Department?.Name == "관리자";
 }

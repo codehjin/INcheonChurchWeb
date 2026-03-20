@@ -390,7 +390,8 @@
         Departments = await AccService.GetDepartmentsAsync();
         if (CurrentUser != null && CurrentUser.Department != null)
         {
-            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin")
+            // 🚀 Auditor(감사/국장) 권한이 추가되었습니다.
+            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
             {
                 IsAdmin = true;
                 SelectedDepartmentId = 0;

@@ -147,7 +147,9 @@
     {
         <div class="d-flex justify-content-between align-items-center mb-2 no-print bg-white p-2 rounded border shadow-sm">
             <div>
-                <button class="btn btn-primary btn-sm fw-bold me-2" @onclick="ToggleAddForm"><i class="bi bi-plus-lg me-1"></i>수동 건별 입력</button>
+                <button class="btn btn-primary btn-sm fw-bold me-2" @onclick="ToggleAddForm">
+                    <i class="bi @(isAddingNew ? "bi-dash-lg" : "bi-plus-lg") me-1"></i>@(isAddingNew ? "입력창 닫기" : "수동 건별 입력")
+                </button>
             </div>
             <div class="d-flex align-items-center gap-2">
                 <span class="badge bg-secondary">@selectedIds.Count 선택됨</span>
@@ -166,7 +168,7 @@
     <datalist id="descriptionList">@foreach (var desc in UniqueDescriptions) { <option value="@desc"></option> }</datalist>
 
     @{
-        if (!FilteredEntries.Any())
+        if (!FilteredEntries.Any() && !isAddingNew)
         {
             <div class="card shadow-sm border-0"><table class="table table-bordered mb-0"><tr><td colspan="10" class="text-center text-muted py-5">조건에 맞는 내역이 없습니다.</td></tr></table></div>
         }
@@ -200,6 +202,18 @@
                                     <th style="width:10%" class="text-center">잔액</th>
                                     @if (!IsAdmin) { <th style="width:10%" class="text-center">관리</th> }
                                 </tr>
+                                <tr class="table-secondary">
+                                    @if (!IsAdmin) { <th><i class="bi bi-funnel-fill text-muted"></i></th> }
+                                    <th></th>
+                                    <th>
+                                        <select class="form-select form-select-sm" @bind="filterType" @bind:after="ApplyFilters">
+                                            <option value="">전체</option><option value="수입">수입</option><option value="지출">지출</option>
+                                        </select>
+                                    </th>
+                                    <th><input type="text" class="form-control form-control-sm text-center" list="categoryList" placeholder="검색" @bind="filterCategory" @bind:event="oninput" autocomplete="off" /></th>
+                                    <th><input type="text" class="form-control form-control-sm text-center" list="descriptionList" placeholder="검색" @bind="filterDesc" @bind:event="oninput" autocomplete="off" /></th>
+                                    <th colspan="5"></th>
+                                </tr>
                             </thead>
                             <tbody>
                                 <tr class="table-warning fw-bold">
@@ -215,9 +229,10 @@
                                     @if (!IsAdmin) { <td></td> }
                                 </tr>
 
+                                @* 🚀 수동 입력 폼 (이 부분을 최적화) *@
                                 @if (!IsAdmin && isAddingNew)
                                 {
-                                    <tr class="table-info">
+                                    <tr class="table-info border-primary">
                                         <td class="text-center"><span class="badge bg-primary">NEW</span></td>
                                         <td class="text-center"><input type="date" class="form-control form-control-sm px-1" @bind="newItem.Date" /></td>
                                         <td class="text-center">
@@ -232,15 +247,18 @@
                                                 else { @foreach (var c in ExpenseCats) { <option value="@c">@c</option> } }
                                             </select>
                                         </td>
-                                        <td class="text-start"><input type="text" class="form-control form-control-sm px-1" list="descriptionList" placeholder="적요" @bind="newItem.Description" autocomplete="off" /></td>
-                                        <td class="text-start"><input type="text" class="form-control form-control-sm px-1" placeholder="비고" @bind="newItem.Note" /></td>
-                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Income" placeholder="0" /></td>
-                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Expense" placeholder="0" /></td>
+                                        <td class="text-start">
+                                            @* 즉각 반영을 위해 bind-value:event="oninput" 사용 *@
+                                            <input type="text" class="form-control form-control-sm px-1 border-primary" list="descriptionList" placeholder="적요 (필수)" @bind-value="newItem.Description" @bind-value:event="oninput" autocomplete="off" />
+                                        </td>
+                                        <td class="text-start"><input type="text" class="form-control form-control-sm px-1" placeholder="비고" @bind-value="newItem.Note" @bind-value:event="oninput" /></td>
+                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Income" placeholder="0" disabled="@(newItem.Type == "지출")" /></td>
+                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Expense" placeholder="0" disabled="@(newItem.Type == "수입")" /></td>
                                         <td class="text-end table-active"></td>
                                         <td class="text-center">
                                             <div class="d-flex gap-1 justify-content-center">
                                                 <button class="btn btn-success btn-sm py-0 fw-bold" @onclick="SaveNewEntry">[저장]</button>
-                                                <button class="btn btn-secondary btn-sm py-0 fw-bold" @onclick="() => isAddingNew = false">[취소]</button>
+                                                <button class="btn btn-secondary btn-sm py-0 fw-bold" @onclick="ToggleAddForm">[취소]</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -274,10 +292,10 @@
                                                     else { @foreach (var c in ExpenseCats) { <option value="@c">@c</option> } }
                                                 </select>
                                             </td>
-                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" list="descriptionList" @bind="editBuffer.Description" autocomplete="off" /></td>
-                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" @bind="editBuffer.Note" /></td>
-                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Income" /></td>
-                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Expense" /></td>
+                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" list="descriptionList" @bind-value="editBuffer.Description" @bind-value:event="oninput" autocomplete="off" /></td>
+                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" @bind-value="editBuffer.Note" @bind-value:event="oninput" /></td>
+                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Income" disabled="@(editBuffer.Type == "지출")" /></td>
+                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Expense" disabled="@(editBuffer.Type == "수입")" /></td>
                                             <td class="text-end table-active fw-bold">@webRunningBalance.ToString("N0")</td>
                                             <td class="text-center">
                                                 <div class="d-flex gap-1 justify-content-center">
@@ -296,8 +314,7 @@
                                             <td class="text-center fw-bold" title="@item.Category">@item.Category</td>
                                             <td class="text-start" title="@item.Description">
                                                 @item.Description
-                                                @* 🚀 324라인: .Name 제거하고 .Department 문자열 속성 사용 *@
-                                                @if (IsAdmin && SelectedDepartmentId == 0) { <span class="badge bg-light text-dark border ms-2">@(item.Department)</span> }
+                                                @if (IsAdmin && SelectedDepartmentId == 0) { <span class="badge bg-light text-dark border ms-2">@(item.DepartmentInfo?.Name)</span> }
                                             </td>
                                             <td class="text-start small text-muted" title="@item.Note">@item.Note</td>
                                             <td class="text-end text-primary">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
@@ -401,8 +418,7 @@
                                             <td class="text-center clip-cell">
                                                 @{ string descText = item.Description ?? ""; if (descText.Length > 10) descText = descText.Substring(0, 10); }
                                                 @descText
-                                                @* 🚀 인쇄 영역도 .Name 제거하고 .Department 사용 *@
-                                                @if (IsAdmin && SelectedDepartmentId == 0) { <span> [@(item.Department)]</span> }
+                                                @if (IsAdmin && SelectedDepartmentId == 0) { <span> [@(item.DepartmentInfo?.Name)]</span> }
                                             </td>
                                             <td class="text-center clip-cell" style="@((item.Note ?? "").Length > 5 ? "font-size:8pt !important; letter-spacing:-0.5px !important;" : "")">
                                                 @{ string noteText = item.Note ?? ""; if (noteText.Length > 6) noteText = noteText.Substring(0, 6); }
@@ -431,17 +447,28 @@
     }
 </div>
 
-@* (하단 스크립트 및 @code 블록은 이전과 동일하므로 생략하거나 기존 내용을 유지하세요) *@
+<script>
+    window.downloadExcelFile = (fileName, base64String) => {
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
     private int CurrentYear = DateTime.Now.Year;
     private int CurrentMonth = DateTime.Now.Month;
     private int CurrentQuarter = 0;
-
-    private int SelectedDepartmentId = 0; 
+    private int SelectedDepartmentId = 0;
     private bool IsAdmin = false;
+    private List<Department> Departments = new();
 
+    // 🚀 에러 원인 해결: AllTransactions 대신 원래 이름인 Entries 로 복구
     private List<LedgerEntry> Entries = new();
     private List<LedgerEntry> FilteredEntries = new();
     private decimal CarryOverAmount = 0;
@@ -451,8 +478,6 @@
 
     private List<string> IncomeCats = new();
     private List<string> ExpenseCats = new();
-
-    private List<Department> Departments = new();
 
     private List<string> UniqueDescriptions = new();
     private List<string> UniqueCategories = new();
@@ -476,10 +501,10 @@
     protected override async Task OnInitializedAsync()
     {
         Departments = await Accounting.GetDepartmentsAsync();
-
         if (CurrentUser != null && CurrentUser.Department != null)
         {
-            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin")
+            // 🚀 Auditor(감사/국장) 권한이 추가되었습니다.
+if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
             {
                 IsAdmin = true;
                 SelectedDepartmentId = 0;
@@ -493,12 +518,12 @@
         }
     }
 
-    private async Task OnDeptChanged(ChangeEventArgs e) 
-    { 
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
         if (int.TryParse(e.Value?.ToString(), out int deptId))
         {
             SelectedDepartmentId = deptId;
-            await LoadData(); 
+            await LoadData();
         }
     }
 
@@ -509,14 +534,18 @@
 
     private async Task LoadData()
     {
-        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
-
-        if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
+        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
+                             .Where(t => t.FiscalYear == CurrentYear);
+        if (SelectedDepartmentId != 0)
+        {
+            query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
+        }
 
         var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
 
         var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
         if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId);
+        
         var budgetPlans = await budgetQuery.ToListAsync();
 
         IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
@@ -534,11 +563,14 @@
         CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense);
 
         IEnumerable<LedgerEntry> filteredQuery = allYearData;
-        if (CurrentMonth > 0) filteredQuery = filteredQuery.Where(x => x.Date.Month == CurrentMonth);
+        if (CurrentMonth > 0)
+        {
+            filteredQuery = allYearData.Where(t => t.Date.Month == CurrentMonth);
+        }
         else if (CurrentQuarter > 0)
         {
             int startMonth = (CurrentQuarter - 1) * 3 + 1;
-            filteredQuery = filteredQuery.Where(x => x.Date.Month >= startMonth && x.Date.Month <= startMonth + 2);
+            filteredQuery = allYearData.Where(t => t.Date.Month >= startMonth && t.Date.Month <= startMonth + 2);
         }
 
         Entries = filteredQuery.ToList();
@@ -558,41 +590,73 @@
 
         FilteredEntries = temp.ToList();
 
-        UniqueDescriptions = Entries.Where(t => !string.IsNullOrWhiteSpace(t.Description)).Select(t => t.Description.Trim()).Distinct().OrderBy(d => d).ToList();
-        UniqueCategories = Entries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
+        UniqueCategories = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
+        UniqueDescriptions = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Description)).Select(t => t.Description.Trim()).Distinct().OrderBy(d => d).ToList();
     }
 
-    private void ToggleSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) selectedIds.Add(id); else selectedIds.Remove(id); }
-    private void ToggleAll(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries) selectedIds.Add(item.Id); } else selectedIds.Clear(); }
-
-    private async Task DeleteSingle(int id)
-    {
-        var result = await JSRuntime.InvokeAsync<string>("prompt", "⚠️ [경고] 삭제 시 되돌릴 수 없습니다.\n정말 삭제하시려면 숫자 '1'을 입력하세요.");
-        if (result != null && result.Trim() == "1")
+    private void ToggleAddForm() 
+    { 
+        isAddingNew = !isAddingNew; 
+        if (isAddingNew) 
         {
-            var target = await DbContext.Transactions.FindAsync(id);
-            if (target != null) { DbContext.Transactions.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); }
+            int year = CurrentYear > 2000 ? CurrentYear : DateTime.Now.Year;
+            int month = CurrentMonth > 0 ? CurrentMonth : DateTime.Now.Month;
+            int day = (year == DateTime.Now.Year && month == DateTime.Now.Month) ? DateTime.Now.Day : 1;
+            
+            DateTime defaultDate;
+            try { defaultDate = new DateTime(year, month, day); } catch { defaultDate = DateTime.Now; }
+
+            newItem = new LedgerEntry 
+            { 
+                Date = defaultDate, 
+                Type = "지출", 
+                Income = 0, 
+                Expense = 0, 
+                DepartmentId = SelectedDepartmentId, 
+                Category = "",
+                Description = "",
+                Note = ""
+            }; 
         }
     }
 
-    private async Task DeleteSelected()
+    private async Task SaveNewEntry()
     {
-        int count = selectedIds.Count;
-        var result = await JSRuntime.InvokeAsync<string>("prompt", $"⚠️ [경고] 삭제 시 되돌릴 수 없습니다.\n선택한 {count}건을 일괄 삭제하시려면 숫자 '{count}'을(를) 입력하세요.");
-        if (result != null && result.Trim() == count.ToString())
+        if (string.IsNullOrWhiteSpace(newItem.Description)) 
         {
-            var targets = await DbContext.Transactions.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
-            DbContext.Transactions.RemoveRange(targets); await DbContext.SaveChangesAsync(); await LoadData();
+            await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요.");
+            return;
         }
+
+        if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
+        
+        newItem.DepartmentId = SelectedDepartmentId; 
+        newItem.FiscalYear = CurrentYear; 
+        newItem.Quarter = GetQuarter(newItem.Date);
+        newItem.Note ??= ""; 
+        
+        if (newItem.Type == "지출") { newItem.Income = 0; }
+        else { newItem.Expense = 0; }
+
+        DbContext.Transactions.Add(newItem); 
+        await DbContext.SaveChangesAsync(); 
+        
+        isAddingNew = false; 
+        
+        if (CurrentMonth > 0 && newItem.Date.Month != CurrentMonth)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"[{newItem.Date.Month}월] 장부로 데이터가 저장되었습니다.");
+        }
+        
+        await LoadData();
     }
 
-   private void StartEdit(LedgerEntry item)
+    private void StartEdit(LedgerEntry item)
     {
         editingItemId = item.Id;
         editBuffer = new LedgerEntry { 
             Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, 
-            Description = item.Description ?? "", // CS8601 경고 해결
-            Note = item.Note ?? "",               // CS8601 경고 해결
+            Description = item.Description ?? "", Note = item.Note ?? "", 
             Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter 
         };
     }
@@ -607,17 +671,53 @@
     {
         if (editBuffer != null)
         {
+            if (string.IsNullOrWhiteSpace(editBuffer.Description)) 
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요.");
+                return;
+            }
+
             var existing = await DbContext.Transactions.FindAsync(editBuffer.Id);
             if (existing != null)
             {
-                existing.Date = editBuffer.Date; existing.Type = editBuffer.Type; existing.Category = editBuffer.Category;
-                existing.Description = editBuffer.Description ?? ""; // CS8601 경고 해결
-                existing.Note = editBuffer.Note ?? "";               // CS8601 경고 해결
-                existing.Income = editBuffer.Income; existing.Expense = editBuffer.Expense; existing.Quarter = GetQuarter(editBuffer.Date);
+                existing.Date = editBuffer.Date; 
+                existing.Type = editBuffer.Type; 
+                existing.Category = string.IsNullOrWhiteSpace(editBuffer.Category) ? "미분류" : editBuffer.Category;
+                existing.Description = editBuffer.Description ?? ""; 
+                existing.Note = editBuffer.Note ?? "";               
+                
+                if (existing.Type == "지출") { existing.Income = 0; existing.Expense = editBuffer.Expense; }
+                else { existing.Expense = 0; existing.Income = editBuffer.Income; }
+                
+                existing.Quarter = GetQuarter(editBuffer.Date);
+                existing.FiscalYear = editBuffer.Date.Year;
+
                 await DbContext.SaveChangesAsync();
             }
             editingItemId = null;
             await LoadData();
+        }
+    }
+
+    private void ToggleSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) selectedIds.Add(id); else selectedIds.Remove(id); }
+    private void ToggleAll(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries) selectedIds.Add(item.Id); } else selectedIds.Clear(); }
+
+    private async Task DeleteSingle(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "⚠️ [경고] 정말 삭제하시겠습니까?"))
+        {
+            var target = await DbContext.Transactions.FindAsync(id);
+            if (target != null) { DbContext.Transactions.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); }
+        }
+    }
+
+    private async Task DeleteSelected()
+    {
+        int count = selectedIds.Count;
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"⚠️ [경고] 선택한 {count}건을 일괄 삭제하시겠습니까?"))
+        {
+            var targets = await DbContext.Transactions.Where(t => selectedIds.Contains(t.Id)).ToListAsync();
+            DbContext.Transactions.RemoveRange(targets); await DbContext.SaveChangesAsync(); await LoadData();
         }
     }
 
@@ -630,20 +730,6 @@
             await DbContext.SaveChangesAsync();
             bulkCategory = ""; await LoadData();
         }
-    }
-
-    private void ToggleAddForm() { isAddingNew = !isAddingNew; if (isAddingNew) newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0, DepartmentId = SelectedDepartmentId, Category = "" }; }
-
-    private async Task SaveNewEntry()
-    {
-        if (string.IsNullOrWhiteSpace(newItem.Description)) return;
-        if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
-        
-        newItem.DepartmentId = SelectedDepartmentId; 
-        newItem.FiscalYear = CurrentYear; 
-        newItem.Quarter = GetQuarter(newItem.Date);
-        
-        DbContext.Transactions.Add(newItem); await DbContext.SaveChangesAsync(); isAddingNew = false; await LoadData();
     }
 
     private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
@@ -695,7 +781,7 @@
                     ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type; ws.Cell(row, 3).Value = item.Category;
                     
                     string excelDesc = item.Description;
-                    if (IsAdmin && SelectedDepartmentId == 0) excelDesc += $" [{item.Department}]";
+                    if (IsAdmin && SelectedDepartmentId == 0) excelDesc += $" [{item.DepartmentInfo?.Name}]";
                     ws.Cell(row, 4).Value = excelDesc; 
                     
                     ws.Cell(row, 5).Value = item.Note;

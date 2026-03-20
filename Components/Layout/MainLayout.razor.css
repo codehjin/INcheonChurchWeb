@@ -1,4 +1,4 @@
-.page {
+﻿.page {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -94,3 +94,35 @@ main {
         right: 0.75rem;
         top: 0.5rem;
     }
+/* =======================================================
+   🚀 모바일 환경(스마트폰) 전용 테이블 & 글자 크기 최적화
+======================================================= */
+@media (max-width: 640px) {
+    /* 🚀 ::deep을 붙여야 장부(MonthlyLedger) 화면의 표까지 강제로 적용됩니다 */
+    ::deep .table {
+        font-size: 0.75rem !important;
+    }
+
+        ::deep .table th, ::deep .table td {
+            white-space: nowrap !important; /* 글자가 두 줄로 꺾이는 현상 방지 */
+            padding: 0.3rem 0.2rem !important;
+        }
+
+    ::deep .form-control, ::deep .form-select, ::deep .btn {
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.5rem !important;
+    }
+
+    ::deep .badge {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.3rem !important;
+    }
+
+    ::deep .fs-5 {
+        font-size: 1rem !important;
+    }
+
+    ::deep h3, ::deep h4, ::deep h5 {
+        font-size: 1.1rem !important;
+    }
+}

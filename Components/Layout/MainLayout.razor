@@ -13,10 +13,13 @@
         </div>
 
         <main>
-            <div class="top-row px-4">
-                @* 🚀 아이디(Username)와 소속 부서(Department.Name)를 조합해서 보여줍니다 *@
-                <span class="me-3">👤 <b>@CurrentUser.Username</b>님 (@(CurrentUser.Department?.Name ?? "소속없음"))</span>
-                <button class="btn btn-link text-danger text-decoration-none" @onclick="Logout">로그아웃</button>
+            <div class="top-row px-4 d-flex align-items-center">
+                @* 🚀 모바일 환경 최적화: 화면이 좁을 땐 부서명을 숨기고 긴 이름은 ... 으로 자릅니다 *@
+                <span class="me-3 text-truncate" style="max-width: 60vw;">
+                    👤 <b>@CurrentUser.Username</b>님
+                    <span class="d-none d-sm-inline">(@(CurrentUser.Department?.Name ?? "소속없음"))</span>
+                </span>
+                <button class="btn btn-sm btn-outline-danger fw-bold text-nowrap" @onclick="Logout">로그아웃</button>
             </div>
 
             <article class="content px-4">
@@ -27,6 +30,46 @@
         </main>
     }
 </div>
+
+@* 🚀 화면 중앙 정렬 & 글자 크기 2px 증가 예쁜 경고창(SweetAlert2) 스크립트 *@
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+    // 메시지 줄바꿈 처리 및 폰트 사이즈(18px) 포맷팅
+    function formatMessage(msg) {
+        if (typeof msg !== 'string') msg = String(msg);
+        let safeMsg = msg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        safeMsg = safeMsg.replace(/\n/g, '<br/>');
+        return `<div style="font-size: 18px; font-weight: 500; line-height: 1.6; color: #333; padding: 10px 0;">${safeMsg}</div>`;
+    }
+
+    // 기본 alert 교체
+    window.alert = function (message) {
+        return Swal.fire({
+            html: formatMessage(message),
+            confirmButtonText: '확인',
+            confirmButtonColor: '#0d6efd',
+            allowOutsideClick: false,
+            width: '420px',
+            animation: false // 빠른 팝업을 위해 애니메이션 제거 (원하면 true)
+        });
+    };
+
+    // 기본 confirm 교체
+    window.confirm = function (message) {
+        return Swal.fire({
+            html: formatMessage(message),
+            showCancelButton: true,
+            confirmButtonText: '확인',
+            cancelButtonText: '취소',
+            confirmButtonColor: '#0d6efd',
+            cancelButtonColor: '#6c757d',
+            allowOutsideClick: false,
+            width: '420px'
+        }).then((result) => {
+            return result.isConfirmed;
+        });
+    };
+</script>
 
 @code {
     private User? CurrentUser;
