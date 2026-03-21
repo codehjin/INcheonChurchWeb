@@ -9,9 +9,12 @@
 
 <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center;">
     <div class="card shadow-lg p-4 border-0" style="width: 100%; max-width: 400px; border-radius: 15px;">
+
+        @* 🚀 로고가 추가된 헤더 부분 *@
         <div class="text-center mb-4">
-            <h2 class="fw-bold text-primary">⛪ 교회학교 회계 시스템</h2>
-            <p class="text-muted">서비스 이용을 위해 로그인해주세요</p>
+            <img src="/images/church-logo.png" alt="인천중앙교회 로고" class="img-fluid mb-3" style="max-height: 90px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" />
+            <h4 class="fw-bold text-primary">교회학교 회계 시스템</h4>
+            <p class="text-muted small mb-0">서비스 이용을 위해 로그인해주세요</p>
         </div>
 
         <div class="mb-3">
@@ -32,7 +35,6 @@
             @if (isLoading)
             {
                 <span class="spinner-border spinner-border-sm me-2"></span>
-            
                 <span>확인 중...</span>
             }
             else
@@ -41,8 +43,8 @@
             }
         </button>
 
-        <div class="text-center mt-3">
-            <small class="text-muted">인천중앙성결교회 교육국</small>
+        <div class="text-center mt-4">
+            <small class="text-muted fw-bold">인천중앙성결교회 교육국</small>
         </div>
     </div>
 </div>

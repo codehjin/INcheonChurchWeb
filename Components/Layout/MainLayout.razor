@@ -1,4 +1,6 @@
 ﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject ProtectedLocalStorage BrowserStorage
 @using INcheonChurchWeb.Models
 
 <div class="page">
@@ -73,16 +75,44 @@
 
 @code {
     private User? CurrentUser;
+    private bool isLoaded = false;
 
-    private void HandleLoginSuccess(User user)
+    // 🚀 화면이 켜질 때, 스마트폰 금고에 저장된 로그인 정보가 있는지 확인
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var result = await BrowserStorage.GetAsync<User>("loggedInUser");
+                if (result.Success && result.Value != null)
+                {
+                    CurrentUser = result.Value;
+                }
+            }
+            catch
+            {
+                // 브라우저 캐시가 꼬였거나 없으면 무시 (다시 로그인하도록 둠)
+            }
+
+            isLoaded = true;
+            StateHasChanged();
+        }
+    }
+
+    // 🚀 로그인 성공 시 스마트폰 금고에 정보 저장
+    private async Task HandleLoginSuccess(User user)
     {
         CurrentUser = user;
+        await BrowserStorage.SetAsync("loggedInUser", user);
         StateHasChanged();
     }
 
-    private void Logout()
+    // 🚀 로그아웃 시 금고에서 정보 삭제
+    private async Task Logout()
     {
         CurrentUser = null;
+        await BrowserStorage.DeleteAsync("loggedInUser");
         StateHasChanged();
     }
 }
