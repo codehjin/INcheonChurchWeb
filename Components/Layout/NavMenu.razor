@@ -12,6 +12,10 @@
 @* 🚀 메뉴 항목을 클릭하면 체크박스를 다시 눌러서 창을 닫게 만듦 *@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
+
+        @* ==========================================
+           📱 모바일 & PC 공통 메뉴 (항상 보이는 메뉴)
+           ========================================== *@
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <i class="bi bi-house-door-fill fs-5 me-2"></i> 대시보드
@@ -27,29 +31,44 @@
             </div>
 
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="expense-report-quarterly">
-                    <i class="bi bi-file-earmark-text-fill fs-5 me-2"></i> 지출결의서
+                <NavLink class="nav-link" href="receipt-upload">
+                    <i class="bi bi-camera-fill fs-5 me-2 text-warning"></i> 영수증 업로드
                 </NavLink>
             </div>
         }
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="monthly">
-                <i class="bi bi-calendar3 fs-5 me-2"></i> 월별장부
-            </NavLink>
+        @* ==========================================
+           💻 PC 전용 메뉴 (모바일에서는 d-none 클래스로 숨김)
+           ========================================== *@
+        <div class="d-none d-sm-block mt-3 border-top pt-2">
+            @if (!CanViewAll)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="expense-report-quarterly">
+                        <i class="bi bi-file-earmark-text-fill fs-5 me-2"></i> 지출결의서
+                    </NavLink>
+                </div>
+            }
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="monthly">
+                    <i class="bi bi-calendar3 fs-5 me-2"></i> 월별장부
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="receipt-query">
+                    <i class="bi bi-receipt fs-5 me-2"></i> @(CanViewAll ? "영수증 보기" : "영수증 관리")
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="settings">
+                    <i class="bi bi-gear-fill fs-5 me-2 text-secondary"></i> 환경설정
+                </NavLink>
+            </div>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="receipt-query">
-                <i class="bi bi-receipt fs-5 me-2"></i> @(CanViewAll ? "영수증 보기" : "영수증 관리")
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="settings">
-                <i class="bi bi-gear-fill fs-5 me-2"></i> 환경설정
-            </NavLink>
-        </div>
     </nav>
 </div>
 

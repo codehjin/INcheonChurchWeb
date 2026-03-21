@@ -18,5 +18,6 @@ namespace INcheonChurchWeb.Models
         // 에러 방지를 위해 명시적으로 네비게이션 속성을 연결합니다)
         [ForeignKey("DepartmentId")]
         public virtual Department? DepartmentInfo { get; set; }
+        public string? ReceiptUrl { get; set; }
     }
 }

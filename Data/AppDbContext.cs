@@ -9,7 +9,7 @@ namespace INcheonChurchWeb.Data
 
         // 🚀 신규 부서 테이블
         public DbSet<Department> Departments { get; set; }
-
+        public DbSet<UploadedReceipt> UploadedReceipts { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<LedgerEntry> Transactions { get; set; }
         public DbSet<BudgetPlan> BudgetPlans { get; set; }
