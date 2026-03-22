@@ -31,8 +31,10 @@
 
             <div class="mb-4">
                 <label class="form-label fw-bold">3. 영수증 사진 첨부</label>
-                @* 🚀 capture="environment" 속성이 스마트폰에서 후면 카메라를 우선적으로 켜줍니다 *@
-                <InputFile OnChange="HandleFileSelected" class="form-control form-control-lg" accept="image/*" capture="environment" />
+                <InputFile OnChange="HandleFileSelected" class="form-control form-control-lg" accept="image/*" />
+                <div class="form-text text-muted small ps-1 mt-1">
+                    버튼을 눌러 사진을 찍거나 갤러리에서 선택하세요.
+                </div>
             </div>
 
             @if (!string.IsNullOrEmpty(previewImageUrl))

@@ -75,7 +75,6 @@
 
 @code {
     private User? CurrentUser;
-    private bool isLoaded = false;
 
     // 🚀 화면이 켜질 때, 스마트폰 금고에 저장된 로그인 정보가 있는지 확인
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -95,7 +94,6 @@
                 // 브라우저 캐시가 꼬였거나 없으면 무시 (다시 로그인하도록 둠)
             }
 
-            isLoaded = true;
             StateHasChanged();
         }
     }

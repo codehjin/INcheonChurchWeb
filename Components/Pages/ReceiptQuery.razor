@@ -3,6 +3,7 @@
 @using INcheonChurchWeb.Data
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Hosting
+@using System.IO
 @inject IWebHostEnvironment Env
 @inject AppDbContext DbContext
 @inject IJSRuntime JSRuntime
@@ -12,51 +13,48 @@
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3 border-bottom">
             <h4 class="mb-0 fw-bold text-secondary">
-                <i class="bi bi-receipt me-2"></i>@(CanViewAll ? "전체 부서 영수증 보기" : "모바일 업로드 영수증 관리")
+                <i class="bi bi-receipt me-2"></i>@(CanViewAll ? "전체 부서 영수증 보기" : "모바일 업로드 영수증 매칭")
             </h4>
         </div>
 
         <div class="card-body bg-light p-4">
-            @* 🚀 회계담당자(DeptAdmin)에게만 보이는 미처리 영수증 처리 대시보드 *@
+            @* 🚀 회계담당자(DeptAdmin)에게만 보이는 미처리 영수증 매칭 대시보드 *@
             @if (!CanViewAll && pendingReceipts.Any())
             {
                 <div class="alert alert-warning shadow-sm border-warning mb-4">
-                    <h5 class="fw-bold text-dark mb-3">⚠️ 장부에 미등록된 모바일 영수증이 @pendingReceipts.Count 건 있습니다.</h5>
+                    <h5 class="fw-bold text-dark mb-3">⚠️ 장부에 매칭되지 않은 모바일 영수증이 @pendingReceipts.Count 건 있습니다.</h5>
+                    <p class="small text-muted mb-0">아래 영수증을 기존에 작성해둔 장부 내역과 연결(매칭)해 주세요.</p>
+                </div>
 
-                    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-                        @foreach (var receipt in pendingReceipts)
-                        {
-                            <div class="col">
-                                <div class="card h-100 border-warning">
-                                    <img src="@receipt.ImagePath" class="card-img-top" alt="영수증 이미지" style="height: 150px; object-fit: cover; cursor: pointer;" @onclick="() => ShowLargeImage(receipt.ImagePath)" />
-                                    <div class="card-body p-2">
-                                        <div class="small fw-bold text-primary mb-1">@receipt.ReceiptDate.ToString("yyyy-MM-dd")</div>
-                                        <div class="text-truncate fw-bold mb-2" title="@receipt.Description">@receipt.Description</div>
+                <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                    @foreach (var receipt in pendingReceipts)
+                    {
+                        <div class="col">
+                            <div class="card h-100 border-warning">
+                                <img src="@receipt.ImagePath" class="card-img-top" alt="영수증 이미지" style="height: 150px; object-fit: cover; cursor: pointer;" @onclick="() => ShowLargeImage(receipt.ImagePath)" />
+                                <div class="card-body p-2">
+                                    <div class="small fw-bold text-primary mb-1">업로드: @receipt.ReceiptDate.ToString("yyyy-MM-dd")</div>
+                                    <div class="text-truncate fw-bold mb-2" title="@receipt.Description">@receipt.Description</div>
 
-                                        @* 장부 등록 폼 *@
-                                        <div class="bg-white p-2 border rounded">
-                                            <div class="mb-1">
-                                                <select class="form-select form-select-sm" @bind="newEntryDict[receipt.Id].Category">
-                                                    <option value="">항목 선택</option>
-                                                    @foreach (var c in ExpenseCats)
-                                                    {
-                                                        <option value="@c">@c</option>
-                                                    }
-                                                </select>
-                                            </div>
-                                            <div class="mb-2">
-                                                <input type="number" class="form-control form-control-sm text-end" @bind="newEntryDict[receipt.Id].Expense" placeholder="금액 (원)" />
-                                            </div>
-                                            <button class="btn btn-sm btn-success w-100 fw-bold" @onclick="() => ProcessReceipt(receipt)">장부 등록 및 처리완료</button>
-                                        </div>
-                                    </div>
-                                    <div class="card-footer bg-transparent border-0 p-2 text-end">
-                                        <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" @onclick="() => DeleteReceipt(receipt.Id)">❌ 삭제(반려)</button>
+                                    @* 🚀 기존 장부 매칭 폼 *@
+                                    <div class="bg-white p-2 border rounded">
+                                        <label class="small fw-bold text-secondary mb-1">연결할 장부 내역 선택</label>
+                                        <select class="form-select form-select-sm mb-2 border-primary" @bind="selectedMatchDict[receipt.Id]">
+                                            <option value="0">-- 증빙 없는 장부 내역 선택 --</option>
+                                            @foreach (var entry in unmatchedEntries)
+                                            {
+                                                <option value="@entry.Id">[@entry.Date.ToString("MM-dd")] @entry.Description (@(entry.Expense > 0 ? entry.Expense.ToString("N0") : entry.Income.ToString("N0"))원)</option>
+                                            }
+                                        </select>
+                                        <button class="btn btn-sm btn-primary w-100 fw-bold" @onclick="() => MatchReceiptToEntry(receipt)">🔗 선택한 내역에 영수증 연결</button>
                                     </div>
                                 </div>
+                                <div class="card-footer bg-transparent border-0 p-2 text-end">
+                                    <button class="btn btn-sm btn-link text-danger text-decoration-none p-0" @onclick="() => DeleteReceipt(receipt.Id)">❌ 삭제(반려)</button>
+                                </div>
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
                 </div>
                 <hr class="my-4 border-2" />
             }
@@ -64,7 +62,7 @@
             @if (!CanViewAll && !pendingReceipts.Any())
             {
                 <div class="alert alert-success text-center mb-4">
-                    <i class="bi bi-check-circle-fill me-2"></i>모든 모바일 영수증이 장부에 등록(처리)되었습니다!
+                    <i class="bi bi-check-circle-fill me-2"></i>모든 모바일 영수증이 장부에 연결되었습니다!
                 </div>
             }
 
@@ -117,13 +115,13 @@
                                     <td>@(allDepts.FirstOrDefault(d => d.Id == item.DepartmentId)?.Name ?? "미정")</td>
                                 }
                                 <td>@item.Date.ToString("yyyy-MM-dd")</td>
-                                <td><span class="badge @(item.Type == "Income" ? "bg-primary" : "bg-danger")">@(item.Type == "Income" ? "수입" : "지출")</span></td>
+                                <td><span class="badge @(item.Type == "Income" || item.Type == "수입" ? "bg-primary" : "bg-danger")">@(item.Type == "Income" || item.Type == "수입" ? "수입" : "지출")</span></td>
                                 <td>@item.Category</td>
                                 <td class="text-start">
                                     @* 영수증 이미지가 연동된 항목은 파란색 링크로 표시 *@
                                     @if (!string.IsNullOrEmpty(item.ReceiptUrl))
                                     {
-                                        <a href="javascript:void(0)" class="text-decoration-none fw-bold text-primary" @onclick="() => ShowLargeImage(item.ReceiptUrl)">
+                                        <a href="javascript:void(0)" class="text-decoration-none fw-bold text-primary" @onclick="() => ShowLargeImage(item.ReceiptUrl!)">
                                             <i class="bi bi-image me-1"></i>@item.Description
                                         </a>
                                     }
@@ -132,7 +130,7 @@
                                         @item.Description
                                     }
                                 </td>
-                                <td class="text-end fw-bold">@(item.Type == "Income" ? item.Income.ToString("N0") : item.Expense.ToString("N0"))</td>
+                                <td class="text-end fw-bold">@(item.Type == "Income" || item.Type == "수입" ? item.Income.ToString("N0") : item.Expense.ToString("N0"))</td>
                             </tr>
                         }
                         @if (!searchResults.Any())
@@ -170,9 +168,11 @@
     // 모바일에서 올라온 미처리 영수증 목록
     private List<UploadedReceipt> pendingReceipts = new();
 
-    // 영수증 처리 시 입력할 새 장부 데이터 (ReceiptId를 키로 사용)
-    private Dictionary<int, LedgerEntry> newEntryDict = new();
-    private readonly string[] ExpenseCats = new[] { "행사비", "공과비", "교육활동비", "겨울성경학교", "여름성경학교", "운영비", "간식비", "부서관리비", "교사회의비", "훈련비", "기타지출" };
+    // 🚀 기존 장부 중 영수증이 없는(미증빙) 내역 목록
+    private List<LedgerEntry> unmatchedEntries = new();
+
+    // 🚀 모바일 영수증 ID를 Key로, 연결할 장부 내역 ID를 Value로 저장
+    private Dictionary<int, int> selectedMatchDict = new();
 
     // 검색 관련
     private int SearchDeptId = 0;
@@ -187,7 +187,6 @@
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser == null) return;
-
         allDepts = await DbContext.Departments.AsNoTracking().OrderBy(d => d.Id).ToListAsync();
         await LoadPendingReceipts();
         await SearchData(); // 초기 진입 시 전체 목록 로드
@@ -197,38 +196,46 @@
     {
         if (CurrentUser == null || CanViewAll) return; // 감사/관리자는 미처리 영수증 처리 권한 없음
 
+        int deptId = CurrentUser.DepartmentId;
+
+        // 1. 모바일 미처리 영수증 불러오기
         pendingReceipts = await DbContext.UploadedReceipts
-            .Where(r => r.DepartmentId == CurrentUser.DepartmentId && r.IsMatched == false)
+            .Where(r => r.DepartmentId == deptId && r.IsMatched == false)
             .OrderByDescending(r => r.ReceiptDate)
             .ToListAsync();
 
-        // 각 영수증마다 입력 폼 객체 생성
-        newEntryDict.Clear();
+        // 2. 🚀 현재 부서의 장부 내역 중 영수증(ReceiptUrl)이 비어있는 항목 불러오기
+        unmatchedEntries = await DbContext.Transactions.AsNoTracking()
+            .Where(t => t.DepartmentId == deptId && (t.ReceiptUrl == null || t.ReceiptUrl == ""))
+            .OrderByDescending(t => t.Date).ToListAsync();
+
+        selectedMatchDict.Clear();
         foreach (var r in pendingReceipts)
         {
-            newEntryDict[r.Id] = new LedgerEntry
-            {
-                DepartmentId = r.DepartmentId,
-                Date = r.ReceiptDate,
-                Description = r.Description,
-                Type = "Expense" // 기본적으로 영수증은 지출로 처리
-            };
+            selectedMatchDict[r.Id] = 0; // 0은 선택 안됨 상태
         }
     }
 
-    // 🚀 회계담당자가 영수증 확인 후 장부에 등록하는 메서드 (+ 파일명 자동 변경 기능)
-    private async Task ProcessReceipt(UploadedReceipt receipt)
+    // 🚀 모바일 영수증을 기존 장부와 매칭하는 핵심 로직
+    private async Task MatchReceiptToEntry(UploadedReceipt receipt)
     {
-        var entry = newEntryDict[receipt.Id];
-
-        if (string.IsNullOrEmpty(entry.Category) || entry.Expense <= 0)
+        if (!selectedMatchDict.ContainsKey(receipt.Id) || selectedMatchDict[receipt.Id] == 0)
         {
-            await JSRuntime.InvokeVoidAsync("alert", "항목을 선택하고 정확한 금액을 입력해주세요.");
+            await JSRuntime.InvokeVoidAsync("alert", "연결할 장부 내역을 먼저 선택해주세요.");
+            return;
+        }
+
+        int entryId = selectedMatchDict[receipt.Id];
+        var entry = await DbContext.Transactions.FindAsync(entryId);
+
+        if (entry == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "해당 장부 내역을 찾을 수 없습니다. 삭제되었을 수 있습니다.");
             return;
         }
 
         // ================================================================
-        // 🚀 파일명 스마트 변경 로직 (예: 20240321_교육국_행사비_50000_다이소.jpg)
+        // 🚀 파일명 스마트 변경 로직 (예: 20240321_교육국_행사비_50000원_다이소_12.jpg)
         // ================================================================
         string oldRelativePath = receipt.ImagePath;
         string oldPhysicalPath = Path.Combine(Env.WebRootPath, oldRelativePath.TrimStart('/'));
@@ -238,11 +245,13 @@
             string deptName = allDepts.FirstOrDefault(d => d.Id == entry.DepartmentId)?.Name ?? "알수없음";
 
             // 파일명에 쓸 수 없는 특수문자(\, /, :, *, ?, ", <, >, |)를 적요에서 제거
-            string safeDescription = string.Concat(entry.Description.Split(Path.GetInvalidFileNameChars()));
+            string safeDescription = string.Concat((entry.Description ?? "내역없음").Split(Path.GetInvalidFileNameChars()));
             safeDescription = safeDescription.Replace(" ", ""); // 공백도 제거해서 깔끔하게
 
             // 새 파일명 생성 (혹시 모를 중복 방지를 위해 끝에 receipt.Id 번호 추가)
-            string newFileName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{entry.Expense}원_{safeDescription}_{receipt.Id}{Path.GetExtension(oldPhysicalPath)}";
+            decimal targetAmount = entry.Expense > 0 ? entry.Expense : entry.Income;
+            string newFileName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{targetAmount}원_{safeDescription}_{receipt.Id}{Path.GetExtension(oldPhysicalPath)}";
+
             string newRelativePath = $"/uploads/receipts/{newFileName}";
             string newPhysicalPath = Path.Combine(Env.WebRootPath, "uploads", "receipts", newFileName);
 
@@ -259,25 +268,23 @@
             {
                 // 권한 문제 등으로 파일명 변경 실패 시 기존 이름 그대로 사용
                 Console.WriteLine($"파일명 변경 실패: {ex.Message}");
-                entry.ReceiptUrl = receipt.ImagePath;
+                entry.ReceiptUrl = oldRelativePath;
             }
         }
         else
         {
-            entry.ReceiptUrl = receipt.ImagePath; // 원본 파일을 못 찾으면 기존 경로 유지
+            entry.ReceiptUrl = oldRelativePath; // 원본 파일을 못 찾으면 기존 경로 유지
         }
         // ================================================================
 
-        // 1. 장부에 내역 추가 (새 이름이 적용된 영수증 사진 경로 연결)
-        entry.FiscalYear = entry.Date.Year;
-        DbContext.Transactions.Add(entry);
-
-        // 2. 해당 모바일 영수증을 '처리완료(IsMatched)'로 변경
+        // 1. 해당 모바일 영수증을 '처리완료(IsMatched)'로 변경
         receipt.IsMatched = true;
-        DbContext.UploadedReceipts.Update(receipt);
 
+        DbContext.Transactions.Update(entry);
+        DbContext.UploadedReceipts.Update(receipt);
         await DbContext.SaveChangesAsync();
-        await JSRuntime.InvokeVoidAsync("alert", "장부 등록 및 파일명 최적화가 완료되었습니다!");
+
+        await JSRuntime.InvokeVoidAsync("alert", "영수증이 장부 내역과 성공적으로 연결되었습니다!");
 
         await LoadPendingReceipts(); // 목록 새로고침
         await SearchData(); // 검색 목록도 갱신
@@ -285,12 +292,15 @@
 
     private async Task DeleteReceipt(int id)
     {
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "이 영수증을 삭제(반려)하시겠습니까?");
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "이 영수증을 삭제(반려)하시겠습니까?\n서버에서도 파일이 완전히 삭제됩니다.");
         if (confirmed)
         {
             var target = await DbContext.UploadedReceipts.FindAsync(id);
             if (target != null)
             {
+                string filePath = Path.Combine(Env.WebRootPath, target.ImagePath.TrimStart('/'));
+                if (File.Exists(filePath)) File.Delete(filePath); // 실제 파일 삭제
+
                 DbContext.UploadedReceipts.Remove(target);
                 await DbContext.SaveChangesAsync();
                 await LoadPendingReceipts();
@@ -301,7 +311,6 @@
     private async Task SearchData()
     {
         var query = DbContext.Transactions.AsNoTracking().AsQueryable();
-
         if (CanViewAll && SearchDeptId > 0)
         {
             query = query.Where(t => t.DepartmentId == SearchDeptId);
@@ -313,7 +322,7 @@
 
         if (!string.IsNullOrWhiteSpace(SearchKeyword))
         {
-            query = query.Where(t => t.Description.Contains(SearchKeyword) || (!string.IsNullOrEmpty(t.Note) && t.Note.Contains(SearchKeyword)));
+            query = query.Where(t => (t.Description != null && t.Description.Contains(SearchKeyword)) || (!string.IsNullOrEmpty(t.Note) && t.Note.Contains(SearchKeyword)));
         }
 
         searchResults = await query.OrderByDescending(t => t.Date).Take(100).ToListAsync();

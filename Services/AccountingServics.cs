@@ -532,7 +532,7 @@ namespace INcheonChurchWeb.Services
         public async Task DeleteMappingAsync(int id) { var m = await _db.CategoryMappings.FindAsync(id); if (m != null) { _db.CategoryMappings.Remove(m); await _db.SaveChangesAsync(); } }
 
         // =========================================================
-        // 6. 사용자 관리
+        // 6. 사용자 관리 및 부서 정보 관리
         // =========================================================
         public async Task<List<User>> GetAllUsersAsync() => await _db.Users.AsNoTracking().ToListAsync();
         public async Task AddUserAsync(User user) { if (!await _db.Users.AnyAsync(u => u.Username == user.Username)) { _db.Users.Add(user); await _db.SaveChangesAsync(); } }
@@ -540,11 +540,27 @@ namespace INcheonChurchWeb.Services
         public async Task ChangePasswordAsync(string id, string pw) { var u = await _db.Users.FindAsync(id); if (u != null) { u.Password = pw; await _db.SaveChangesAsync(); } }
         public async Task ResetPasswordAsync(string id) { var u = await _db.Users.FindAsync(id); if (u != null) { u.Password = "1234"; await _db.SaveChangesAsync(); } }
 
-        // 🚀 [여기에 2개 신규 추가!] 🚀
-        // 1. 부서 목록 전체 불러오기
+        // 부서 목록 전체 불러오기
         public async Task<List<Department>> GetDepartmentsAsync() => await _db.Departments.AsNoTracking().ToListAsync();
 
-        // 2. 사용자 정보 통째로 업데이트 (이름, 부서, 활성상태 변경용)
+        // 🚀 신규 추가: 단일 부서 정보 가져오기 (환경설정용)
+        public async Task<Department?> GetDepartmentAsync(int departmentId)
+        {
+            return await _db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == departmentId);
+        }
+
+        // 🚀 신규 추가: 단일 부서 정보 업데이트 (환경설정용)
+        public async Task UpdateDepartmentAsync(Department updatedDept)
+        {
+            var existing = await _db.Departments.FindAsync(updatedDept.Id);
+            if (existing != null)
+            {
+                _db.Entry(existing).CurrentValues.SetValues(updatedDept);
+                await _db.SaveChangesAsync();
+            }
+        }
+
+        // 사용자 정보 통째로 업데이트 (이름, 부서, 활성상태 변경용)
         public async Task UpdateUserAsync(User user)
         {
             var existing = await _db.Users.FindAsync(user.Username);

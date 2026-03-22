@@ -16,5 +16,9 @@ namespace INcheonChurchWeb.Models
         // 네비게이션 속성 (선택 사항이지만 권장)
         [ForeignKey("DepartmentId")]
         public virtual Department? Department { get; set; }
+        // 🚀 새롭게 추가할 결재/입금 상태 변수 (기본값을 빈칸 또는 "대기" 등으로 설정)
+        public string Status { get; set; } = "";
+        // 🚀 결제 방법 (기본값 "계좌")
+        public string PaymentMethod { get; set; } = "계좌";
     }
 }

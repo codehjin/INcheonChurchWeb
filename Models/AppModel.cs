@@ -9,6 +9,10 @@ namespace INcheonChurchWeb.Models
     {
         public int Id { get; set; }
         public string Name { get; set; } = "";
+        // 🚀 부서 계좌 정보
+        public string BankName { get; set; } = "";      // 은행명
+        public string AccountNumber { get; set; } = ""; // 계좌번호
+        public string AccountHolder { get; set; } = ""; // 예금주
     }
 
     // 🚀 2. 사용자 (전면 개편)
