@@ -130,7 +130,13 @@
                         </div>
                         <div class="col-6">
                             <label class="form-label small fw-bold text-secondary mb-1">청구인 이름</label>
-                            <input class="form-control form-control-sm" @bind="CurrentReport.Title" placeholder="이름 입력" />
+                            <div class="input-group input-group-sm">
+                                <input class="form-control" @bind="CurrentReport.Title" placeholder="이름 입력" />
+                                @if (!string.IsNullOrEmpty(CurrentReport.Title))
+                                {
+                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { CurrentReport.Title = string.Empty; }" title="지우기">❌</button>
+                                }
+                            </div>
                         </div>
                     </div>
 
@@ -154,40 +160,61 @@
 
                     <div class="card p-3 border border-secondary border-opacity-25 bg-light mb-3">
                         <div class="row g-2 mb-2">
-                            @* 1. 지출항목 (순정 상태로 복구) *@
+                            @* 1. 지출항목 (X 지우기 버튼 탑재) *@
                             <div class="col-4">
                                 <label class="form-label small fw-bold text-secondary mb-1">지출항목</label>
-                                <input class="form-control ep-input" list="expCats" @bind="newItem.Category" @bind:event="oninput" placeholder="선택/입력" />
-                                <datalist id="expCats">
-                                    @foreach (var c in catList)
+                                <div class="input-group">
+                                    <input class="form-control ep-input" list="expCats" @bind="newItem.Category" @bind:event="oninput" placeholder="선택/입력" />
+                                    <datalist id="expCats">
+                                        @foreach (var c in catList)
+                                        {
+                                            <option value="@c" />
+                                        }
+                                    </datalist>
+                                    @if (!string.IsNullOrEmpty(newItem.Category))
                                     {
-                                        <option value="@c" />
+                                        <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newItem.Category = string.Empty; }" title="지우기">❌</button>
                                     }
-                                </datalist>
+                                </div>
                             </div>
 
-                            @* 2. 산출근거 (순정 상태로 복구) *@
+                            @* 2. 산출근거 (X 지우기 버튼 탑재) *@
                             <div class="col-5">
                                 <label class="form-label small fw-bold text-secondary mb-1">산출근거 (내용)</label>
-                                <input class="form-control ep-input" style="ime-mode:active;" @bind="newItem.CalcDetail" @bind:event="oninput" placeholder="상세 내용" />
+                                <div class="input-group">
+                                    <input class="form-control ep-input" style="ime-mode:active;" @bind="newItem.CalcDetail" @bind:event="oninput" placeholder="상세 내용" />
+                                    @if (!string.IsNullOrEmpty(newItem.CalcDetail))
+                                    {
+                                        <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newItem.CalcDetail = string.Empty; }" title="지우기">❌</button>
+                                    }
+                                </div>
                             </div>
 
-                            @* 3. 청구 금액 (순정 상태로 복구 + 숫자 화살표 제거) *@
+                            @* 3. 청구 금액 (X 지우기 버튼 탑재) *@
                             <div class="col-3">
                                 <label class="form-label small fw-bold text-secondary mb-1">청구 금액</label>
-                                <input type="number" class="form-control ep-input no-spinners" @bind="inputAmount" @bind:event="oninput" placeholder="금액" @onkeyup="EnterKey" />
+                                <div class="input-group">
+                                    <input type="number" class="form-control ep-input no-spinners" @bind="inputAmount" @bind:event="oninput" placeholder="금액" @onkeyup="EnterKey" />
+                                    @if (inputAmount.HasValue)
+                                    {
+                                        <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { inputAmount = null; }" title="지우기">❌</button>
+                                    }
+                                </div>
                             </div>
                         </div>
 
-                        @* 🚀 명세표 추가 버튼과 초기화 버튼을 한 줄에 나란히 배치 *@
+                        @* 🚀 거대한 초기화 버튼 삭제 및 추가/수정완료 버튼 100% 폭 적용 *@
                         <div class="d-flex gap-2 mt-2">
-                            <button class="btn btn-outline-primary fw-bold flex-grow-1" @onclick="AddOrUpdateItem">
+                            <button class="btn btn-outline-primary fw-bold w-100" @onclick="AddOrUpdateItem">
                                 <i class="@(isEditing ? "bi bi-check-circle me-1" : "bi bi-arrow-down-circle me-1")"></i>
                                 @(isEditing ? "수정완료" : "명세표에 추가")
                             </button>
-                            <button class="btn btn-outline-secondary fw-bold" style="min-width: 90px;" @onclick="ClearInputFields">
-                                <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
-                            </button>
+                            @if (isEditing)
+                            {
+                                <button class="btn btn-danger fw-bold px-3" style="min-width: 90px;" @onclick="ClearInputFields" title="수정 취소">
+                                    ❌ 취소
+                                </button>
+                            }
                         </div>
                     </div>
 
@@ -910,7 +937,6 @@
     private string GetDynamicStyle(string? text, string colType = "Detail")
     {
         if (string.IsNullOrEmpty(text)) return "";
-
         int len = text.Length;
 
         // 항목은 7자, 내용은 14자를 기준으로 축소 시작
@@ -1066,10 +1092,11 @@
     private void ClearInputFields()
     {
         newItem = new BudgetPlan(); // 지출항목, 산출근거 빈칸으로
-        inputAmount = null;         // 금액 빈칸으로
-        isEditing = false;          // 수정 모드 해제
+        inputAmount = null; // 금액 빈칸으로
+        isEditing = false; // 수정 모드 해제
         editingItem = null;
     }
+
     // 🚀 항목 삭제
     private void RemoveItem(BudgetPlan item)
     {
@@ -1133,7 +1160,6 @@
     {
         // 🚀 report.Status가 null일 수도 있으므로, 안전하게 비교하도록 수정
         bool isDeposited = (report.Status != null) && (report.Status == "입금완료" || report.Status == "지급완료");
-
         if (isDeposited)
         {
             await JSRuntime.InvokeVoidAsync("alert",
