@@ -1,0 +1,146 @@
+﻿@page "/manual"
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<div class="container mt-4 mb-5">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold text-primary"><i class="bi bi-journal-bookmark-fill me-2"></i>쉽고 빠른 재정 시스템 사용 가이드</h2>
+        <p class="text-muted fs-5">버튼을 클릭하면 해당 기능 화면으로 <strong>즉시 이동</strong>합니다. 순서대로 따라해 보세요!</p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+
+            @* 1단계: 연초 / 분기 초 세팅 *@
+            <div class="card shadow-sm border-0 mb-4 border-start border-primary border-5">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold text-dark mb-3">
+                        <span class="badge bg-primary me-2">1단계</span> 🌱 연초 및 1분기 시작일 필수 세팅
+                    </h4>
+                    <p class="text-muted mb-3">1년 농사를 준비하는 가장 중요한 단계입니다. 아래의 <button class="btn btn-sm btn-light border fw-bold px-2 py-0" @onclick='() => Nav.NavigateTo("/settings")'><i class="bi bi-gear-fill me-1"></i>환경설정</button> 에 들어가서 순서대로 진행하세요.</p>
+
+                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded cursor-pointer" @onclick='() => Nav.NavigateTo("/settings")' style="cursor: pointer;" title="환경설정으로 이동">
+                        <button class="btn btn-outline-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/settings")'><i class="bi bi-download me-1"></i>📥 수입 예산</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-outline-danger fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/settings")'><i class="bi bi-upload me-1"></i>📤 지출 예산</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-outline-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/settings")'><i class="bi bi-person-vcard me-1"></i>🪪 부서 임원 정보</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-outline-success fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/settings")'><i class="bi bi-bank me-1"></i>🏦 부서 계좌번호</button>
+                    </div>
+                    <ul class="mt-3 mb-0 small text-secondary">
+                        <li><b>예산 설정:</b> 올해 사용할 수입/지출 항목과 금액을 설정합니다. (직전년도 불러오기 가능)</li>
+                        <li><b>임원 정보 변경:</b> 새로운 팀장, 총무, 회계의 이름과 임기를 등록합니다. (지출결의서 결재란에 반영됨)</li>
+                        <li><b>계좌번호:</b> 부서 통장 정보를 입력해 두면 결의서 출력 시 자동으로 기입됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            @* 2단계: 영수증 촬영 *@
+            <div class="card shadow-sm border-0 mb-4 border-start border-success border-5">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold text-dark mb-3">
+                        <span class="badge bg-success me-2">2단계</span> 📱 지출 발생 시 스마트폰으로 영수증 찰칵!
+                    </h4>
+                    <p class="text-muted mb-3">돈을 쓰고 종이 영수증을 받았다면 잃어버리기 전에 바로 스마트폰으로 올려주세요.</p>
+
+                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded" style="cursor: pointer;" @onclick='() => Nav.NavigateTo("/receipt-upload")' title="영수증 업로드 화면으로 이동">
+                        <span class="fw-bold text-success me-2">스마트폰 접속</span>
+                        <button class="btn btn-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/receipt-upload")'><i class="bi bi-camera-fill me-1"></i>여기를 눌러 사진 찾기</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-white text-dark border p-2">날짜/금액/적요 입력</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/receipt-upload")'><i class="bi bi-cloud-arrow-up-fill me-1"></i>서버로 전송하기</button>
+                    </div>
+                    <ul class="mt-3 mb-0 small text-secondary">
+                        <li>결제 <b>날짜</b>와 <b>금액</b>을 정확히 입력해야 나중에 장부와 1초 만에 자동 매칭됩니다.</li>
+                        <li>종이 영수증이 없는 인터넷 쇼핑(쿠팡 등)은 캡처 화면을 올리셔도 됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            @* 3단계: 장부 기록 및 매칭 *@
+            <div class="card shadow-sm border-0 mb-4 border-start border-warning border-5">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold text-dark mb-3">
+                        <span class="badge bg-warning text-dark me-2">3단계</span> 💻 은행 내역 등록 & 영수증 매칭 (월 1~2회)
+                    </h4>
+                    <p class="text-muted mb-3">PC에 앉아 은행 엑셀을 불러오고, 스마트폰으로 올린 영수증을 장부에 찰딱 붙여줍니다.</p>
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded h-100 border transition-hover" style="cursor: pointer;" @onclick='() => Nav.NavigateTo("/bank-import")' title="은행내역 가져오기로 이동">
+                                <h6 class="fw-bold text-dark"><i class="bi bi-1-circle-fill text-warning me-1"></i> 은행 엑셀 장부 등록</h6>
+                                <div class="mt-2 text-center">
+                                    <button class="btn btn-sm btn-outline-dark fw-bold mb-2 w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/bank-import")'><i class="bi bi-bank me-1"></i> 은행 거래내역 가져오기 메뉴</button>
+                                    <div class="small text-muted mb-2">▼ 엑셀 파일 업로드 후</div>
+                                    <button class="btn btn-sm btn-primary fw-bold w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/bank-import")'><i class="bi bi-check2-all me-1"></i> 퀵 분류 (바구니에 담기)</button>
+                                    <div class="small text-muted my-2">▼ 미분류 해결 후</div>
+                                    <button class="btn btn-sm btn-primary fw-bold w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/bank-import")'><i class="bi bi-floppy-fill me-1"></i> 장부에 저장하기</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded h-100 border transition-hover" style="cursor: pointer;" @onclick='() => Nav.NavigateTo("/monthly")' title="월별 재정장부로 이동">
+                                <h6 class="fw-bold text-dark"><i class="bi bi-2-circle-fill text-warning me-1"></i> 업로드 영수증 매칭</h6>
+                                <div class="mt-2 text-center">
+                                    <button class="btn btn-sm btn-outline-dark fw-bold mb-2 w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/monthly")'><i class="bi bi-calendar-check me-1"></i> 월별 재정 장부 메뉴</button>
+                                    <div class="small text-muted mb-2">▼ 상단 파란색 버튼 클릭</div>
+                                    <button class="btn btn-sm btn-primary fw-bold w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/monthly")'><i class="bi bi-receipt-cutoff me-1"></i> 매치 안된 영수증 관리</button>
+                                    <div class="small text-muted my-2">▼ 마법의 버튼 클릭</div>
+                                    <button class="btn btn-sm btn-primary fw-bold w-100" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/monthly")'><i class="bi bi-magic me-1"></i> 금액/날짜 자동 매치 (추천)</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* 4단계: 지출결의서 작성 *@
+            <div class="card shadow-sm border-0 mb-4 border-start border-danger border-5">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold text-dark mb-3">
+                        <span class="badge bg-danger me-2">4단계</span> 📄 지출결의서 작성 및 인쇄 (건별 / 분기말)
+                    </h4>
+                    <p class="text-muted mb-3">모든 장부 정리가 끝났다면 보고용 지출결의서를 작성하고 영수증과 함께 인쇄합니다.</p>
+
+                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded mb-3" style="cursor: pointer;" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")' title="지출결의서 작성으로 이동">
+                        <span class="fw-bold text-danger me-2">결의서 작성</span>
+                        <button class="btn btn-warning fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")'><i class="bi bi-plus-circle me-1"></i>신규 작성</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <span class="badge bg-white text-dark border p-2">내역/금액 입력</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-outline-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")'><i class="bi bi-arrow-down-circle me-1"></i>명세표에 추가</button>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-primary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")'><i class="bi bi-save me-1"></i>결의서 저장</button>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded" style="cursor: pointer;" @onclick='() => Nav.NavigateTo("/monthly")' title="월별 재정장부로 이동">
+                        <span class="fw-bold text-dark me-2">인쇄 및 보고</span>
+                        <button class="btn btn-secondary fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")'><i class="bi bi-printer me-1"></i>지출결의서 인쇄</button>
+                        <span class="text-muted mx-2">+</span>
+                        <span class="badge bg-dark p-2"><i class="bi bi-calendar-check me-1"></i>월별장부 이동</span>
+                        <i class="bi bi-arrow-right text-muted"></i>
+                        <button class="btn btn-dark fw-bold" @onclick:stopPropagation="true" @onclick='() => Nav.NavigateTo("/monthly")'><i class="bi bi-images me-1"></i>전체 영수증 인쇄</button>
+                    </div>
+                    <ul class="mt-3 mb-0 small text-secondary">
+                        <li>지출결의서 뒤에 출력된 영수증들을 스테이플러로 깔끔하게 찍어서 결재를 올리면 완벽합니다!</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <p class="text-primary fw-bold fs-5 mb-1"><i class="bi bi-emoji-smile-fill me-2"></i>참 쉽죠?</p>
+                <p class="text-muted">이 순서대로만 진행하시면 회계 장부에 구멍 날 일이 없습니다. 언제든 이 화면을 띄워놓고 따라 하세요!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* 마우스를 올렸을 때 살짝 어두워지는 효과 (클릭 유도) */
+    .transition-hover:hover {
+        background-color: #e9ecef !important;
+        transition: 0.2s;
+    }
+</style>
