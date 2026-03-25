@@ -13,6 +13,7 @@
 @inject AppDbContext DbContext
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
+@inject TwoFactorAuthService TotpService
 @rendermode InteractiveServer
 
 <div class="container mt-4 mb-5">
@@ -57,8 +58,8 @@
         </div>
 
         @* 숨겨진 파일 업로드 Input 요소들 *@
-        <InputFile id="bulkImportInput" OnChange="HandleBulkImport" style="display:none;" accept=".xlsx,.xls" />
-        <InputFile id="systemRestoreInput" OnChange="HandleSystemRestore" style="display:none;" accept=".json" />
+        <InputFile @key="bulkImportKey" id="bulkImportInput" OnChange="HandleBulkImport" style="display:none;" accept=".xlsx,.xls" />
+        <InputFile @key="systemRestoreKey" id="systemRestoreInput" OnChange="HandleSystemRestore" style="display:none;" accept=".json" />
 
         @* 권한별 탭 메뉴 분리 *@
         <div class="card-header bg-light p-0 border-0">
@@ -80,7 +81,7 @@
                     <li class="nav-item"><button class="nav-link @(activeTab == "Quarter" ? "active fw-bold text-info" : "")" @onclick='() => ChangeTab("Quarter")'>📅 분기 설정</button></li>
                     <li class="nav-item"><button class="nav-link @(activeTab == "Backup" ? "active fw-bold text-success" : "")" @onclick='() => ChangeTab("Backup")'>📂 데이터 백업</button></li>
                 }
-                <li class="nav-item"><button class="nav-link @(activeTab == "MyInfo" ? "active fw-bold text-dark" : "")" @onclick='() => ChangeTab("MyInfo")'>🔒 암호 변경</button></li>
+                <li class="nav-item"><button class="nav-link @(activeTab == "MyInfo" ? "active fw-bold text-dark" : "")" @onclick='() => ChangeTab("MyInfo")'>🔒 보안 및 암호</button></li>
                 <li class="nav-item"><button class="nav-link @(activeTab == "Officers" ? "active fw-bold text-primary" : "")" @onclick='() => ChangeTab("Officers")'><i class="bi bi-person-vcard me-1"></i> 부서 임원 정보</button></li>
                 <li class="nav-item"><button class="nav-link @(activeTab == "Account" ? "active fw-bold text-success" : "")" @onclick='() => ChangeTab("Account")'>🏦 부서 계좌번호</button></li>
             </ul>
@@ -96,6 +97,10 @@
                 var currentCats = activeTab == "Income" ? IncomeCats : ExpenseCats;
                 <h5 class="fw-bold text-primary mb-3">✏️ @(TargetYear) 년도 @(activeTab == "Income" ? "수입" : "지출") 예산 편집</h5>
 
+                <div class="alert alert-success border-success bg-success bg-opacity-10 small mb-2">
+                    <i class="bi bi-info-circle-fill me-1"></i> <strong>사용법:</strong> 1년 동안 사용할 수입/지출 예산을 항목별로 등록합니다. 상단의 <b>[엑셀양식 다운로드]</b> 후 <b>[일괄입력]</b>을 사용하시면 매우 편리합니다.
+                </div>
+
                 <div class="bg-light p-3 rounded mb-4 border shadow-sm">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-3">
@@ -103,47 +108,30 @@
                             <div class="input-group">
                                 <input class="form-control" list="catList" @bind="newPlan.Category" placeholder="예: 행사비, 주일헌금" />
                                 <datalist id="catList">
-                                    @foreach (var c in currentCats)
-                                    {
-                                        <option value="@c"></option>
-                                    }
+                                    @foreach (var c in currentCats) { <option value="@c"></option> }
                                 </datalist>
                                 @if (!string.IsNullOrEmpty(newPlan.Category))
                                 {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newPlan.Category = string.Empty; }" title="지우기">❌</button>
+                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="@(() => newPlan.Category = string.Empty)" title="지우기">❌</button>
                                 }
                             </div>
                         </div>
-
                         <div class="col-md-2">
                             <label class="form-label small fw-bold mb-1">상세내역</label>
                             <div class="input-group">
                                 <input class="form-control" @bind="newPlan.SubCategory" placeholder="상세내역" />
-                                @if (!string.IsNullOrEmpty(newPlan.SubCategory))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newPlan.SubCategory = string.Empty; }" title="지우기">❌</button>
-                                }
                             </div>
                         </div>
-
                         <div class="col-md-3">
                             <label class="form-label small fw-bold mb-1">산출근거</label>
                             <div class="input-group">
                                 <input class="form-control" @bind="newPlan.CalcDetail" placeholder="산출근거" />
-                                @if (!string.IsNullOrEmpty(newPlan.CalcDetail))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newPlan.CalcDetail = string.Empty; }" title="지우기">❌</button>
-                                }
                             </div>
                         </div>
                         <div class="col-md-2">
                             <label class="form-label small fw-bold mb-1">금액</label>
                             <div class="input-group">
                                 <input type="number" class="form-control text-end" @bind="newPlan.Amount" placeholder="금액" />
-                                @if (newPlan.Amount > 0)
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newPlan.Amount = 0; }" title="지우기">❌</button>
-                                }
                             </div>
                         </div>
                         <div class="col-md-2">
@@ -163,40 +151,28 @@
                 <table class="table table-hover align-middle border-top mb-5">
                     <thead class="@(activeTab == "Income" ? "table-primary" : "table-danger") text-center">
                         <tr>
-                            <th>항목</th>
-                            <th>상세내역</th>
-                            <th>산출근거</th>
-                            <th class="text-end">금액</th>
-                            <th width="120">관리</th>
+                            <th>항목</th><th>상세내역</th><th>산출근거</th><th class="text-end">금액</th><th width="120">관리</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @{
-                            var currentYearBudgets = budgetList.Where(b => b.Year == TargetYear && b.Type == activeTab).ToList();
-                            var groupedBudgets = currentYearBudgets.GroupBy(b => b.Category).ToList();
-                        }
-                        @if (!currentYearBudgets.Any())
+                        @if (!CurrentYearBudgets.Any())
                         {
                             <tr><td colspan="5" class="text-center py-4 text-muted">등록된 예산이 없습니다.</td></tr>
                         }
                         else
                         {
-                            @foreach (var group in groupedBudgets)
+                            @foreach (var group in GroupedBudgets)
                             {
                                 bool isExpanded = IsExpanded(group.Key);
                                 decimal groupTotal = group.Sum(x => x.Amount);
 
                                 <tr style="cursor: pointer; background-color: #f8f9fa;" @onclick="() => ToggleCategory(group.Key)">
                                     <td class="fw-bold text-center text-primary">
-                                        <i class="bi @(isExpanded ? "bi-caret-down-fill" : "bi-caret-right-fill") me-1"></i>
-                                        @group.Key
+                                        <i class="bi @(isExpanded ? "bi-caret-down-fill" : "bi-caret-right-fill") me-1"></i> @group.Key
                                     </td>
-                                    <td></td>
-                                    <td></td>
+                                    <td></td><td></td>
                                     <td class="text-end fw-bold text-dark">@groupTotal.ToString("N0")</td>
-                                    <td class="text-center">
-                                        <span class="badge bg-white text-secondary border">@(group.Count())건</span>
-                                    </td>
+                                    <td class="text-center"><span class="badge bg-white text-secondary border">@(group.Count())건</span></td>
                                 </tr>
 
                                 @if (isExpanded)
@@ -218,96 +194,78 @@
                             }
                         }
                     </tbody>
-                    @if (currentYearBudgets.Any())
+                    @if (CurrentYearBudgets.Any())
                     {
                         <tfoot class="table-light fw-bold">
                             <tr>
                                 <td colspan="3" class="text-end fs-5">총 합계</td>
-                                <td class="text-end text-primary fs-5">@currentYearBudgets.Sum(b => b.Amount).ToString("N0")</td>
+                                <td class="text-end text-primary fs-5">@CurrentYearBudgets.Sum(b => b.Amount).ToString("N0")</td>
                                 <td></td>
                             </tr>
                         </tfoot>
                     }
                 </table>
-
-                <hr class="my-5 border-2" />
-
-                <h5 class="fw-bold text-secondary mb-3">📜 연도별 예산 히스토리</h5>
-                <div class="accordion" id="budgetHistoryAccordion">
-                    @foreach (var group in budgetHistory.Where(g => g.Key != TargetYear).OrderByDescending(g => g.Key))
-                    {
-                        <div class="accordion-item">
-                            <h2 class="accordion-header">
-                                <button class="accordion-button collapsed fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@group.Key">
-                                    📂 @group.Key 년도 예산 (총 @group.Sum(x => x.Amount).ToString("N0")원)
-                                </button>
-                            </h2>
-                            <div id="collapse-@group.Key" class="accordion-collapse collapse" data-bs-parent="#budgetHistoryAccordion">
-                                <div class="accordion-body p-0">
-                                    <table class="table table-sm table-striped mb-0">
-                                        <thead class="table-light"><tr><th>항목</th><th>내역</th><th>금액</th></tr></thead>
-                                        <tbody>
-                                            @foreach (var item in group)
-                                            {
-                                                <tr>
-                                                    <td>@item.Category</td>
-                                                    <td>@item.SubCategory @item.CalcDetail</td>
-                                                    <td class="text-end">@item.Amount.ToString("N0")</td>
-                                                </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
             }
             @* ──────────────────────────────
-               [2] 탭: 자동분류 설정
+               [2] 탭: 자동분류 설정 (수입/지출 분리형)
             ────────────────────────────── *@
             else if (activeTab == "Mapping" && IsDeptAdmin)
             {
+                <h5 class="fw-bold text-warning mb-3">🏷️ 엑셀 장부 자동분류 설정</h5>
+
+                <div class="alert alert-success border-success bg-success bg-opacity-10 small mb-2">
+                    <i class="bi bi-info-circle-fill me-1"></i> <strong>사용법:</strong> 은행 엑셀의 '적요' 칸에 포함된 단어를 인식하여 지정된 항목으로 자동 분류합니다.
+                </div>
+
+                @* 수동 등록 창 *@
                 <div class="bg-light p-3 rounded mb-4 border shadow-sm">
                     <div class="row g-2">
-                        <div class="col-5">
-                            <div class="input-group">
-                                <input class="form-control" @bind="newMapping.Keyword" placeholder="적요 키워드 (예: 다이소)" />
-                                @if (!string.IsNullOrEmpty(newMapping.Keyword))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newMapping.Keyword = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
+                        <div class="col-md-2">
+                            <select class="form-select fw-bold border-warning" @bind="mappingType">
+                                <option value="수입">💰 수입용</option>
+                                <option value="지출">💸 지출용</option>
+                            </select>
                         </div>
-
-                        <div class="col-5">
-                            <div class="input-group">
-                                <input class="form-control" list="mapCatList" @bind="newMapping.Category" placeholder="분류될 항목 (직접입력/선택)" />
-                                <datalist id="mapCatList">
-                                    @foreach (var c in ExpenseCats)
-                                    {
-                                        <option value="@c"></option>
-                                    }
-                                </datalist>
-                                @if (!string.IsNullOrEmpty(newMapping.Category))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newMapping.Category = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
+                        <div class="col-md-4">
+                            <input class="form-control" @bind="newMapping.Keyword" placeholder="적요 키워드 (예: 인천중앙교회)" />
                         </div>
-                        <div class="col-2"><button class="btn btn-warning w-100 fw-bold" @onclick="AddMapping">수동 등록</button></div>
+                        <div class="col-md-4">
+                            <input class="form-control" list="mapCatList" @bind="newMapping.Category" placeholder="분류될 항목 선택" />
+                            <datalist id="mapCatList">
+                                @if (mappingType == "수입") { @foreach (var c in IncomeCats) { <option value="@c"></option> } }
+                                else { @foreach (var c in ExpenseCats) { <option value="@c"></option> } }
+                            </datalist>
+                        </div>
+                        <div class="col-md-2"><button class="btn btn-warning w-100 fw-bold" @onclick="AddMapping">규칙 등록</button></div>
                     </div>
                 </div>
-                <table class="table table-sm table-bordered bg-white text-center shadow-sm">
-                    <thead class="table-dark"><tr><th>키워드</th><th>분류될 항목</th><th>관리</th></tr></thead>
+
+                <h6 class="fw-bold text-primary mb-2"><i class="bi bi-plus-circle-fill me-1"></i> 수입 항목 자동분류 규칙</h6>
+                <table class="table table-sm table-bordered bg-white text-center shadow-sm mb-5">
+                    <thead class="table-primary"><tr><th width="40%">키워드(은행적요)</th><th width="40%">분류될 수입 항목</th><th width="20%">관리</th></tr></thead>
                     <tbody>
-                        @foreach (var m in mappingList)
+                        @foreach (var m in mappingList.Where(x => IncomeCats.Contains(x.Category ?? "")))
                         {
-                            <tr><td>@m.Keyword</td><td>@m.Category</td><td><button class="btn btn-sm btn-link text-danger" @onclick="() => DeleteMapping(m.Id)">삭제</button></td></tr>
+                            <tr><td>@m.Keyword</td><td class="fw-bold text-primary">@m.Category</td><td><button class="btn btn-sm btn-outline-danger py-0" @onclick="() => DeleteMapping(m.Id)">삭제</button></td></tr>
                         }
-                        @if (!mappingList.Any())
+                        @if (!mappingList.Any(x => IncomeCats.Contains(x.Category ?? "")))
                         {
-                            <tr><td colspan="3" class="text-muted py-4">등록된 자동분류 키워드가 없습니다.</td></tr>
+                            <tr><td colspan="3" class="text-muted py-3">등록된 수입 규칙이 없습니다.</td></tr>
+                        }
+                    </tbody>
+                </table>
+
+                <h6 class="fw-bold text-danger mb-2"><i class="bi bi-dash-circle-fill me-1"></i> 지출 항목 자동분류 규칙</h6>
+                <table class="table table-sm table-bordered bg-white text-center shadow-sm">
+                    <thead class="table-danger"><tr><th width="40%">키워드(은행적요)</th><th width="40%">분류될 지출 항목</th><th width="20%">관리</th></tr></thead>
+                    <tbody>
+                        @foreach (var m in mappingList.Where(x => ExpenseCats.Contains(x.Category ?? "")))
+                        {
+                            <tr><td>@m.Keyword</td><td class="fw-bold text-danger">@m.Category</td><td><button class="btn btn-sm btn-outline-danger py-0" @onclick="() => DeleteMapping(m.Id)">삭제</button></td></tr>
+                        }
+                        @if (!mappingList.Any(x => ExpenseCats.Contains(x.Category ?? "")))
+                        {
+                            <tr><td colspan="3" class="text-muted py-3">등록된 지출 규칙이 없습니다.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -320,19 +278,15 @@
                 <div class="col-md-10 mx-auto mt-4">
                     <h5 class="fw-bold mb-3 text-info">📌 @TargetYear 년도 분기 날짜 설정</h5>
                     <div class="card p-4 shadow-sm border-info">
-                        <div class="alert alert-danger border small mb-4">
-                            <strong>[주의]</strong> @TargetYear 년도의 분기만 변경됩니다.<br />
-                            분기 기간을 변경하면 과거 장부의 <strong>"분기별 통계값"이 즉시 다르게 계산될 수 있으니</strong> 연초에만 설정하시길 권장합니다.
-                        </div>
                         @for (int q = 1; q <= 4; q++)
                         {
                             int localQ = q;
                             <div class="mb-3 row align-items-center bg-light p-2 rounded">
                                 <label class="col-sm-2 col-form-label fw-bold text-center border-end">@q 분기</label>
                                 <div class="col d-flex gap-2 align-items-center">
-                                    <input type="date" class="form-control" @bind="QuarterDates[localQ - 1].Start" />
+                                    <input type="date" class="form-control" @bind="QuarterStartDates[localQ - 1]" />
                                     <span>~</span>
-                                    <input type="date" class="form-control" @bind="QuarterDates[localQ - 1].End" />
+                                    <input type="date" class="form-control" @bind="QuarterEndDates[localQ - 1]" />
                                 </div>
                                 <div class="col-sm-2"><button class="btn btn-sm btn-outline-primary w-100 fw-bold" @onclick="() => SaveQuarter(localQ)">저장</button></div>
                             </div>
@@ -349,57 +303,38 @@
                 {
                     <h5 class="mb-3 fw-bold text-primary">📂 전체 시스템 데이터 백업 및 복원</h5>
                     <div class="card p-4 shadow-sm border-primary bg-light mb-4">
-                        <p class="mb-4 text-dark" style="line-height: 1.6;">
-                            모든 부서의 <strong class="text-primary">재정 장부</strong> 및 <strong class="text-danger">예산안</strong> 데이터를 한 번에 백업하거나 복원합니다.<br />
-                            - 회계 자료 제출 및 보고용으로는 <strong>[엑셀 다운로드]</strong>를 권장합니다.<br />
-                            - 향후 시스템 이전이나 초기화 후 복원할 때는 <strong>[JSON 백업 / 복원]</strong> 기능을 사용하세요.
-                        </p>
                         <div class="d-flex gap-3">
-                            <button class="btn btn-success fw-bold px-4 py-2" @onclick="DownloadAllDataExcel">
-                                <i class="bi bi-file-earmark-excel me-2"></i>모든 부서 엑셀 다운로드
-                            </button>
-                            <button class="btn btn-dark fw-bold px-4 py-2" @onclick="DownloadAllDataJson">
-                                <i class="bi bi-filetype-json me-2"></i>시스템 JSON 백업
-                            </button>
-
+                            <button class="btn btn-success fw-bold px-4 py-2" @onclick="DownloadAllDataExcel"><i class="bi bi-file-earmark-excel me-2"></i>모든 부서 엑셀 다운로드</button>
+                            <button class="btn btn-dark fw-bold px-4 py-2" @onclick="DownloadAllDataJson"><i class="bi bi-filetype-json me-2"></i>시스템 JSON 백업</button>
                             <button class="btn btn-danger fw-bold px-4 py-2" @onclick="TriggerSystemRestore" disabled="@isRestoring">
-                                @if (isRestoring)
-                                {
-                                    <span class="spinner-border spinner-border-sm me-2"></span>
-                                    <span>복원 중...</span>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-arrow-counterclockwise me-2">시스템 JSON 복원</i>
-                                }
+                                @if (isRestoring) { <span class="spinner-border spinner-border-sm me-2"></span><span>복원 중...</span> }
+                                else { <i class="bi bi-arrow-counterclockwise me-2"></i><span>시스템 JSON 복원</span> }
                             </button>
                         </div>
                     </div>
                 }
                 else
                 {
-                    <div class="alert alert-success d-flex justify-content-between align-items-center">
+                    <h5 class="mb-3 fw-bold text-success">📂 장부 백업</h5>
+                    <div class="alert border border-primary bg-light shadow-sm d-flex justify-content-between align-items-center mb-5">
                         <div>
-                            <strong>현재 상태를 즉시 백업하여 나중에 복구할 수 있습니다.</strong><br />
+                            <strong class="text-primary">현재 상태를 수동으로 즉시 백업</strong><br />
                             <div class="input-group input-group-sm mt-2" style="width: 450px;">
-                                <input type="text" class="form-control" placeholder="백업 메모를 직접 적어주세요 (예: 26년 1분기 결산전)" @bind="customBackupMemo" />
-                                @if (!string.IsNullOrEmpty(customBackupMemo))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { customBackupMemo = string.Empty; }" title="지우기">❌</button>
-                                }
+                                <input type="text" class="form-control border-primary" placeholder="백업 메모 입력" @bind="customBackupMemo" />
                             </div>
                         </div>
-                        <button class="btn btn-success" @onclick='() => SafeBackup("User_Manual")'>지금 백업하기</button>
+                        <button class="btn btn-primary fw-bold px-4" @onclick='() => SafeBackup("Manual")'><i class="bi bi-download me-1"></i> 지금 백업하기</button>
                     </div>
-                    <h6 class="fw-bold mt-4"><i class="bi bi-clock-history me-2"></i>백업 히스토리 (다운로드 지원)</h6>
-                    <table class="table table-sm table-hover border align-middle text-center">
-                        <thead class="table-light"><tr><th>백업 일시</th><th>구분</th><th>메모 (직접입력)</th><th width="250">관리</th></tr></thead>
+
+                    <h6 class="fw-bold mt-4 text-primary"><i class="bi bi-person-check-fill me-2"></i>수동 백업 내역</h6>
+                    <table class="table table-sm table-hover border align-middle text-center shadow-sm mb-5">
+                        <thead class="table-light"><tr><th>백업 일시</th><th>구분</th><th>메모</th><th width="250">관리</th></tr></thead>
                         <tbody>
-                            @foreach (var b in backupList)
+                            @foreach (var b in ManualBackups)
                             {
                                 <tr>
                                     <td>@b.BackupDate.ToString("yyyy-MM-dd HH:mm")</td>
-                                    <td><span class="badge bg-secondary">@b.DataType</span></td>
+                                    <td><span class="badge bg-primary">수동</span></td>
                                     <td class="small text-start">@b.Memo</td>
                                     <td>
                                         <button class="btn btn-sm btn-outline-primary fw-bold px-2 py-0 me-1" @onclick="() => RestoreData(b)">🔄 복구</button>
@@ -408,9 +343,25 @@
                                     </td>
                                 </tr>
                             }
-                            @if (!backupList.Any())
+                        </tbody>
+                    </table>
+
+                    <h6 class="fw-bold mt-4 text-secondary"><i class="bi bi-robot me-2"></i>자동 백업 내역</h6>
+                    <table class="table table-sm table-hover border align-middle text-center shadow-sm">
+                        <thead class="table-light"><tr><th>백업 일시</th><th>구분</th><th>메모</th><th width="250">관리</th></tr></thead>
+                        <tbody>
+                            @foreach (var b in AutoBackups)
                             {
-                                <tr><td colspan="4" class="text-muted py-4">저장된 백업 파일이 없습니다.</td></tr>
+                                <tr>
+                                    <td>@b.BackupDate.ToString("yyyy-MM-dd HH:mm")</td>
+                                    <td><span class="badge bg-secondary">자동</span></td>
+                                    <td class="small text-start text-muted">@b.Memo</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary fw-bold px-2 py-0 me-1" @onclick="() => RestoreData(b)">🔄 복구</button>
+                                        <button class="btn btn-sm btn-outline-dark fw-bold px-2 py-0 me-1" @onclick="() => DownloadBackupFile(b)">💾 다운로드</button>
+                                        <button class="btn btn-sm btn-outline-danger fw-bold px-2 py-0" @onclick="() => DeleteBackup(b.Id)">🗑️ 삭제</button>
+                                    </td>
+                                </tr>
                             }
                         </tbody>
                     </table>
@@ -422,76 +373,40 @@
             else if (activeTab == "Users" && IsSystemAdmin)
             {
                 <h5 class="mb-3 fw-bold text-success">👥 부서 계정 관리</h5>
-                <div class="row g-2 mb-3 bg-light p-3 border rounded">
-                    <div class="col-3">
-                        <div class="input-group">
-                            <input class="form-control" @bind="newUser.Username" placeholder="새로운 ID" />
-                            @if (!string.IsNullOrEmpty(newUser.Username))
-                            {
-                                <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newUser.Username = string.Empty; }" title="지우기">❌</button>
-                            }
-                        </div>
-                    </div>
-                    <div class="col-3">
-                        <div class="input-group">
-                            <input class="form-control" @bind="newUser.FullName" placeholder="이름(선택)" />
-                            @if (!string.IsNullOrEmpty(newUser.FullName))
-                            {
-                                <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newUser.FullName = string.Empty; }" title="지우기">❌</button>
-                            }
-                        </div>
-                    </div>
+                <div class="row g-2 mb-3 bg-light p-3 border rounded shadow-sm">
+                    <div class="col-3"><input class="form-control" @bind="newUser.Username" placeholder="새로운 ID" /></div>
+                    <div class="col-3"><input class="form-control" @bind="newUser.FullName" placeholder="이름(선택)" /></div>
                     <div class="col-3">
                         <select class="form-select" @bind="newUser.DepartmentId">
                             <option value="0">부서 선택</option>
-                            @foreach (var d in adminDeptList)
-                            {
-                                <option value="@d.Id">@d.Name</option>
-                            }
+                            @foreach (var d in adminDeptList) { <option value="@d.Id">@d.Name</option> }
                         </select>
                     </div>
                     <div class="col-2">
                         <select class="form-select" @bind="newUser.Role">
-                            <option value="DeptAdmin">부서 메인회계 (예산 설정 O)</option>
-                            <option value="DeptUser">부서 보조회계 (예산 설정 X)</option>
-                            <option value="Auditor">교육국장/감사 (전체 조회)</option>
-                            <option value="Admin">시스템 관리자 (사용자 관리)</option>
+                            <option value="DeptAdmin">메인회계</option><option value="DeptUser">보조회계</option>
+                            <option value="Auditor">감사</option><option value="Admin">관리자</option>
                         </select>
                     </div>
-                    <div class="col-1"><button class="btn btn-primary w-100" @onclick="AddUser">등록</button></div>
+                    <div class="col-1"><button class="btn btn-success fw-bold w-100" @onclick="AddUser">등록</button></div>
                 </div>
-                <table class="table border text-center align-middle">
-                    <thead class="table-light"><tr><th>아이디</th><th>이름</th><th>소속 부서</th><th>권한</th><th>상태</th><th>관리</th></tr></thead>
+                <table class="table border text-center align-middle shadow-sm">
+                    <thead class="table-dark"><tr><th>아이디</th><th>이름</th><th>부서</th><th>권한</th><th>상태</th><th>관리</th></tr></thead>
                     <tbody>
                         @foreach (var u in adminUserList)
                         {
                             <tr>
-                                <td class="fw-bold">@u.Username</td>
-                                <td>@u.FullName</td>
+                                <td class="fw-bold">@u.Username</td><td>@u.FullName</td>
                                 <td>@(adminDeptList.FirstOrDefault(d => d.Id == u.DepartmentId)?.Name ?? "미정")</td>
+                                <td>@(u.Role == "Admin" ? "관리자" : u.Role == "Auditor" ? "감사" : "회계")</td>
                                 <td>
-                                    @(u.Role == "Admin" ? "시스템 관리자" :
-                                                                u.Role == "Auditor" ? "국장/회계감사" :
-                                                                (u.Role == "DeptAdmin" || u.Role == "User") ? "부서 메인회계" : "부서 보조회계")
-                        </td>
-                        <td>
-                            @if (u.IsActive)
-                                    {
-                                        <span class="badge bg-success">활성</span>
-                                    }
-                                    else
-                                    {
-
-                                        <span class="badge bg-secondary">비활성</span>
-                                    }
+                                    @if (u.IsActive) { <span class="badge bg-success">활성</span> } else { <span class="badge bg-secondary">비활성</span> }
                                 </td>
                                 <td>
                                     <button class="btn btn-sm btn-warning me-1 fw-bold" @onclick="() => ResetPassword(u.Username)">초기화</button>
                                     @if (u.Username != "admin")
                                     {
-                                        <button class="btn btn-sm @(u.IsActive ? "btn-outline-danger" : "btn-outline-success") fw-bold" @onclick="() => ToggleUserStatus(u)">
-                                            @(u.IsActive ? "정지" : "복구")
-                                        </button>
+                                        <button class="btn btn-sm @(u.IsActive ? "btn-outline-danger" : "btn-outline-success") fw-bold" @onclick="() => ToggleUserStatus(u)">@(u.IsActive ? "정지" : "복구")</button>
                                         <button class="btn btn-sm btn-danger fw-bold ms-1" @onclick="() => DeleteUser(u.Username)">삭제</button>
                                     }
                                 </td>
@@ -501,201 +416,259 @@
                 </table>
             }
             @* ──────────────────────────────
-               [6] 탭: 암호 변경
+               [6] 탭: 보안 및 암호 (구글 OTP 연동)
             ────────────────────────────── *@
             else if (activeTab == "MyInfo")
             {
                 <div class="col-md-6 mx-auto mt-5">
-                    <div class="card p-4 border-0 shadow-sm bg-light">
+                    <div class="card p-4 border-0 shadow-sm bg-light mb-4">
                         <h5 class="mb-4 fw-bold text-center">🔒 비밀번호 변경</h5>
                         <div class="alert alert-secondary border text-center mb-4">
-                            현재 내 비밀번호는 <strong>[ @currentVisiblePassword ]</strong> 입니다.
+                            현재 비밀번호: <strong>[ @currentVisiblePassword ]</strong>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-bold text-danger">새로운 비밀번호 입력</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control border-danger" @bind="newSelfPassword" placeholder="변경할 비밀번호를 입력하세요" />
-                                @if (!string.IsNullOrEmpty(newSelfPassword))
-                                {
-                                    <button class="btn btn-outline-danger px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newSelfPassword = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
+                            <input type="text" class="form-control border-danger" @bind="newSelfPassword" placeholder="변경할 비밀번호를 입력하세요" @onkeyup="HandlePasswordKey" />
                         </div>
                         <button class="btn btn-dark w-100 py-2 fw-bold" @onclick="ChangeMyPassword">변경 내용 저장</button>
                     </div>
                 </div>
-            }
 
+                <div class="col-md-8 mx-auto mt-4 mb-5">
+                    <div class="card p-4 border-0 shadow-sm bg-white border-top border-primary" style="border-width: 5px !important;">
+                        <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>2단계 보안 인증 (구글 OTP)</h5>
+                        
+                        @if (CurrentUser != null && !CurrentUser.IsTwoFactorEnabled)
+                        {
+                            <div class="alert alert-warning small border-warning">
+                                <i class="bi bi-info-circle-fill me-1"></i> <strong>설정 방법:</strong> 아래 [보안 설정 시작]을 누르면 QR 코드가 표시됩니다. 앱으로 스캔하세요.
+                            </div>
+                            
+                            @if (string.IsNullOrEmpty(tempSecret))
+                            {
+                                <button class="btn btn-outline-primary fw-bold w-100" @onclick="Prepare2FA"><i class="bi bi-shield-check me-2"></i>보안 설정 시작하기</button>
+                            }
+                            else
+                            {
+                                <div class="text-center mb-3">
+                                    <p class="mb-3 fw-bold"><span class="badge bg-info">Step 1</span> QR 코드를 스캔하세요</p>
+                                    <img src="@qrCodeImageUrl" style="width: 200px; height: 200px; border: 2px solid #dee2e6;" class="p-2 bg-white rounded" alt="QR Code" />
+                                    <p class="mt-4 fw-bold text-danger"><span class="badge bg-danger">Step 2</span> 6자리 번호를 입력하세요</p>
+                                    <div class="input-group mb-3 w-75 mx-auto">
+                                        <input type="text" class="form-control text-center fs-4 fw-bold border-primary" maxlength="6" @bind="setupOtpCode" placeholder="000000" @onkeyup="HandleOtpKey" />
+                                        <button class="btn btn-primary fw-bold" @onclick="Enable2FA">인증 및 활성화</button>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="@(() => { tempSecret = string.Empty; setupOtpCode = string.Empty; })"><i class="bi bi-arrow-counterclockwise me-1"></i>다시 시작</button>
+                                </div>
+                            }
+                        }
+                        else if (CurrentUser != null && CurrentUser.IsTwoFactorEnabled)
+                        {
+                            <div class="alert alert-success border-success d-flex justify-content-between align-items-center">
+                                <div><i class="bi bi-check-circle-fill me-2"></i><strong>구글 OTP 인증</strong>이 활성화되어 보호 중입니다.</div>
+                                <button class="btn btn-sm btn-danger fw-bold" @onclick="Disable2FA"><i class="bi bi-shield-x me-1"></i>보안 해제</button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
             @* ──────────────────────────────
-               [7] 탭: 부서 임원 정보
+               [7] 탭: 부서 임원 정보 (🚀 개별부서는 카드형, 다수부서는 아코디언)
             ────────────────────────────── *@
             else if (activeTab == "Officers")
             {
                 <div class="col-md-11 mx-auto mt-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold mb-0 text-primary"><i class="bi bi-person-lines-fill me-2"></i>@TargetYear 년도 부서 임원 이력 관리</h5>
-                        <button class="btn btn-outline-primary btn-sm fw-bold" @onclick="ImportPreviousYearOfficers">
-                            <i class="bi bi-arrow-clockwise me-1"></i>직전년도 임원 불러오기
-                        </button>
-                    </div>
-
-                    @if (isReplacing && officerToReplace != null)
+                    <h5 class="fw-bold mb-3 text-primary"><i class="bi bi-person-lines-fill me-2"></i>@TargetYear 년도 부서 임원 이력 관리</h5>
+                    
+                    @if (visibleDepartments.Count > 1)
                     {
-                        <div class="card p-4 shadow-sm border-danger bg-light mb-4">
-                            <h6 class="fw-bold text-danger mb-3"><i class="bi bi-person-x-fill me-2"></i>[@officerToReplace.Role] 인수인계 (임기 중 교체)</h6>
-                            <p class="small text-muted mb-3">기존 임원(<b>@officerToReplace.Name</b>)의 임기는 새로운 임원의 시작일 전날로 자동 마감되며, 이력으로 안전하게 보존됩니다.</p>
-
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold mb-1">새로 오시는 분 이름</label>
-                                    <div class="input-group">
-                                        <input class="form-control" @bind="replaceNewName" placeholder="새 임원 이름" />
-                                        @if (!string.IsNullOrEmpty(replaceNewName))
-                                        {
-                                            <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { replaceNewName = string.Empty; }" title="지우기">❌</button>
-                                        }
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label small fw-bold mb-1">새 임원 임기 시작일</label>
-                                    <input type="date" class="form-control" @bind="replaceStartDate" />
-                                </div>
-                                <div class="col-md-4 d-flex gap-2">
-                                    <button class="btn btn-danger flex-grow-1 fw-bold" @onclick="ConfirmReplaceOfficer">교체 완료</button>
-                                    <button class="btn btn-outline-secondary fw-bold" @onclick="CancelReplace">취소</button>
-                                </div>
-                            </div>
+                        <div class="alert alert-success border-success bg-success bg-opacity-10 small mb-4">
+                            <i class="bi bi-info-circle-fill me-1"></i> <strong>사용법:</strong> <b>부서명을 클릭</b>하여 해당 부서의 임원 정보를 관리합니다.
                         </div>
                     }
-                    else
-                    {
-                        <div class="card p-3 shadow-sm border-primary border-opacity-25 bg-light mb-4">
-                            <div class="row g-2 align-items-end">
-                                <div class="col-md-2">
-                                    <label class="form-label small fw-bold mb-1">직분</label>
-                                    <select class="form-select" @bind="newOfficer.Role">
-                                        <option value="">-선택-</option>
-                                        <option value="교역자">교역자</option>
-                                        <option value="부장(팀장)">부장(팀장)</option>
-                                        <option value="총무">총무</option>
-                                        <option value="회계">회계</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small fw-bold mb-1">이름</label>
-                                    <div class="input-group">
-                                        <input class="form-control" @bind="newOfficer.Name" placeholder="이름 입력" />
-                                        @if (!string.IsNullOrEmpty(newOfficer.Name))
-                                        {
-                                            <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { newOfficer.Name = string.Empty; }" title="지우기">❌</button>
-                                        }
-                                    </div>
-                                </div>
-                                <div class="col-md-5">
-                                    <label class="form-label small fw-bold mb-1 text-center d-block">임기 (시작 ~ 종료)</label>
-                                    <div class="d-flex align-items-center gap-2">
-                                        <input type="date" class="form-control" @bind="newOfficer.StartDate" />
-                                        <span>~</span>
-                                        <input type="date" class="form-control" @bind="newOfficer.EndDate" />
-                                    </div>
-                                </div>
 
-                                <div class="col-md-2 d-flex gap-1">
-                                    <button class="btn btn-primary flex-grow-1 fw-bold" @onclick="SaveOfficer">
-                                        @(isOfficerEditing ? "수정" : "등록")
-                                    </button>
-                                    @if (isOfficerEditing)
-                                    {
-                                        <button class="btn btn-danger fw-bold" @onclick="CancelOfficerEdit" title="초기화">
-                                            ❌ 취소
+                    <div class="@(visibleDepartments.Count > 1 ? "accordion shadow-sm" : "")" id="officersAccordion">
+                        @foreach (var dept in visibleDepartments)
+                        {
+                            var oList = deptOfficers.ContainsKey(dept.Id) ? deptOfficers[dept.Id] : new List<DepartmentOfficer>();
+                            var nOff = newOfficers.ContainsKey(dept.Id) ? newOfficers[dept.Id] : new DepartmentOfficer();
+                            bool isEditing = isEditingMap.ContainsKey(dept.Id) && isEditingMap[dept.Id];
+                            bool isExpanded = expandedDepts.ContainsKey(dept.Id) && expandedDepts[dept.Id];
+                            bool useAccordion = visibleDepartments.Count > 1;
+
+                            <div class="@(useAccordion ? "accordion-item border mb-2" : "card shadow-sm border mb-4")">
+                                @if (useAccordion)
+                                {
+                                    <h2 class="accordion-header" id="heading-off-@dept.Id">
+                                        <button class="accordion-button @(isExpanded ? "" : "collapsed") fw-bold text-dark bg-light" type="button" @onclick="() => ToggleDept(dept.Id)">
+                                            👨‍💼 @dept.Name <span class="badge bg-secondary ms-2">총 @oList.Count 명</span>
                                         </button>
-                                    }
+                                    </h2>
+                                }
+                                else
+                                {
+                                    <div class="card-header bg-light fw-bold text-dark fs-5">
+                                        👨‍💼 @dept.Name 임원 관리 <span class="badge bg-secondary ms-2 fs-6">총 @oList.Count 명</span>
+                                    </div>
+                                }
+
+                                <div id="collapse-off-@dept.Id" class="@(useAccordion ? $"accordion-collapse collapse {(isExpanded ? "show" : "")}" : "")">
+                                    <div class="@(useAccordion ? "accordion-body bg-white" : "card-body bg-white")">
+                                        <div class="d-flex justify-content-end mb-2">
+                                            <button class="btn btn-outline-primary btn-sm fw-bold" @onclick="() => ImportPreviousYearOfficers(dept.Id)">
+                                                <i class="bi bi-arrow-clockwise me-1"></i>직전년도 임원 불러오기
+                                            </button>
+                                        </div>
+
+                                        @if (isReplacing && officerToReplace != null && replacingDeptId == dept.Id)
+                                        {
+                                            <div class="card p-3 shadow-sm border-danger bg-light mb-4">
+                                                <h6 class="fw-bold text-danger mb-2">[@(officerToReplace?.Role)] 인수인계 교체</h6>
+                                                <div class="row g-2 align-items-end">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small fw-bold mb-1">새 임원 이름</label>
+                                                        <input class="form-control border-danger" @bind="replaceNewName" />
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small fw-bold mb-1 text-danger">새 임원 시작일</label>
+                                                        <input type="date" class="form-control border-danger" @bind="replaceStartDate" />
+                                                    </div>
+                                                    <div class="col-md-4 d-flex gap-2">
+                                                        <button class="btn btn-danger flex-grow-1 fw-bold shadow-sm" @onclick="ConfirmReplaceOfficer">교체 완료</button>
+                                                        <button class="btn btn-outline-secondary fw-bold" @onclick="CancelReplace">취소</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="card p-3 shadow-sm border-primary border-opacity-25 bg-light mb-4">
+                                                <div class="row g-2 align-items-end">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label small fw-bold mb-1">직분</label>
+                                                        <select class="form-select border-primary" @bind="nOff.Role">
+                                                            <option value="">-선택-</option>
+                                                            <option value="교역자">교역자</option>
+                                                            <option value="부장(팀장)">부장(팀장)</option>
+                                                            <option value="총무">총무</option>
+                                                            <option value="회계">회계</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label small fw-bold mb-1">이름</label>
+                                                        <input class="form-control border-primary" @bind="nOff.Name" placeholder="이름 입력" />
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <label class="form-label small fw-bold mb-1 text-center d-block">임기 (시작 ~ 종료)</label>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <input type="date" class="form-control border-primary" @bind="nOff.StartDate" />
+                                                            <span>~</span>
+                                                            <input type="date" class="form-control border-primary" @bind="nOff.EndDate" />
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-md-2 d-flex gap-1">
+                                                        <button class="btn btn-primary flex-grow-1 fw-bold shadow-sm" @onclick="() => SaveOfficer(dept.Id)">
+                                                            @(isEditing ? "수정완료" : "등록")
+                                                        </button>
+                                                        @if (isEditing)
+                                                        {
+                                                            <button class="btn btn-secondary fw-bold" @onclick="() => CancelOfficerEdit(dept.Id)">❌</button>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        }
+
+                                        <table class="table table-hover align-middle border text-center shadow-sm">
+                                            <thead class="table-dark">
+                                                <tr><th>직분</th><th>이름</th><th>임기 시작일</th><th>임기 종료일</th><th width="180">관리</th></tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var o in oList.OrderBy(x => x.Role).ThenBy(x => x.StartDate))
+                                                {
+                                                    <tr>
+                                                        <td class="fw-bold text-primary">@o.Role</td>
+                                                        <td class="fw-bold fs-6">@o.Name</td>
+                                                        <td>@o.StartDate.ToString("yyyy년 MM월 dd일")</td>
+                                                        <td>@o.EndDate.ToString("yyyy년 MM월 dd일")</td>
+                                                        <td>
+                                                            <button class="btn btn-sm btn-outline-secondary px-2 py-0 me-1 fw-bold" @onclick="() => EditOfficer(dept.Id, o)">수정</button>
+                                                            <button class="btn btn-sm btn-outline-danger px-2 py-0 me-1 fw-bold" @onclick="() => StartReplaceOfficer(dept.Id, o)">교체</button>
+                                                            <button class="btn btn-sm btn-danger px-2 py-0 fw-bold" @onclick="() => DeleteOfficerData(dept.Id, o.Id)">삭제</button>
+                                                        </td>
+                                                    </tr>
+                                                }
+                                                @if (!oList.Any())
+                                                {
+                                                    <tr><td colspan="5" class="py-4 text-muted bg-white">등록된 임원 정보가 없습니다.</td></tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="mt-2 text-end">
-                                <small class="text-muted">※ 기본 임기는 현재 연도의 1분기 시작일 ~ 4분기 마감일입니다.</small>
-                            </div>
-                        </div>
-                    }
-
-                    <table class="table table-hover align-middle border text-center">
-                        <thead class="table-light">
-                            <tr>
-                                <th>직분</th>
-                                <th>이름</th>
-                                <th>임기 시작일</th>
-                                <th>임기 종료일</th>
-                                <th width="180">관리 (수정/교체)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var o in officerList.OrderBy(x => x.Role).ThenBy(x => x.StartDate))
-                            {
-                                <tr class="@(isReplacing && officerToReplace?.Id == o.Id ? "table-danger" : isOfficerEditing && newOfficer.Id == o.Id ? "table-warning" : "")">
-                                    <td class="fw-bold text-secondary">@o.Role</td>
-                                    <td class="fw-bold">@o.Name</td>
-                                    <td>@o.StartDate.ToString("yyyy년 MM월 dd일")</td>
-                                    <td>@o.EndDate.ToString("yyyy년 MM월 dd일")</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-secondary px-2 py-0 me-1 fw-bold" @onclick="() => EditOfficer(o)">수정</button>
-                                        <button class="btn btn-sm btn-outline-danger px-2 py-0 me-1 fw-bold" @onclick="() => StartReplaceOfficer(o)">교체</button>
-                                        <button class="btn btn-sm btn-danger px-2 py-0 fw-bold" @onclick="() => DeleteOfficerData(o.Id)">삭제</button>
-                                    </td>
-                                </tr>
-                            }
-                            @if (!officerList.Any())
-                            {
-                                <tr><td colspan="5" class="py-4 text-muted">등록된 임원 정보가 없습니다.</td></tr>
-                            }
-                        </tbody>
-                    </table>
+                        }
+                    </div>
                 </div>
             }
-
             @* ──────────────────────────────
-               [8] 탭: 부서 계좌번호 설정
+               [8] 탭: 부서 계좌번호 설정 (🚀 개별부서는 카드형, 다수부서는 아코디언)
             ────────────────────────────── *@
             else if (activeTab == "Account")
             {
-                <div class="col-md-8 mx-auto mt-4">
-                    <div class="card p-4 shadow-sm border-success bg-light">
-                        <h5 class="fw-bold mb-3 text-success">🏦 지출결의서 연동 계좌 설정</h5>
-                        <p class="text-muted small mb-4">이곳에 입력된 계좌 정보가 지출결의서 '계좌이체' 선택 시 자동으로 인쇄됩니다.</p>
+                <div class="col-md-9 mx-auto mt-4 mb-5">
+                    <h5 class="fw-bold mb-3 text-success">🏦 부서 계좌번호 설정</h5>
 
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-secondary">은행명</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" @bind="targetDepartment.BankName" placeholder="예: 농협은행, 하나은행" />
-                                @if (!string.IsNullOrEmpty(targetDepartment.BankName))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { targetDepartment.BankName = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-bold small text-secondary">계좌번호</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" @bind="targetDepartment.AccountNumber" placeholder="'-' (하이픈) 포함 입력" />
-                                @if (!string.IsNullOrEmpty(targetDepartment.AccountNumber))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { targetDepartment.AccountNumber = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
-                        </div>
-                        <div class="mb-4">
-                            <label class="form-label fw-bold small text-secondary">예금주</label>
-                            <div class="input-group">
-                                <input type="text" class="form-control" @bind="targetDepartment.AccountHolder" placeholder="예: 인천중앙교회(청년부)" />
-                                @if (!string.IsNullOrEmpty(targetDepartment.AccountHolder))
-                                {
-                                    <button class="btn btn-outline-secondary px-2" type="button" style="font-size: 0.75rem;" @onclick="() => { targetDepartment.AccountHolder = string.Empty; }" title="지우기">❌</button>
-                                }
-                            </div>
-                        </div>
+                    <div class="@(visibleDepartments.Count > 1 ? "accordion shadow-sm" : "")" id="accountAccordion">
+                        @foreach (var dept in visibleDepartments)
+                        {
+                            bool isExpanded = expandedDepts.ContainsKey(dept.Id) && expandedDepts[dept.Id];
+                            bool useAccordion = visibleDepartments.Count > 1;
 
-                        <button class="btn btn-success w-100 fw-bold py-2 shadow-sm" @onclick="SaveAccountInfo">
-                            <i class="bi bi-save me-2"></i>계좌 정보 저장
-                        </button>
+                            <div class="@(useAccordion ? "accordion-item border mb-2 rounded" : "card shadow-sm border mb-4")">
+                                @if (useAccordion)
+                                {
+                                    <h2 class="accordion-header" id="heading-acc-@dept.Id">
+                                        <button class="accordion-button @(isExpanded ? "" : "collapsed") fw-bold text-success bg-light" type="button" @onclick="() => ToggleDept(dept.Id)">
+                                            💳 @dept.Name 계좌 
+                                            @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-success ms-2">@dept.BankName 등록됨</span> }
+                                        </button>
+                                    </h2>
+                                }
+                                else
+                                {
+                                    <div class="card-header bg-light fw-bold text-success fs-5">
+                                        💳 @dept.Name 계좌 
+                                        @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-success ms-2 fs-6">@dept.BankName 등록됨</span> }
+                                    </div>
+                                }
+
+                                <div id="collapse-acc-@dept.Id" class="@(useAccordion ? $"accordion-collapse collapse {(isExpanded ? "show" : "")}" : "")">
+                                    <div class="@(useAccordion ? "accordion-body bg-white p-4" : "card-body bg-white p-4")">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold small text-secondary">은행명</label>
+                                                <input type="text" class="form-control border-success" @bind="dept.BankName" placeholder="예: 농협은행" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold small text-secondary">계좌번호</label>
+                                                <input type="text" class="form-control border-success" @bind="dept.AccountNumber" placeholder="'-' 포함 입력" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label fw-bold small text-secondary">예금주</label>
+                                                <input type="text" class="form-control border-success" @bind="dept.AccountHolder" placeholder="예: 인천중앙교회" />
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 text-end">
+                                            <button class="btn btn-success fw-bold px-4 shadow-sm" @onclick="() => SaveAccountInfo(dept)">
+                                                <i class="bi bi-save me-1"></i> 저장
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
                     </div>
                 </div>
             }
@@ -708,38 +681,38 @@
         const blob = new Blob([jsonContent], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
-        link.download = fileName;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+        link.download = fileName; link.href = url; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
     };
     window.downloadExcelFile = (fileName, base64String) => {
         const link = document.createElement('a');
-        link.download = fileName;
-        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        link.download = fileName; link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
     };
 </script>
 
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private Guid bulkImportKey = Guid.NewGuid();
+    private Guid systemRestoreKey = Guid.NewGuid();
+    private string mappingType = "지출";
     private string activeTab = "Income";
     private int TargetYear = DateTime.Now.Year;
     private bool isImporting = false;
     private bool isRestoring = false;
-
     private bool IsSystemAdmin = false;
     private bool IsDeptAdmin = false;
-
+    
     private List<string> IncomeCats = new();
     private List<string> ExpenseCats = new();
-
     private List<BudgetPlan> budgetList = new();
     private IGrouping<int, BudgetPlan>[] budgetHistory = Array.Empty<IGrouping<int, BudgetPlan>>();
+    
+    private IEnumerable<BudgetPlan> CurrentYearBudgets => budgetList.Where(b => b.Year == TargetYear && b.Type == activeTab);
+    private IEnumerable<IGrouping<string, BudgetPlan>> GroupedBudgets => CurrentYearBudgets.GroupBy(b => b.Category);
+
+    private IEnumerable<DataBackup> ManualBackups => backupList.Where(b => b.DataType != "Auto").OrderByDescending(b => b.BackupDate);
+    private IEnumerable<DataBackup> AutoBackups => backupList.Where(b => b.DataType == "Auto").OrderByDescending(b => b.BackupDate);
 
     private BudgetPlan newPlan = new();
     private List<CategoryMapping> mappingList = new();
@@ -748,26 +721,30 @@
 
     private List<User> adminUserList = new();
     private List<Department> adminDeptList = new();
-
     private User newUser = new() { Role = "DeptAdmin", IsActive = true };
     private string newSelfPassword = "";
     private string currentVisiblePassword = "";
     private string customBackupMemo = "";
 
-    private Department targetDepartment = new();
-
-    private List<DepartmentOfficer> officerList = new();
-    private DepartmentOfficer newOfficer = new();
-    private bool isOfficerEditing = false;
-    private bool isReplacing = false;
+    private List<Department> visibleDepartments = new();
+    private Dictionary<int, List<DepartmentOfficer>> deptOfficers = new();
+    private Dictionary<int, DepartmentOfficer> newOfficers = new();
+    private Dictionary<int, bool> isEditingMap = new();
     private DepartmentOfficer? officerToReplace = null;
     private string replaceNewName = "";
     private DateTime replaceStartDate = DateTime.Now;
+    private int replacingDeptId = 0;
+    private bool isReplacing = false;
 
+    private Dictionary<int, bool> expandedDepts = new();
     private Dictionary<string, bool> expandedCategories = new();
-
-    class DateRange { public DateTime Start { get; set; } public DateTime End { get; set; } }
-    private DateRange[] QuarterDates = new DateRange[4] { new(), new(), new(), new() };
+    
+    private DateTime[] QuarterStartDates = new DateTime[4] { DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now };
+    private DateTime[] QuarterEndDates = new DateTime[4] { DateTime.Now, DateTime.Now, DateTime.Now, DateTime.Now };
+    
+    private string tempSecret = "";
+    private string qrCodeImageUrl = "";
+    private string setupOtpCode = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -802,22 +779,18 @@
         newPlan = new();
         expandedCategories.Clear();
         await LoadData();
-
-        if (tab == "Account" && CurrentUser != null)
-        {
-            await LoadDepartmentInfo();
-        }
     }
 
     private async Task LoadData()
     {
         if (CurrentUser == null) return;
-        int deptId = CurrentUser.DepartmentId;
+        int myDeptId = CurrentUser.DepartmentId;
 
         for (int i = 1; i <= 4; i++)
         {
-            var range = await AccService.GetQuarterDateRangeAsync(deptId, TargetYear, i);
-            QuarterDates[i - 1] = new DateRange { Start = range.Start, End = range.End };
+            var range = await AccService.GetQuarterDateRangeAsync(myDeptId, TargetYear, i);
+            QuarterStartDates[i - 1] = range.Start;
+            QuarterEndDates[i - 1] = range.End;
         }
 
         if (IsSystemAdmin && activeTab == "Users")
@@ -829,632 +802,304 @@
 
         if (activeTab == "Income" || activeTab == "Expense")
         {
-            var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Type == activeTab).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
+            var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Type == activeTab).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
             budgetList = allPlansForTab;
             budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
 
-            var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == TargetYear).ToListAsync();
+            var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
             IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
             ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
         }
         else if (activeTab == "Mapping")
         {
-            mappingList = await AccService.GetMappingsAsync(deptId);
-            var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == TargetYear).ToListAsync();
+            mappingList = await AccService.GetMappingsAsync(myDeptId);
+            var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
             ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
         }
-        else if (activeTab == "Backup") { backupList = await AccService.GetBackupsAsync(deptId); }
-        else if (activeTab == "Officers")
+        else if (activeTab == "Backup") 
+        { 
+            backupList = await AccService.GetBackupsAsync(myDeptId);
+        }
+        else if (activeTab == "Officers" || activeTab == "Account")
         {
-            officerList = await DbContext.DepartmentOfficers.AsNoTracking()
-                .Where(o => o.DepartmentId == deptId && o.Year == TargetYear)
-                .ToListAsync();
-            if (!isOfficerEditing && newOfficer.Id == 0)
+            var allDepts = await DbContext.Departments.Where(d => d.Name != "관리자" && d.Name != "시스템").OrderBy(d => d.Id).ToListAsync();
+            if (IsSystemAdmin || CurrentUser.Role == "Auditor" || CurrentUser.Role == "Director" || CurrentUser.Department?.Name == "교육국")
             {
-                newOfficer.StartDate = QuarterDates[0].Start;
-                newOfficer.EndDate = QuarterDates[3].End;
+                visibleDepartments = allDepts; 
+            }
+            else
+            {
+                visibleDepartments = allDepts.Where(d => d.Id == CurrentUser.DepartmentId).ToList(); 
+            }
+
+            foreach (var d in visibleDepartments)
+            {
+                deptOfficers[d.Id] = await DbContext.DepartmentOfficers.AsNoTracking().Where(o => o.DepartmentId == d.Id && o.Year == TargetYear).ToListAsync();
+                if (!newOfficers.ContainsKey(d.Id))
+                {
+                    newOfficers[d.Id] = new DepartmentOfficer { DepartmentId = d.Id, Year = TargetYear, StartDate = QuarterStartDates[0], EndDate = QuarterEndDates[3] };
+                    isEditingMap[d.Id] = false;
+                }
+                if (!expandedDepts.ContainsKey(d.Id))
+                {
+                    expandedDepts[d.Id] = false;
+                }
             }
         }
     }
 
+    private void ToggleDept(int deptId)
+    {
+        if (expandedDepts.ContainsKey(deptId)) expandedDepts[deptId] = !expandedDepts[deptId];
+        else expandedDepts[deptId] = true;
+    }
+
     private void ToggleCategory(string category)
     {
-        if (expandedCategories.ContainsKey(category))
-            expandedCategories[category] = !expandedCategories[category];
-        else
-            expandedCategories[category] = true;
+        if (expandedCategories.ContainsKey(category)) expandedCategories[category] = !expandedCategories[category];
+        else expandedCategories[category] = true;
     }
+    private void ExpandAll() { foreach (var c in budgetList.Where(b => b.Year == TargetYear && b.Type == activeTab).Select(b => b.Category).Distinct()) expandedCategories[c] = true; }
+    private void CollapseAll() { expandedCategories.Clear(); }
+    private bool IsExpanded(string category) { return expandedCategories.ContainsKey(category) && expandedCategories[category]; }
 
-    private void ExpandAll()
+    private async Task SaveOfficer(int deptId)
     {
-        var cats = budgetList.Where(b => b.Year == TargetYear && b.Type == activeTab).Select(b => b.Category).Distinct();
-        foreach (var c in cats) expandedCategories[c] = true;
-    }
-
-    private void CollapseAll()
-    {
-        expandedCategories.Clear();
-    }
-
-    private bool IsExpanded(string category)
-    {
-        return expandedCategories.ContainsKey(category) && expandedCategories[category];
-    }
-
-    private async Task SaveOfficer()
-    {
-        if (string.IsNullOrWhiteSpace(newOfficer.Name) || string.IsNullOrWhiteSpace(newOfficer.Role))
+        var nOff = newOfficers[deptId];
+        if (string.IsNullOrWhiteSpace(nOff.Name) || string.IsNullOrWhiteSpace(nOff.Role))
         {
-            await JSRuntime.InvokeVoidAsync("alert", "직분과 이름을 정확히 입력해주세요.");
-            return;
+            await JSRuntime.InvokeVoidAsync("alert", "직분과 이름을 입력해주세요."); return;
         }
-
-        if (newOfficer.Id == 0)
-        {
-            newOfficer.DepartmentId = CurrentUser?.DepartmentId ?? 0;
-            newOfficer.Year = TargetYear;
-            DbContext.DepartmentOfficers.Add(newOfficer);
-        }
-        else
-        {
-            var ex = await DbContext.DepartmentOfficers.FindAsync(newOfficer.Id);
-            if (ex != null) DbContext.Entry(ex).CurrentValues.SetValues(newOfficer);
-        }
-        await DbContext.SaveChangesAsync();
-        await LoadData();
-        CancelOfficerEdit();
+        if (nOff.Id == 0) { nOff.DepartmentId = deptId; nOff.Year = TargetYear; DbContext.DepartmentOfficers.Add(nOff); }
+        else { var ex = await DbContext.DepartmentOfficers.FindAsync(nOff.Id); if (ex != null) DbContext.Entry(ex).CurrentValues.SetValues(nOff); }
+        await DbContext.SaveChangesAsync(); await LoadData(); CancelOfficerEdit(deptId);
     }
-
-    private void EditOfficer(DepartmentOfficer o)
+    private void EditOfficer(int deptId, DepartmentOfficer o)
     {
-        CancelReplace();
-        newOfficer = new DepartmentOfficer { Id = o.Id, DepartmentId = o.DepartmentId, Year = o.Year, Role = o.Role, Name = o.Name, StartDate = o.StartDate, EndDate = o.EndDate };
-        isOfficerEditing = true;
+        CancelReplace(); newOfficers[deptId] = new DepartmentOfficer { Id = o.Id, DepartmentId = o.DepartmentId, Year = o.Year, Role = o.Role, Name = o.Name, StartDate = o.StartDate, EndDate = o.EndDate };
+        isEditingMap[deptId] = true;
     }
-
-    private void CancelOfficerEdit()
+    private void CancelOfficerEdit(int deptId) { newOfficers[deptId] = new DepartmentOfficer { DepartmentId = deptId, Year = TargetYear, StartDate = QuarterStartDates[0], EndDate = QuarterEndDates[3] }; isEditingMap[deptId] = false; }
+    private async Task DeleteOfficerData(int deptId, int id)
     {
-        newOfficer = new DepartmentOfficer { StartDate = QuarterDates[0].Start, EndDate = QuarterDates[3].End };
-        isOfficerEditing = false;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "완전히 삭제하시겠습니까?") == true) { var o = await DbContext.DepartmentOfficers.FindAsync(id); if (o != null) { DbContext.DepartmentOfficers.Remove(o); await DbContext.SaveChangesAsync(); await LoadData(); } }
     }
-
-    private async Task DeleteOfficerData(int id)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "이 임원의 이력을 완전히 삭제하시겠습니까?"))
-        {
-            var o = await DbContext.DepartmentOfficers.FindAsync(id);
-            if (o != null) { DbContext.DepartmentOfficers.Remove(o); await DbContext.SaveChangesAsync(); await LoadData(); }
-        }
-    }
-
-    private void StartReplaceOfficer(DepartmentOfficer o)
-    {
-        CancelOfficerEdit();
-        officerToReplace = o;
-        replaceNewName = "";
-        replaceStartDate = DateTime.Now;
-        isReplacing = true;
-    }
-
-    private void CancelReplace()
-    {
-        isReplacing = false;
-        officerToReplace = null;
-    }
-
+    private void StartReplaceOfficer(int deptId, DepartmentOfficer o) { CancelOfficerEdit(deptId); officerToReplace = o; replaceNewName = ""; replaceStartDate = DateTime.Now; replacingDeptId = deptId; isReplacing = true; }
+    private void CancelReplace() { isReplacing = false; officerToReplace = null; replacingDeptId = 0; }
     private async Task ConfirmReplaceOfficer()
     {
-        if (officerToReplace == null || string.IsNullOrWhiteSpace(replaceNewName))
-        {
-            await JSRuntime.InvokeVoidAsync("alert", "새로운 임원의 이름을 입력해주세요.");
-            return;
-        }
-
-        officerToReplace.EndDate = replaceStartDate.AddDays(-1);
-        var ex = await DbContext.DepartmentOfficers.FindAsync(officerToReplace.Id);
-        if (ex != null) DbContext.Entry(ex).CurrentValues.SetValues(officerToReplace);
-
-        var replacement = new DepartmentOfficer
-        {
-            DepartmentId = officerToReplace.DepartmentId,
-            Year = TargetYear,
-            Role = officerToReplace.Role,
-            Name = replaceNewName,
-            StartDate = replaceStartDate,
-            EndDate = QuarterDates[3].End
-        };
-        DbContext.DepartmentOfficers.Add(replacement);
-
-        await DbContext.SaveChangesAsync();
-        await LoadData();
-        CancelReplace();
-        await JSRuntime.InvokeVoidAsync("alert", "성공적으로 교체(인수인계) 이력이 저장되었습니다!");
+        if (officerToReplace == null || string.IsNullOrWhiteSpace(replaceNewName)) { await JSRuntime.InvokeVoidAsync("alert", "새로운 임원의 이름을 입력해주세요."); return; }
+        officerToReplace.EndDate = replaceStartDate.AddDays(-1); var ex = await DbContext.DepartmentOfficers.FindAsync(officerToReplace.Id); if (ex != null) DbContext.Entry(ex).CurrentValues.SetValues(officerToReplace);
+        DbContext.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = officerToReplace.DepartmentId, Year = TargetYear, Role = officerToReplace.Role, Name = replaceNewName, StartDate = replaceStartDate, EndDate = QuarterEndDates[3] });
+        await DbContext.SaveChangesAsync(); await LoadData(); CancelReplace(); await JSRuntime.InvokeVoidAsync("alert", "성공적으로 교체되었습니다!");
     }
-
-    private async Task ImportPreviousYearOfficers()
+    private async Task ImportPreviousYearOfficers(int deptId)
     {
-        int deptId = CurrentUser?.DepartmentId ?? 0;
         var prevOfficers = await DbContext.DepartmentOfficers.AsNoTracking().Where(o => o.DepartmentId == deptId && o.Year == TargetYear - 1).ToListAsync();
-        if (!prevOfficers.Any())
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear - 1}년도에 등록된 임원 정보가 없습니다.");
-            return;
-        }
-
-        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", $"직전년도({TargetYear - 1}년)의 최종 임원 명단을 불러오시겠습니까?\n(기존 임기가 초기화되어 {TargetYear}년 1분기~4분기로 재설정됩니다.)");
-        if (!confirm) return;
-
+        if (!prevOfficers.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear - 1}년도 정보가 없습니다."); return; }
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"직전년도 명단을 불러오시겠습니까?") != true) return;
         var latestPrevOfficers = prevOfficers.GroupBy(o => o.Role).Select(g => g.OrderByDescending(o => o.EndDate).First()).ToList();
-        foreach (var o in latestPrevOfficers)
-        {
-            DbContext.DepartmentOfficers.Add(new DepartmentOfficer
-            {
-                DepartmentId = deptId,
-                Year = TargetYear,
-                Role = o.Role,
-                Name = o.Name,
-                StartDate = QuarterDates[0].Start,
-                EndDate = QuarterDates[3].End
-            });
-        }
-        await DbContext.SaveChangesAsync();
-        await LoadData();
-        await JSRuntime.InvokeVoidAsync("alert", "성공적으로 불러왔습니다.");
+        foreach (var o in latestPrevOfficers) DbContext.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = deptId, Year = TargetYear, Role = o.Role, Name = o.Name, StartDate = QuarterStartDates[0], EndDate = QuarterEndDates[3] });
+        await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "불러왔습니다.");
     }
-
-    private async Task LoadDepartmentInfo()
+    private async Task SaveAccountInfo(Department targetDept)
     {
-        var dept = await AccService.GetDepartmentAsync(CurrentUser!.DepartmentId);
-        if (dept != null)
-        {
-            targetDepartment = new Department
-            {
-                Id = dept.Id,
-                Name = dept.Name,
-                BankName = dept.BankName,
-                AccountNumber = dept.AccountNumber,
-                AccountHolder = dept.AccountHolder
-            };
-        }
-    }
-
-    private async Task SaveAccountInfo()
-    {
-        if (string.IsNullOrWhiteSpace(targetDepartment.BankName) || string.IsNullOrWhiteSpace(targetDepartment.AccountNumber))
-        {
-            await JSRuntime.InvokeVoidAsync("alert", "은행명과 계좌번호를 모두 입력해주세요.");
-            return;
-        }
-
-        await AccService.UpdateDepartmentAsync(targetDepartment);
-        if (CurrentUser?.Department != null)
-        {
-            CurrentUser.Department.BankName = targetDepartment.BankName;
-            CurrentUser.Department.AccountNumber = targetDepartment.AccountNumber;
-            CurrentUser.Department.AccountHolder = targetDepartment.AccountHolder;
-        }
-        await JSRuntime.InvokeVoidAsync("alert", "계좌 정보가 성공적으로 저장되었습니다!");
+        if (string.IsNullOrWhiteSpace(targetDept.BankName) || string.IsNullOrWhiteSpace(targetDept.AccountNumber)) { await JSRuntime.InvokeVoidAsync("alert", "은행명과 계좌번호를 입력해주세요."); return; }
+        await AccService.UpdateDepartmentAsync(targetDept);
+        if (CurrentUser?.DepartmentId == targetDept.Id && CurrentUser?.Department != null) { CurrentUser.Department.BankName = targetDept.BankName; CurrentUser.Department.AccountNumber = targetDept.AccountNumber; CurrentUser.Department.AccountHolder = targetDept.AccountHolder; }
+        await JSRuntime.InvokeVoidAsync("alert", "저장되었습니다!");
     }
 
     private async Task DownloadAllDataJson()
     {
         try
         {
-            var allData = new SystemBackupDto
-            {
-                ExportDate = DateTime.Now,
-                Departments = await DbContext.Departments.AsNoTracking().ToListAsync(),
-                Users = await DbContext.Users.AsNoTracking().ToListAsync(),
-                Transactions = await DbContext.Transactions.AsNoTracking().ToListAsync(),
-                BudgetPlans = await DbContext.BudgetPlans.AsNoTracking().ToListAsync(),
-                CategoryMappings = await DbContext.CategoryMappings.AsNoTracking().ToListAsync()
-            };
+            var allData = new SystemBackupDto { ExportDate = DateTime.Now, Departments = await DbContext.Departments.AsNoTracking().ToListAsync(), Users = await DbContext.Users.AsNoTracking().ToListAsync(), Transactions = await DbContext.Transactions.AsNoTracking().ToListAsync(), BudgetPlans = await DbContext.BudgetPlans.AsNoTracking().ToListAsync(), CategoryMappings = await DbContext.CategoryMappings.AsNoTracking().ToListAsync() };
             var jsonOptions = new JsonSerializerOptions { WriteIndented = true, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
             var json = JsonSerializer.Serialize(allData, jsonOptions);
-            string fileName = $"전체시스템백업_{DateTime.Now:yyyyMMdd_HHmm}.json";
-
-            await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, json);
+            await JSRuntime.InvokeVoidAsync("downloadJsonFile", $"전체시스템백업_{DateTime.Now:yyyyMMdd_HHmm}.json", json);
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"백업 중 오류 발생: {ex.Message}");
-        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"백업 중 오류 발생: {ex.Message}"); }
     }
 
-    private async Task TriggerSystemRestore()
-    {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('systemRestoreInput').click()");
-    }
-
+    private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('systemRestoreInput').click()"); }
     private async Task HandleSystemRestore(InputFileChangeEventArgs e)
     {
-        var file = e.File;
-        if (file == null) return;
-
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "⚠️ [경고] 현재 시스템의 모든 데이터가 지워지고 업로드한 백업 파일로 덮어쓰기 됩니다.\n정말 복원을 진행하시겠습니까?");
-        if (!confirmed) return;
-
-        isRestoring = true;
-        StateHasChanged();
-
+        var file = e.File; if (file == null) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "⚠️ 현재 시스템의 모든 데이터가 삭제됩니다. 진행하시겠습니까?") != true) return;
+        isRestoring = true; StateHasChanged();
         try
         {
-            using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
-            using var reader = new StreamReader(stream);
-            var json = await reader.ReadToEndAsync();
+            using var stream = file.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024); using var reader = new StreamReader(stream);
+            var json = await reader.ReadToEndAsync(); var backupData = JsonSerializer.Deserialize<SystemBackupDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (backupData == null || backupData.Departments == null || backupData.Users == null) { await JSRuntime.InvokeVoidAsync("alert", "유효하지 않은 백업 파일입니다."); return; }
 
-            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var backupData = JsonSerializer.Deserialize<SystemBackupDto>(json, options);
-            if (backupData == null || backupData.Departments == null || backupData.Users == null)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", "유효하지 않은 백업 파일입니다.");
-                return;
-            }
-
-            DbContext.CategoryMappings.RemoveRange(DbContext.CategoryMappings);
-            DbContext.BudgetPlans.RemoveRange(DbContext.BudgetPlans);
-            DbContext.Transactions.RemoveRange(DbContext.Transactions);
-            DbContext.Users.RemoveRange(DbContext.Users);
-            DbContext.Departments.RemoveRange(DbContext.Departments);
+            DbContext.CategoryMappings.RemoveRange(DbContext.CategoryMappings); DbContext.BudgetPlans.RemoveRange(DbContext.BudgetPlans); DbContext.Transactions.RemoveRange(DbContext.Transactions); DbContext.Users.RemoveRange(DbContext.Users); DbContext.Departments.RemoveRange(DbContext.Departments);
             await DbContext.SaveChangesAsync();
-
             if (backupData.Departments.Any()) DbContext.Departments.AddRange(backupData.Departments);
             if (backupData.Users.Any()) DbContext.Users.AddRange(backupData.Users);
             if (backupData.Transactions.Any()) DbContext.Transactions.AddRange(backupData.Transactions);
             if (backupData.BudgetPlans.Any()) DbContext.BudgetPlans.AddRange(backupData.BudgetPlans);
             if (backupData.CategoryMappings.Any()) DbContext.CategoryMappings.AddRange(backupData.CategoryMappings);
-
-            await DbContext.SaveChangesAsync();
-
-            await LoadData();
-            await JSRuntime.InvokeVoidAsync("alert", "✅ 시스템 복원이 성공적으로 완료되었습니다.\n새로고침을 위해 시스템 초기화면으로 이동합니다.");
-            Nav.NavigateTo("/", forceLoad: true);
+            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "✅ 시스템 복원이 완료되었습니다."); Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"❌ 복원 중 오류 발생: {ex.Message}");
-        }
-        finally
-        {
-            isRestoring = false;
-            StateHasChanged();
-        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 복원 중 오류 발생: {ex.Message}"); }
+        finally { isRestoring = false; systemRestoreKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
     private async Task DownloadAllDataExcel()
     {
         try
         {
-            var depts = await DbContext.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name);
-            var allLedgers = await DbContext.Transactions.AsNoTracking().OrderBy(t => t.Date).ToListAsync();
-            var allBudgets = await DbContext.BudgetPlans.AsNoTracking().OrderBy(b => b.Year).ThenBy(b => b.DepartmentId).ToListAsync();
+            var depts = await DbContext.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name); var allLedgers = await DbContext.Transactions.AsNoTracking().OrderBy(t => t.Date).ToListAsync(); var allBudgets = await DbContext.BudgetPlans.AsNoTracking().OrderBy(b => b.Year).ThenBy(b => b.DepartmentId).ToListAsync();
             using var workbook = new XLWorkbook();
-
-            var wsLedger = workbook.Worksheets.Add("통합장부");
-            var headers = new[] { "부서명", "회계연도", "날짜", "구분", "항목", "적요", "비고", "수입", "지출" };
-            for (int i = 0; i < headers.Length; i++)
-            {
-                wsLedger.Cell(1, i + 1).Value = headers[i];
-                wsLedger.Cell(1, i + 1).Style.Font.Bold = true; wsLedger.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-            }
-
-            int row = 2;
-            foreach (var item in allLedgers)
-            {
-                wsLedger.Cell(row, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "알수없음";
-                wsLedger.Cell(row, 2).Value = item.FiscalYear;
-                wsLedger.Cell(row, 3).Value = item.Date.ToString("yyyy-MM-dd");
-                wsLedger.Cell(row, 4).Value = item.Type;
-                wsLedger.Cell(row, 5).Value = item.Category;
-                wsLedger.Cell(row, 6).Value = item.Description;
-                wsLedger.Cell(row, 7).Value = item.Note;
-                wsLedger.Cell(row, 8).Value = item.Income == 0 ? "" : item.Income;
-                wsLedger.Cell(row, 9).Value = item.Expense == 0 ? "" : item.Expense;
-                row++;
+            var wsLedger = workbook.Worksheets.Add("통합장부"); var headers = new[] { "부서명", "회계연도", "날짜", "구분", "항목", "적요", "비고", "수입", "지출" };
+            for (int i = 0; i < headers.Length; i++) { wsLedger.Cell(1, i + 1).Value = headers[i]; wsLedger.Cell(1, i + 1).Style.Font.Bold = true; wsLedger.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; }
+            int row = 2; foreach (var item in allLedgers) 
+            { 
+                string translatedType = item.Type == "Income" ? "수입" : (item.Type == "Expense" ? "지출" : item.Type);
+                wsLedger.Cell(row, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "알수없음"; wsLedger.Cell(row, 2).Value = item.FiscalYear; wsLedger.Cell(row, 3).Value = item.Date.ToString("yyyy-MM-dd"); wsLedger.Cell(row, 4).Value = translatedType; wsLedger.Cell(row, 5).Value = item.Category; wsLedger.Cell(row, 6).Value = item.Description; wsLedger.Cell(row, 7).Value = item.Note; wsLedger.Cell(row, 8).Value = item.Income == 0 ? "" : item.Income; wsLedger.Cell(row, 9).Value = item.Expense == 0 ? "" : item.Expense; row++; 
             }
             wsLedger.Columns().AdjustToContents();
-
-            var wsBudget = workbook.Worksheets.Add("통합예산");
-            var bHeaders = new[] { "부서명", "연도", "구분", "항목", "상세내역", "산출근거", "금액" };
-            for (int i = 0; i < bHeaders.Length; i++)
-            {
-                wsBudget.Cell(1, i + 1).Value = bHeaders[i];
-                wsBudget.Cell(1, i + 1).Style.Font.Bold = true; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
-            }
-
-            int bRow = 2;
-            foreach (var item in allBudgets)
-            {
-                wsBudget.Cell(bRow, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "알수없음";
-                wsBudget.Cell(bRow, 2).Value = item.Year;
-                wsBudget.Cell(bRow, 3).Value = item.Type;
-                wsBudget.Cell(bRow, 4).Value = item.Category;
-                wsBudget.Cell(bRow, 5).Value = item.SubCategory;
-                wsBudget.Cell(bRow, 6).Value = item.CalcDetail;
-                wsBudget.Cell(bRow, 7).Value = item.Amount;
-                bRow++;
+            
+            var wsBudget = workbook.Worksheets.Add("통합예산"); var bHeaders = new[] { "부서명", "연도", "구분", "항목", "상세내역", "산출근거", "금액" };
+            for (int i = 0; i < bHeaders.Length; i++) { wsBudget.Cell(1, i + 1).Value = bHeaders[i]; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; }
+            int bRow = 2; foreach (var item in allBudgets) 
+            { 
+                string translatedType = item.Type == "Income" ? "수입" : (item.Type == "Expense" ? "지출" : item.Type);
+                wsBudget.Cell(bRow, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "알수없음"; wsBudget.Cell(bRow, 2).Value = item.Year; wsBudget.Cell(bRow, 3).Value = translatedType; wsBudget.Cell(bRow, 4).Value = item.Category; wsBudget.Cell(bRow, 5).Value = item.SubCategory; wsBudget.Cell(bRow, 6).Value = item.CalcDetail; wsBudget.Cell(bRow, 7).Value = item.Amount; bRow++; 
             }
             wsBudget.Columns().AdjustToContents();
-            using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
-            var base64 = Convert.ToBase64String(stream.ToArray());
-            string fileName = $"전체부서_통합백업_{DateTime.Now:yyyyMMdd_HHmm}.xlsx";
-
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", fileName, base64);
+            using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray());
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"전체부서_통합백업_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"엑셀 백업 중 오류: {ex.Message}");
-        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 백업 중 오류: {ex.Message}"); }
     }
 
-    private async Task SavePlan()
-    {
-        if (string.IsNullOrWhiteSpace(newPlan.Category)) return;
-        newPlan.Year = TargetYear;
-        newPlan.Type = activeTab;
-        newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0;
-        await AccService.SaveBudgetPlanAsync(newPlan);
-        newPlan = new();
-
-        expandedCategories[newPlan.Category] = true;
-        await LoadData();
-    }
-    private async Task SaveQuarter(int q)
-    {
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"정말 {TargetYear}년도의 {q}분기 기간을 변경하시겠습니까?\\n\\n과거 통계 내역이 달라질 수 있습니다.");
-        if (!confirmed) return; var range = QuarterDates[q - 1]; await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, range.Start, range.End);
-        await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear}년도 {q}분기 기간이 설정되었습니다.");
-    }
-    private async Task SafeDeletePlan(int id)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "삭제하시겠습니까?")) await AccService.DeleteBudgetPlanAsync(id);
-        await LoadData();
-    }
-
-    private async Task AddUser()
-    {
-        if (string.IsNullOrWhiteSpace(newUser.Username) || newUser.DepartmentId == 0)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", "아이디와 소속 부서를 선택하세요.");
-            return;
-        }
-        newUser.Password = newUser.Username; await AccService.AddUserAsync(newUser); newUser = new() { Role = "DeptAdmin", IsActive = true }; await LoadData();
-    }
-    private async Task ResetPassword(string un)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "비밀번호를 '1234'로 초기화합니까?"))
-        {
-            await AccService.ResetPasswordAsync(un);
-            await LoadData();
-        }
-    }
-    private async Task DeleteUser(string un)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "계정을 영구 삭제합니까?"))
-        {
-            await AccService.DeleteUserAsync(un);
-            await LoadData();
-        }
-    }
-    private async Task ToggleUserStatus(User u)
-    {
-        u.IsActive = !u.IsActive; await AccService.UpdateUserAsync(u); await LoadData();
-    }
-
+    private async Task SavePlan() { if (string.IsNullOrWhiteSpace(newPlan.Category)) return; newPlan.Year = TargetYear; newPlan.Type = activeTab; newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(newPlan); newPlan = new(); await LoadData(); }
+    private async Task SaveQuarter(int q) { if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return; await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]); await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear}년도 {q}분기 기간이 설정되었습니다."); }
+    private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "삭제하시겠습니까?") == true) { await AccService.DeleteBudgetPlanAsync(id); await LoadData(); } }
+    private async Task AddUser() { if (string.IsNullOrWhiteSpace(newUser.Username) || newUser.DepartmentId == 0) { await JSRuntime.InvokeVoidAsync("alert", "아이디와 부서를 선택하세요."); return; } newUser.Password = newUser.Username; await AccService.AddUserAsync(newUser); newUser = new() { Role = "DeptAdmin", IsActive = true }; await LoadData(); }
+    private async Task ResetPassword(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "비밀번호를 '1234'로 초기화합니까?") == true) { await AccService.ResetPasswordAsync(un); await LoadData(); } }
+    private async Task DeleteUser(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "계정을 영구 삭제합니까?") == true) { await AccService.DeleteUserAsync(un); await LoadData(); } }
+    private async Task ToggleUserStatus(User u) { u.IsActive = !u.IsActive; await AccService.UpdateUserAsync(u); await LoadData(); }
+    
     private async Task SafeImportPreviousYearBudget()
     {
         if (isImporting || CurrentUser == null) return;
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"[{TargetYear}년도] 예산을 직전년도({TargetYear - 1}년도) 예산으로 덮어쓰시겠습니까?\\기존에 입력된 {TargetYear}년도 예산은 모두 삭제됩니다.");
-        if (!confirmed) return;
-        isImporting = true;
-        StateHasChanged();
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"[{TargetYear}년도] 예산을 직전년도 예산으로 덮어쓰시겠습니까?") != true) return;
+        isImporting = true; StateHasChanged();
         try
         {
             int deptId = CurrentUser.DepartmentId;
             var currentPlans = await DbContext.BudgetPlans.Where(b => b.DepartmentId == deptId && b.Year == TargetYear).ToListAsync();
             if (currentPlans.Any()) DbContext.BudgetPlans.RemoveRange(currentPlans);
             var prevPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == TargetYear - 1).ToListAsync();
-            if (!prevPlans.Any())
-            {
-                await JSRuntime.InvokeVoidAsync("alert", $"⚠️ {TargetYear - 1}년도에 등록된 예산이 없습니다."); return;
-            }
-
-            foreach (var plan in prevPlans)
-            {
-                DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
-            }
-            await DbContext.SaveChangesAsync();
-            await LoadData();
-            await JSRuntime.InvokeVoidAsync("alert", "✅ 직전년도 예산 불러오기 완료!");
+            if (!prevPlans.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"⚠️ {TargetYear - 1}년도 예산이 없습니다."); return; }
+            foreach (var plan in prevPlans) DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
+            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "✅ 직전년도 예산 불러오기 완료!");
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"❌ 오류 발생: {ex.Message}");
-        }
-        finally
-        {
-            isImporting = false;
-        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 오류: {ex.Message}"); }
+        finally { isImporting = false; }
     }
 
     private async Task DownloadBulkTemplate()
     {
         try
         {
-            using var workbook = new XLWorkbook();
-            var wsBudget = workbook.Worksheets.Add("예산일괄입력");
-            var headers1 = new[] { "구분(수입/지출/Income/Expense)", "항목", "상세내역", "산출근거", "금액(숫자)" };
-            for (int i = 0; i < headers1.Length; i++)
-            {
-                wsBudget.Cell(1, i + 1).Value = headers1[i];
-                wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsBudget.Cell(1, i + 1).Style.Font.Bold = true;
-            }
-            wsBudget.Cell(2, 1).Value = "(예시) 수입";
-            wsBudget.Cell(2, 2).Value = "(예시) 주일헌금"; wsBudget.Cell(2, 3).Value = "1부 예배"; wsBudget.Cell(2, 4).Value = "매주 50,000원 * 52주"; wsBudget.Cell(2, 5).Value = 2600000;
-
-            wsBudget.Cell(3, 1).Value = "(예시) 지출";
-            wsBudget.Cell(3, 2).Value = "(예시) 행사비"; wsBudget.Cell(3, 3).Value = "여름성경학교 식비"; wsBudget.Cell(3, 4).Value = "10,000원 * 20명"; wsBudget.Cell(3, 5).Value = 200000;
+            using var workbook = new XLWorkbook(); var wsBudget = workbook.Worksheets.Add("예산일괄입력"); var headers1 = new[] { "구분", "항목", "상세내역", "산출근거", "금액" };
+            for (int i = 0; i < headers1.Length; i++) { wsBudget.Cell(1, i + 1).Value = headers1[i]; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; }
+            wsBudget.Cell(2, 1).Value = "수입"; wsBudget.Cell(2, 2).Value = "주일헌금"; wsBudget.Cell(2, 3).Value = "예배"; wsBudget.Cell(2, 5).Value = 2600000;
+            wsBudget.Cell(3, 1).Value = "지출"; wsBudget.Cell(3, 2).Value = "행사비"; wsBudget.Cell(3, 3).Value = "성경학교"; wsBudget.Cell(3, 5).Value = 200000;
             wsBudget.Columns().AdjustToContents();
-
-            var wsMap = workbook.Worksheets.Add("자동분류일괄입력");
-            var headers2 = new[] { "키워드(은행적요)", "분류될항목" };
-            for (int i = 0; i < headers2.Length; i++)
-            {
-                wsMap.Cell(1, i + 1).Value = headers2[i];
-                wsMap.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsMap.Cell(1, i + 1).Style.Font.Bold = true;
-            }
-            wsMap.Cell(2, 1).Value = "(예시) 다이소";
-            wsMap.Cell(2, 2).Value = "(예시) 행사비";
-            wsMap.Columns().AdjustToContents();
-
             using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "예산_자동분류_일괄입력양식.xlsx", base64);
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "예산_일괄입력양식.xlsx", base64);
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"엑셀 양식 생성 오류: {ex.Message}");
-        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 양식 생성 오류: {ex.Message}"); }
     }
 
     private async Task HandleBulkImport(InputFileChangeEventArgs e)
     {
-        if (CurrentUser == null) return;
-        var file = e.File;
-        if (file == null) return;
-
-        isImporting = true;
-        StateHasChanged();
+        if (CurrentUser == null) return; var file = e.File; if (file == null) return;
+        isImporting = true; StateHasChanged();
         try
         {
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
-            using var memoryStream = new MemoryStream();
-            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream);
-            memoryStream.Position = 0;
-            using var reader = ExcelReaderFactory.CreateReader(memoryStream);
-            var result = reader.AsDataSet();
-
-            int budgetCount = 0, mapCount = 0;
-            int deptId = CurrentUser.DepartmentId;
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance); using var memoryStream = new MemoryStream();
+            await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream); memoryStream.Position = 0;
+            using var reader = ExcelReaderFactory.CreateReader(memoryStream); var result = reader.AsDataSet();
+            int budgetCount = 0; int deptId = CurrentUser.DepartmentId;
             foreach (DataTable table in result.Tables)
             {
                 if (table.TableName == "예산일괄입력")
                 {
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
-                        var row = table.Rows[i];
-                        string type = row[0]?.ToString()?.Trim() ?? ""; string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? "";
-                        string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
-                        if (type.StartsWith("(예시)") || cat.StartsWith("(예시)") || string.IsNullOrEmpty(cat)) continue;
+                        var row = table.Rows[i]; string type = row[0]?.ToString()?.Trim() ?? ""; string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? ""; string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
+                        if (string.IsNullOrEmpty(cat)) continue;
                         if (type == "수입") type = "Income"; if (type == "지출") type = "Expense";
                         if (type != "Income" && type != "Expense") continue;
                         decimal.TryParse(amtStr, out decimal amt);
-                        DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = type, Category = cat, SubCategory = sub, CalcDetail = calc, Amount = amt });
-                        budgetCount++;
-                    }
-                }
-                else if (table.TableName == "자동분류일괄입력")
-                {
-                    for (int i = 1; i < table.Rows.Count; i++)
-                    {
-                        var row = table.Rows[i];
-                        string keyword = row[0]?.ToString()?.Trim() ?? ""; string cat = row[1]?.ToString()?.Trim() ?? "";
-                        if (keyword.StartsWith("(예시)") || cat.StartsWith("(예시)") || string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
-                        bool exists = await DbContext.CategoryMappings.AnyAsync(m => m.DepartmentId == deptId && m.Keyword == keyword);
-                        if (!exists)
-                        {
-                            DbContext.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = keyword, Category = cat }); mapCount++;
-                        }
+                        DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = type, Category = cat, SubCategory = sub, CalcDetail = calc, Amount = amt }); budgetCount++;
                     }
                 }
             }
-            await DbContext.SaveChangesAsync();
-            await LoadData(); await JSRuntime.InvokeVoidAsync("alert", $"✅ 일괄 입력 완료!\\n- 예산: {budgetCount}건 추가\\n- 자동분류: {mapCount}건 추가");
+            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", $"✅ 일괄 입력 완료! {budgetCount}건 추가");
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"❌ 엑셀 처리 중 오류 발생: {ex.Message}");
-        }
-        finally
-        {
-            isImporting = false; StateHasChanged();
-        }
-    }
-    private async Task TriggerBulkImport()
-    {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()");
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 엑셀 처리 중 오류: {ex.Message}"); }
+        finally { isImporting = false; bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
-    private async Task SafeBackup(string type)
-    {
-        string finalMemo = string.IsNullOrWhiteSpace(customBackupMemo) ? "사용자 수동 백업" : customBackupMemo;
-        await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, "Ledger", finalMemo); customBackupMemo = ""; await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "성공적으로 백업되었습니다.");
-    }
-    private async Task RestoreData(DataBackup b)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "복구하시겠습니까?\\n현재 데이터는 덮어쓰기 됩니다."))
-        {
-            await AccService.RestoreFromBackupAsync(b.Id);
-            await LoadData();
-        }
-    }
-    private async Task DeleteBackup(int backupId)
-    {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "이 백업 파일을 완전히 삭제하시겠습니까?"))
-        {
-            var target = await DbContext.DataBackups.FindAsync(backupId);
-            if (target != null)
-            {
-                DbContext.DataBackups.Remove(target); await DbContext.SaveChangesAsync(); await LoadData();
-            }
-        }
-    }
-    private async Task DownloadBackupFile(DataBackup b)
-    {
-        var targetDept = DbContext.Departments.FirstOrDefault(d => d.Id == b.DepartmentId);
-        string deptName = targetDept?.Name ?? "알수없는부서"; string fileName = $"Backup_{deptName}_{b.BackupDate:yyyyMMdd_HHmm}.json"; await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData);
-    }
-    private void EditPlan(BudgetPlan p)
-    {
-        newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId };
-        expandedCategories[p.Category] = true; // 수정 시 아코디언 열어두기
-    }
-    private async Task AddMapping()
-    {
-        if (CurrentUser != null && !string.IsNullOrWhiteSpace(newMapping.Keyword) && !string.IsNullOrWhiteSpace(newMapping.Category))
-        {
-            newMapping.DepartmentId = CurrentUser.DepartmentId;
-            await AccService.SaveMappingAsync(newMapping); newMapping = new CategoryMapping(); await LoadData();
-        }
-        else
-        {
-            await JSRuntime.InvokeVoidAsync("alert", "키워드와 항목을 모두 입력해주세요.");
-        }
-    }
-    private async Task DeleteMapping(int id)
-    {
-        await AccService.DeleteMappingAsync(id); await LoadData();
-    }
+    private async Task TriggerBulkImport() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); }
+    private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(customBackupMemo) ? "사용자 수동 백업" : customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); customBackupMemo = ""; await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "성공적으로 백업되었습니다."); }
+    private async Task RestoreData(DataBackup b) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "복구하시겠습니까?") == true) { await AccService.RestoreFromBackupAsync(b.Id); await LoadData(); } }
+    private async Task DeleteBackup(int backupId) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "삭제하시겠습니까?") == true) { var target = await DbContext.DataBackups.FindAsync(backupId); if (target != null) { DbContext.DataBackups.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } }
+    private async Task DownloadBackupFile(DataBackup b) { var targetDept = DbContext.Departments.FirstOrDefault(d => d.Id == b.DepartmentId); string deptName = targetDept?.Name ?? "unknown"; string fileName = $"Backup_{deptName}_{b.BackupDate:yyyyMMdd_HHmm}.json"; await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData); }
+    private void EditPlan(BudgetPlan p) { newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; expandedCategories[p.Category] = true; }
+    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(newMapping.Keyword) && !string.IsNullOrWhiteSpace(newMapping.Category)) { newMapping.DepartmentId = CurrentUser.DepartmentId; await AccService.SaveMappingAsync(newMapping); newMapping = new CategoryMapping(); await LoadData(); } else { await JSRuntime.InvokeVoidAsync("alert", "키워드와 항목을 입력하세요."); } }
+    private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
+
+    private async Task HandlePasswordKey(KeyboardEventArgs e) { if (e.Key == "Enter") await ChangeMyPassword(); }
     private async Task ChangeMyPassword()
     {
-        if (string.IsNullOrWhiteSpace(newSelfPassword))
-        {
-            await JSRuntime.InvokeVoidAsync("alert", "새 비밀번호를 입력해주세요."); return;
-        }
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"[{newSelfPassword}] (으)로 변경하시겠습니까?"); if (confirmed && CurrentUser != null)
-        {
-            await AccService.ChangePasswordAsync(CurrentUser.Username, newSelfPassword);
-            currentVisiblePassword = newSelfPassword; newSelfPassword = ""; await JSRuntime.InvokeVoidAsync("alert", "변경 완료되었습니다.");
-        }
+        if (string.IsNullOrWhiteSpace(newSelfPassword)) { await JSRuntime.InvokeVoidAsync("alert", "새 비밀번호를 입력하세요."); return; }
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"[{newSelfPassword}] (으)로 변경하시겠습니까?") == true && CurrentUser != null) { await AccService.ChangePasswordAsync(CurrentUser.Username, newSelfPassword); currentVisiblePassword = newSelfPassword; newSelfPassword = ""; await JSRuntime.InvokeVoidAsync("alert", "변경 완료!"); }
     }
 
-    class SystemBackupDto
+    private void Prepare2FA() { if (CurrentUser != null) { tempSecret = TotpService.GenerateSecret(); qrCodeImageUrl = TotpService.GetQrCodeImage(CurrentUser.Username, tempSecret); } }
+    private async Task HandleOtpKey(KeyboardEventArgs e) { if (e.Key == "Enter") await Enable2FA(); }
+
+    private async Task Enable2FA() 
     {
-        public DateTime ExportDate { get; set; }
-        public List<Department> Departments { get; set; } = new();
-        public List<User> Users { get; set; } = new();
-        public List<LedgerEntry> Transactions { get; set; } = new();
-        public List<BudgetPlan> BudgetPlans { get; set; } = new();
-        public List<CategoryMapping> CategoryMappings { get; set; } = new();
+        if (TotpService.VerifyCode(tempSecret, setupOtpCode)) 
+        {
+            if (CurrentUser != null)
+            {
+                var user = await DbContext.Users.FirstOrDefaultAsync(u => u.Username == CurrentUser.Username);
+                if (user != null)
+                {
+                    user.TwoFactorSecret = tempSecret; user.IsTwoFactorEnabled = true; await DbContext.SaveChangesAsync();
+                    CurrentUser.IsTwoFactorEnabled = true; tempSecret = ""; setupOtpCode = "";
+                    await JSRuntime.InvokeVoidAsync("alert", "✅ 성공! 이제 로그인 시 OTP 인증이 필요합니다.");
+                }
+            }
+        } 
+        else { await JSRuntime.InvokeVoidAsync("alert", "❌ 번호가 일치하지 않습니다. 다시 확인하세요."); }
+    }
+    
+    private async Task Disable2FA() 
+    {
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "보안 인증을 해제하시겠습니까?") == true) 
+        {
+            if (CurrentUser != null)
+            {
+                var user = await DbContext.Users.FirstOrDefaultAsync(u => u.Username == CurrentUser.Username);
+                if (user != null)
+                {
+                    user.IsTwoFactorEnabled = false; user.TwoFactorSecret = null; await DbContext.SaveChangesAsync();
+                    CurrentUser.IsTwoFactorEnabled = false; await JSRuntime.InvokeVoidAsync("alert", "보안 인증이 해제되었습니다.");
+                }
+            }
+        }
     }
 }

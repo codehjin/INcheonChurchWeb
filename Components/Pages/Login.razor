@@ -5,6 +5,8 @@
 @using Microsoft.EntityFrameworkCore
 @inject AppDbContext DbContext
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@inject TwoFactorAuthService TotpService
 @rendermode InteractiveServer
 
 <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center;">
@@ -17,31 +19,89 @@
             <p class="text-muted small mb-0">서비스 이용을 위해 로그인해주세요</p>
         </div>
 
-        <div class="mb-3">
-            <label class="form-label fw-bold">아이디</label>
-            <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="ID 입력" />
-        </div>
-        <div class="mb-4">
-            <label class="form-label fw-bold">비밀번호</label>
-            <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="Password 입력" />
-        </div>
-
-        @if (!string.IsNullOrEmpty(ErrorMessage))
+        @* 🚀 수정됨: 2FA 여부에 따른 화면 분기 *@
+        @if (!isOtpStep)
         {
-            <div class="alert alert-danger p-2 text-center small mb-3">@ErrorMessage</div>
-        }
+            @* Step 1: 아이디/비밀번호 입력 *@
+            <div class="mb-3">
+                <label class="form-label fw-bold">아이디</label>
+                <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="ID 입력" />
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">비밀번호</label>
+                <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="Password 입력" />
+            </div>
 
-        <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" @onclick="TryLogin" disabled="@isLoading">
-            @if (isLoading)
+            @if (!string.IsNullOrEmpty(ErrorMessage))
             {
-                <span class="spinner-border spinner-border-sm me-2"></span>
-                <span>확인 중...</span>
+                <div class="alert alert-danger p-2 text-center small mb-3">
+                    <i class="bi bi-exclamation-circle me-1"></i>@ErrorMessage
+                </div>
             }
-            else
+
+            <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" @onclick="TryLogin" disabled="@isLoading">
+                @if (isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>확인 중...</span>
+                }
+                else
+                {
+                    <span>로그인</span>
+                }
+            </button>
+        }
+        else
+        {
+            @* Step 2: OTP 인증 입력 *@
+            <div class="alert alert-info border-info d-flex align-items-center gap-2 mb-4">
+                <i class="bi bi-shield-lock" style="font-size: 1.5rem;"></i>
+                <div>
+                    <strong>보안 확인</strong><br />
+                    <small>스마트폰 앱의 6자리 번호를 입력하세요</small>
+                </div>
+            </div>
+
+            <div class="mb-3 text-center">
+                <p class="text-muted small mb-2">
+                    <strong>@(targetUser?.FullName ?? targetUser?.Username)</strong> 님의 OTP 코드
+                </p>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        class="form-control form-control-lg text-center fw-bold" 
+                        @bind="inputOtpCode" 
+                        @onkeyup="OtpEnterKey" 
+                        maxlength="6" 
+                        placeholder="000000"
+                        style="font-size: 1.5rem; letter-spacing: 8px;" />
+                </div>
+                <small class="text-muted mt-2 d-block">시간이 지나면 코드가 변경됩니다</small>
+            </div>
+
+            @if (!string.IsNullOrEmpty(OtpErrorMessage))
             {
-                <span>로그인</span>
+                <div class="alert alert-danger p-2 text-center small mb-3">
+                    <i class="bi bi-exclamation-circle me-1"></i>@OtpErrorMessage
+                </div>
             }
-        </button>
+
+            <button type="button" class="btn btn-success w-100 btn-lg fw-bold mb-2" @onclick="VerifyOtp" disabled="@isOtpLoading">
+                @if (isOtpLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span>검증 중...</span>
+                }
+                else
+                {
+                    <span>인증하기</span>
+                }
+            </button>
+
+            <button type="button" class="btn btn-outline-secondary w-100 fw-bold" @onclick="CancelOtp">
+                <i class="bi bi-arrow-left me-1"></i>뒤로 가기
+            </button>
+        }
 
         <div class="text-center mt-4">
             <small class="text-muted fw-bold">인천중앙성결교회 교육국</small>
@@ -52,11 +112,22 @@
 @code {
     [Parameter] public EventCallback<User> OnLoginSuccess { get; set; }
 
+    // Step 1: 로그인 입력
     private string Username = "";
     private string Password = "";
     private string ErrorMessage = "";
     private bool isLoading = false;
 
+    // Step 2: OTP 인증
+    private bool isOtpStep = false;
+    private string inputOtpCode = "";
+    private string OtpErrorMessage = "";
+    private bool isOtpLoading = false;
+    private User? targetUser = null;
+
+    /// <summary>
+    /// 🚀 Step 1: 아이디/비밀번호로 로그인 시도
+    /// </summary>
     private async Task TryLogin()
     {
         if (string.IsNullOrWhiteSpace(Username) || string.IsNullOrWhiteSpace(Password))
@@ -70,8 +141,7 @@
 
         try
         {
-            // 🚀 핵심 수정: .Include(u => u.Department)를 사용하여 부서 정보를 함께 로드합니다.
-            // 이 처리가 없으면 화면에서 CurrentUser.Department.Name이 모두 null로 나옵니다.
+            // 🚀 핵심: Department 정보를 함께 로드
             var user = await DbContext.Users
                 .Include(u => u.Department)
                 .FirstOrDefaultAsync(u => u.Username == Username && u.Password == Password);
@@ -84,8 +154,23 @@
                 }
                 else
                 {
-                    // 부모 컴포넌트(MainLayout 등)에 로그인 성공 알림
-                    await OnLoginSuccess.InvokeAsync(user);
+                    // 🚀 수정 권한이 있는 사용자인지 확인
+                    bool hasEditPermission = user.Role == "Admin" || user.Role == "DeptAdmin" || user.Role == "User";
+
+                    // 🚀 2FA 활성화 여부 확인
+                    if (hasEditPermission && user.IsTwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFactorSecret))
+                    {
+                        // OTP 입력 단계로 전환
+                        targetUser = user;
+                        isOtpStep = true;
+                        inputOtpCode = "";
+                        OtpErrorMessage = "";
+                    }
+                    else
+                    {
+                        // 바로 로그인 완료
+                        await LoginSuccess(user);
+                    }
                 }
             }
             else
@@ -103,8 +188,99 @@
         }
     }
 
+    /// <summary>
+    /// 🚀 Step 2: OTP 코드 검증
+    /// </summary>
+    private async Task VerifyOtp()
+    {
+        if (string.IsNullOrWhiteSpace(inputOtpCode) || inputOtpCode.Length != 6)
+        {
+            OtpErrorMessage = "6자리 숫자를 입력하세요.";
+            return;
+        }
+
+        if (targetUser == null)
+        {
+            OtpErrorMessage = "사용자 정보를 찾을 수 없습니다.";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(targetUser.TwoFactorSecret))
+        {
+            OtpErrorMessage = "2단계 인증 설정이 없습니다.";
+            return;
+        }
+
+        isOtpLoading = true;
+        OtpErrorMessage = "";
+
+        try
+        {
+            // 🚀 OTP 코드 검증
+            if (TotpService.VerifyCode(targetUser.TwoFactorSecret, inputOtpCode))
+            {
+                // 성공 - 로그인 완료
+                await LoginSuccess(targetUser);
+            }
+            else
+            {
+                OtpErrorMessage = "코드가 일치하지 않습니다. 다시 확인하세요.";
+                inputOtpCode = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            OtpErrorMessage = "OTP 검증 중 오류: " + ex.Message;
+        }
+        finally
+        {
+            isOtpLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// 🚀 OTP 입력 취소 및 로그인 화면으로 복귀
+    /// </summary>
+    private void CancelOtp()
+    {
+        isOtpStep = false;
+        targetUser = null;
+        inputOtpCode = "";
+        OtpErrorMessage = "";
+        Password = ""; // 보안상 비밀번호 초기화
+    }
+
+    /// <summary>
+    /// 🚀 로그인 성공 처리
+    /// </summary>
+    private async Task LoginSuccess(User user)
+    {
+        // 부모 컴포넌트(MainLayout 등)에 로그인 성공 알림
+        await OnLoginSuccess.InvokeAsync(user);
+        
+        // 메인 페이지로 이동
+        Nav.NavigateTo("/");
+    }
+
+    /// <summary>
+    /// 아이디/비밀번호 입력에서 Enter 키 처리
+    /// </summary>
     private async Task EnterKey(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter") await TryLogin();
+        if (e.Key == "Enter" && !isOtpStep)
+        {
+            await TryLogin();
+        }
+    }
+
+    /// <summary>
+    /// OTP 입력에서 Enter 키 처리
+    /// </summary>
+    private async Task OtpEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && isOtpStep)
+        {
+            await VerifyOtp();
+        }
     }
 }

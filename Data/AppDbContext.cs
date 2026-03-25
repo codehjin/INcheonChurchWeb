@@ -19,5 +19,6 @@ namespace INcheonChurchWeb.Data
         public DbSet<DataBackup> DataBackups { get; set; }
         public DbSet<ExpenseReport> ExpenseReports { get; set; }
         public DbSet<DepartmentOfficer> DepartmentOfficers { get; set; }
+        public DbSet<OcrUsage> OcrUsages { get; set; }
     }
 }

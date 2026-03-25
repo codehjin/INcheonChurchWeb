@@ -41,7 +41,7 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(keyDirectory))
     .SetApplicationName("INcheonChurchWeb");
 
-// 💡 [여기서 수정됨!] 서비스 등록 및 SignalR(웹소켓) 최대 수신 크기 10MB로 확장
+// 서비스 등록 및 SignalR(웹소켓) 최대 수신 크기 10MB로 확장
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddHubOptions(options =>
@@ -59,6 +59,15 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<AccountingService>();
 
+// 부서별 심야 자동 백업 서비스를 백그라운드 엔진에 등록
+builder.Services.AddHostedService<INcheonChurchWeb.Services.AutoBackupService>();
+
+// 구글 클라우드 Vision API (OCR) 서비스 등록
+builder.Services.AddScoped<INcheonChurchWeb.Services.OcrService>();
+
+// 🚀 구글 OTP(2단계 인증) 서비스 등록
+builder.Services.AddScoped<INcheonChurchWeb.Services.TwoFactorAuthService>();
+
 var app = builder.Build();
 
 // 파이프라인 설정
@@ -75,14 +84,12 @@ app.UseAntiforgery();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// 🚀 [수정됨] DB 자동 생성 및 초기 데이터 설정
+// 🚀 DB 자동 생성 및 초기 데이터 설정
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var db = services.GetRequiredService<AppDbContext>();
 
-    // 이 한 줄이 부서(Department) 테이블을 만들고, 
-    // admin 계정과 초기 예산 세팅을 한 번에 완벽하게 처리해 줍니다!
     DbInitializer.Initialize(db);
 }
 

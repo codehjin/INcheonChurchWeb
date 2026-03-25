@@ -132,7 +132,7 @@
                 <i class="bi bi-pencil-square me-1"></i>일괄 수정/삭제
             </button>
             <button class="btn @(isBatchPrintMode ? "btn-secondary" : "btn-outline-dark") fw-bold" @onclick="ToggleBatchPrintMode">
-                <i class="bi bi-check2-square me-1"></i>인쇄 항목 선택
+                <i class="bi bi-check2-square me-1"></i>인쇄 항목 선택 (이미지 제외 기능)
             </button>
         </div>
 
@@ -148,6 +148,24 @@
                 <button class="btn btn-success btn-sm fw-bold text-nowrap" @onclick="ApplyBulkEdit" disabled="@(editSelectedIds.Count == 0 || string.IsNullOrEmpty(bulkCategory))"><i class="bi bi-check-lg"></i> 일괄수정 적용</button> 
                 <button class="btn btn-danger btn-sm fw-bold text-nowrap ms-auto" @onclick="DeleteSelected" disabled="@(editSelectedIds.Count == 0)"><i class="bi bi-trash-fill"></i> 선택 일괄삭제</button> 
             </div> 
+        }
+
+        @* 🚀 추가된 부분: 인쇄 모드 툴바 (빈 영수증 만들기) *@
+        @if (isBatchPrintMode)
+        {
+            <div class="d-flex align-items-center gap-2 flex-wrap bg-dark bg-opacity-10 p-2 rounded border border-dark mb-4 no-print shadow-sm"> 
+                <span class="badge bg-dark fs-6"><i class="bi bi-printer-fill"></i> @printSelectedIds.Count 건 인쇄 선택됨</span> 
+                
+                <button class="btn btn-outline-dark btn-sm fw-bold ms-auto" @onclick="SetPrintWithoutImageForSelected" disabled="@(printSelectedIds.Count == 0)" title="선택한 내역은 인쇄 시 빈칸으로 나옵니다">
+                    <i class="bi bi-image-alt"></i> 선택항목 이미지 제외
+                </button>
+                <button class="btn btn-dark btn-sm fw-bold" @onclick="SetPrintWithoutImageForAll" title="화면의 모든 지출 내역을 빈칸으로 출력합니다">
+                    <i class="bi bi-images"></i> 화면 전체 이미지 제외
+                </button>
+                <button class="btn btn-outline-primary btn-sm fw-bold" @onclick="ClearPrintWithoutImage" disabled="@(printWithoutImageIds.Count == 0)">
+                    <i class="bi bi-arrow-counterclockwise"></i> 제외 취소
+                </button>
+            </div>
         }
     }
 
@@ -189,7 +207,6 @@
                             <tr> 
                                 @if (CanEditLedger && isBatchEditMode) { <th style="width:4%" class="text-center" title="일괄 수정/삭제 선택">수정<br><input type="checkbox" class="form-check-input" @onchange="ToggleAllEdit" checked="@IsAllEditSelected" /></th> } 
                                 @if (CanEditLedger && isBatchPrintMode) { <th style="width:4%" class="text-center" title="영수증 인쇄 선택">인쇄<br><input type="checkbox" class="form-check-input" @onchange="ToggleAllPrint" checked="@IsAllPrintSelected" /></th> } 
-                                
                                 <th style="width:4%" class="text-center">순번</th> 
                                 <th style="width:6%" class="text-center">날짜</th> 
                                 <th style="width:6%" class="text-center">구분</th> 
@@ -212,7 +229,7 @@
                                 <th> 
                                     <select class="form-select form-select-sm px-1" @bind="filterType" @bind:after="ApplyFilters"> 
                                         <option value="">전체</option><option value="수입">수입</option><option value="지출">지출</option> 
-                                    </select> 
+                                     </select> 
                                 </th> 
                                 <th><input type="text" class="form-control form-control-sm text-center px-1" list="categoryList" placeholder="검색" @bind="filterCategory" @bind:event="oninput" autocomplete="off" /></th> 
                                 <th><input type="text" class="form-control form-control-sm text-center px-1" list="descriptionList" placeholder="검색" @bind="filterDesc" @bind:event="oninput" autocomplete="off" /></th> 
@@ -278,16 +295,15 @@
 
                                 @foreach (var item in FilteredEntries) 
                                 { 
-                                    string itemMonthYear = item.Date.ToString("yyyy-MM"); 
+                                    string itemMonthYear = item.Date.ToString("yyyy-MM");
                                     if (currentMonthYearForSeq != itemMonthYear) { currentMonthYearForSeq = itemMonthYear; seq = 1; } 
 
-                                    webRunningBalance += (item.Income - item.Expense); 
+                                    webRunningBalance += (item.Income - item.Expense);
                                     webTotalIncome += item.Income; 
                                     webTotalExpense += item.Expense; 
                                     bool isEditing = editingItemId == item.Id; 
-                                    bool hasReceipt = !string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath); 
-                                    string activeReceiptUrl = hasReceipt ? (!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath!) + $"?v={DateTime.Now.Ticks}" : ""; 
-
+                                    bool hasReceipt = !string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath);
+                                    string activeReceiptUrl = hasReceipt ? (!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath!) + $"?v={DateTime.Now.Ticks}" : "";
                                     <tr class="@(editSelectedIds.Contains(item.Id) ? "table-success" : "")"> 
                                         @if (CanEditLedger && isBatchEditMode) 
                                         { 
@@ -295,8 +311,15 @@
                                         } 
                                         @if (CanEditLedger && isBatchPrintMode) 
                                         { 
-                                            <td class="text-center">
-                                                @if (item.Type == "지출") { <input type="checkbox" class="form-check-input border-dark" disabled="@(!hasReceipt)" checked="@printSelectedIds.Contains(item.Id)" @onchange="@(e => TogglePrintSelection(item.Id, e))" /> }
+                                            <td class="text-center align-middle">
+                                                @* 🚀 수정됨: 영수증 유무와 관계없이 지출이면 무조건 인쇄 선택 가능 *@
+                                                @if (item.Type == "지출") { 
+                                                    <input type="checkbox" class="form-check-input border-dark" checked="@printSelectedIds.Contains(item.Id)" @onchange="@(e => TogglePrintSelection(item.Id, e))" /> 
+                                                    @if (printWithoutImageIds.Contains(item.Id))
+                                                    {
+                                                        <div class="badge bg-secondary mt-1 d-block mx-auto" style="font-size:0.65rem; width: fit-content;">이미지 제외</div>
+                                                    }
+                                                }
                                             </td> 
                                         }
 
@@ -407,24 +430,24 @@
         <div class="print-only"> 
             @if (printMode == "Ledger") 
             { 
-                var groupedByMonthYear = FilteredEntries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList(); 
+                var groupedByMonthYear = FilteredEntries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
                 bool isFirstGroup = true; 
 
                 foreach (var monthGroup in groupedByMonthYear) 
                 { 
-                    var parts = monthGroup.Key.Split('-'); 
+                    var parts = monthGroup.Key.Split('-');
                     int groupYear = int.Parse(parts[0]); 
                     int groupMonth = int.Parse(parts[1]); 
 
-                    decimal previousTotalIncome = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Income); 
-                    decimal previousTotalExpense = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Expense); 
+                    decimal previousTotalIncome = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Income);
+                    decimal previousTotalExpense = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Expense);
                     decimal startingBalanceForMonth = CarryOverAmount + previousTotalIncome - previousTotalExpense; 
 
                     decimal runningBalance = startingBalanceForMonth; 
                     decimal currentMonthIncome = 0; 
-                    decimal currentMonthExpense = 0; 
+                    decimal currentMonthExpense = 0;
                     string pageBreakClass = isFirstGroup ? "" : "page-break-before mt-5"; 
-                    isFirstGroup = false; 
+                    isFirstGroup = false;
                     <div class="@pageBreakClass"> 
                         <div class="print-only-title"> 
                             @{ string printDeptName = SelectedDepartmentId == 0 ? "전체 부서 통합" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? ""; } 
@@ -463,8 +486,7 @@
                                 { 
                                     runningBalance += (item.Income - item.Expense); 
                                     currentMonthIncome += item.Income; 
-                                    currentMonthExpense += item.Expense; 
-
+                                    currentMonthExpense += item.Expense;
                                     <tr> 
                                         <td class="text-center clip-cell text-muted fw-bold">@printSeq</td> 
                                         <td class="text-center clip-cell">@item.Date.ToString("MM-dd")</td> 
@@ -481,7 +503,7 @@
                                         <td class="text-end money-cell">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td> 
                                         <td class="text-end money-cell">@runningBalance.ToString("N0")</td> 
                                     </tr> 
-                                    printSeq++; 
+                                    printSeq++;
                                 } 
                             </tbody> 
                             <tfoot> 
@@ -498,25 +520,32 @@
             } 
             else if (printMode == "Receipt") 
             { 
-                int count = 0; 
+                int count = 0;
                 <div class="receipt-grid-@receiptsPerSheet"> 
                     @foreach (var item in printTargets) 
                     { 
                         <div class="receipt-box"> 
                             @{ 
-                                string itemMonthYear = item.Date.ToString("yyyy-MM"); 
+                                string itemMonthYear = item.Date.ToString("yyyy-MM");
                                 int seqInMonth = FilteredEntries.Where(x => x.Date.ToString("yyyy-MM") == itemMonthYear).ToList().IndexOf(item) + 1; 
-                                string desc = item.Description ?? ""; 
-                                if (desc.Length > 15) desc = desc.Substring(0, 15) + "..."; 
+                                string desc = item.Description ?? "";
+                                if (desc.Length > 15) desc = desc.Substring(0, 15) + "...";
                             } 
                             <div class="text-start fw-bold" style="font-size: 14pt; line-height: 1.2;">No.@(item.Date.Month)월-@seqInMonth</div> 
                             <div class="d-flex justify-content-between align-items-end fw-bold" style="font-size: 10pt; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 10px;"> 
                                 <span style="white-space: nowrap;">@item.Date.ToString("yyyy-MM-dd")</span> 
                                 <span class="text-end" style="width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@desc</span> 
                             </div> 
-                            <div class="receipt-img-wrapper"><img src="@(!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath)" /></div> 
+                            
+                            @* 🚀 수정됨: 사용자가 이미지 제외를 선택하지 않았고, 실제 영수증 사진이 있는 경우에만 이미지를 그립니다. *@
+                            <div class="receipt-img-wrapper">
+                                @if (!printWithoutImageIds.Contains(item.Id) && (!string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath)))
+                                {
+                                    <img src="@(!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath)" />
+                                }
+                            </div> 
                         </div> 
-                        count++; 
+                        count++;
                         if (receiptsPerSheet == 1 || (receiptsPerSheet == 2 && count % 2 == 0) || (receiptsPerSheet == 4 && count % 4 == 0)) 
                         { <div class="page-break"></div> } 
                     } 
@@ -563,7 +592,6 @@
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <h5 class="fw-bold text-dark mb-0"><i class="bi bi-1-circle-fill text-primary me-1"></i> 매치할 영수증 선택 (@(GetFilteredUnmatchedReceipts().Count)건 대기중)</h5> 
                         
-                        @* 🚀 추가된 월별 필터 및 일괄 삭제 UI *@
                         <div class="d-flex align-items-center gap-3 bg-white p-2 rounded shadow-sm border">
                             <div class="d-flex align-items-center gap-2 border-end pe-3">
                                 <span class="small fw-bold text-secondary">월별 보기:</span>
@@ -592,9 +620,7 @@
                             @foreach (var r in GetFilteredUnmatchedReceipts()) 
                             { 
                                 <div class="card shadow-sm receipt-thumbnail @(activeUnmatchedReceipt?.Id == r.Id ? "border-primary border-3" : "border-0")" style="width: 140px; flex: 0 0 auto; cursor:pointer; position:relative;" @onclick="() => SelectUnmatchedReceipt(r)"> 
-                                    @* 🚀 추가된 개별 선택 체크박스 *@
                                     <input type="checkbox" class="form-check-input position-absolute" style="top: 8px; left: 8px; transform: scale(1.3); z-index: 10;" checked="@selectedUnmatchedReceiptIds.Contains(r.Id)" @onclick:stopPropagation="true" @onchange="@(e => ToggleUnmatchedSelection(r.Id, e))" />
-                                    
                                     <div style="height: 140px; background-color: #fff;" class="border-bottom p-1 text-center d-flex align-items-center justify-content-center"> 
                                         <img src="@r.ImagePath" style="max-width: 100%; max-height: 100%; object-fit: contain;" /> 
                                     </div> 
@@ -668,11 +694,10 @@
 
 <script>
     window.downloadExcelFile = (fileName, base64String) => { 
-        const link = document.createElement('a'); 
-        link.download = fileName; link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`; 
+        const link = document.createElement('a'); link.download = fileName; link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`; 
         document.body.appendChild(link); link.click(); document.body.removeChild(link); 
     }; 
-    window.triggerFileInput = (id) => document.getElementById(id).click(); 
+    window.triggerFileInput = (id) => document.getElementById(id).click();
 </script> 
 
 @code {
@@ -680,26 +705,28 @@
 
     private int CurrentYear = DateTime.Now.Year; 
     private int CurrentMonth = DateTime.Now.Month; 
-    private int CurrentQuarter = 0; 
+    private int CurrentQuarter = 0;
     private int SelectedDepartmentId = 0; 
     
-    private bool IsAdmin = false;
+   private bool IsAdmin = false;
     private bool IsSubAccount = false;
     private bool IsDirectorOrAuditor = false;
-    private bool CanEditLedger => !IsSubAccount && !IsDirectorOrAuditor;
+    
+    // 🚀 관리자(Admin) 계정도 수정 권한에서 제외 (오직 부서 메인회계 담당자만 수정/삭제 가능)
+    private bool CanEditLedger => !IsAdmin && !IsSubAccount && !IsDirectorOrAuditor;
 
     private List<Department> Departments = new(); 
-    private List<LedgerEntry> Entries = new(); 
+    private List<LedgerEntry> Entries = new();
     private List<LedgerEntry> FilteredEntries = new(); 
     private decimal CarryOverAmount = 0; 
 
     private List<string> IncomeCats = new(); 
-    private List<string> ExpenseCats = new(); 
+    private List<string> ExpenseCats = new();
     private List<string> UniqueDescriptions = new(); 
     private List<string> UniqueCategories = new(); 
     
     private string filterType = ""; 
-    private string _filterCategory = ""; 
+    private string _filterCategory = "";
     private string filterCategory { get => _filterCategory; set { _filterCategory = value; ApplyFilters(); } } 
     private string _filterDesc = ""; 
     private string filterDesc { get => _filterDesc; set { _filterDesc = value; ApplyFilters(); } } 
@@ -709,58 +736,59 @@
     private bool isBatchPrintMode = false;
 
     private HashSet<int> editSelectedIds = new(); 
-    private HashSet<int> printSelectedIds = new(); 
+    private HashSet<int> printSelectedIds = new();
+    
+    // 🚀 수정된 부분: 인쇄시 이미지 제외할 항목을 기억하는 변수
+    private HashSet<int> printWithoutImageIds = new();
+
     private bool IsAllEditSelected => FilteredEntries.Any() && editSelectedIds.Count == FilteredEntries.Count; 
-    private bool IsAllPrintSelected => FilteredEntries.Any(t => t.Type == "지출" && (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))) &&  
-                                       printSelectedIds.Count == FilteredEntries.Count(t => t.Type == "지출" && (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))); 
+    private bool IsAllPrintSelected => FilteredEntries.Any(t => t.Type == "지출") &&  printSelectedIds.Count == FilteredEntries.Count(t => t.Type == "지출");
     private string bulkCategory = ""; 
 
-    private bool isAddingNew = false; 
-    private LedgerEntry newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 }; 
+    private bool isAddingNew = false;
+    private LedgerEntry newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
     private int? editingItemId = null; 
     private LedgerEntry? editBuffer = null; 
     
     private bool showImageModal = false; 
-    private string currentLargeImageUrl = ""; 
+    private string currentLargeImageUrl = "";
     private string printMode = "Ledger"; 
     private int receiptsPerSheet = 2; 
     private List<LedgerEntry> printTargets = new(); 
-    private int targetUploadEntryId = 0; 
-
+    private int targetUploadEntryId = 0;
+    
     // 💡 영수증 통합 관리 모달 변수
     private bool showUnmatchedManager = false; 
-    private List<UploadedReceipt> unmatchedReceiptsList = new(); 
+    private List<UploadedReceipt>? unmatchedReceiptsList = null;
     private List<LedgerEntry> unmatchedEntriesList = new(); 
     private UploadedReceipt? activeUnmatchedReceipt = null;
     
-    // 🚀 미분류 영수증 월별 필터 및 선택삭제 변수
     private HashSet<int> selectedUnmatchedReceiptIds = new();
     private int _unmatchedFilterMonth = 0;
     private int unmatchedFilterMonth 
     { 
-        get => _unmatchedFilterMonth; 
+        get => _unmatchedFilterMonth;
         set 
         { 
-            _unmatchedFilterMonth = value; 
+            _unmatchedFilterMonth = value;
             selectedUnmatchedReceiptIds.Clear(); 
             activeUnmatchedReceipt = GetFilteredUnmatchedReceipts().FirstOrDefault(); 
         } 
     }
     private bool IsAllUnmatchedSelected => GetFilteredUnmatchedReceipts().Any() && selectedUnmatchedReceiptIds.Count == GetFilteredUnmatchedReceipts().Count;
-
+    
     protected override async Task OnInitializedAsync() 
     { 
-        Departments = await Accounting.GetDepartmentsAsync(); 
+        Departments = await Accounting.GetDepartmentsAsync();
         if (CurrentUser != null && CurrentUser.Department != null) 
         { 
             IsSubAccount = CurrentUser.Role == "SubAccount" || CurrentUser.Role == "보조회계";
             IsDirectorOrAuditor = CurrentUser.Role == "Auditor" || CurrentUser.Role == "Director" || CurrentUser.Department.Name == "교육국";
-
             if (CurrentUser.Role == "Admin" || CurrentUser.Department.Name == "관리자" || IsDirectorOrAuditor) 
             { IsAdmin = true; SelectedDepartmentId = 0; } 
             else 
             { IsAdmin = false; SelectedDepartmentId = CurrentUser.DepartmentId; } 
-            await LoadData(); 
+            await LoadData();
         } 
     } 
 
@@ -772,61 +800,61 @@
 
     private async Task LoadData() 
     { 
-        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear); 
+        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
         if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId); 
 
-        var allYearData = await query.OrderBy(t => t.Date).ToListAsync(); 
+        var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
         var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear); 
-        if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId); 
+        if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId);
         var budgetPlans = await budgetQuery.ToListAsync(); 
 
-        IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList(); 
-        ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList(); 
-        if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "기타수입" }; 
+        IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
+        ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+        if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "기타수입" };
         if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "운영비", "부서관리비", "기타지출" }; 
 
-        decimal baseCarryOver = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0; 
+        decimal baseCarryOver = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
         var prevData = allYearData.Where(x => x.Date.Month < CurrentMonth).ToList(); 
-        if (CurrentMonth == 0 && CurrentQuarter == 0) prevData.Clear(); 
-        else if (CurrentQuarter > 0) prevData = allYearData.Where(x => x.Date.Month < ((CurrentQuarter - 1) * 3 + 1)).ToList(); 
+        if (CurrentMonth == 0 && CurrentQuarter == 0) prevData.Clear();
+        else if (CurrentQuarter > 0) prevData = allYearData.Where(x => x.Date.Month < ((CurrentQuarter - 1) * 3 + 1)).ToList();
         CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense); 
 
-        IEnumerable<LedgerEntry> filteredQuery = allYearData; 
-        if (CurrentMonth > 0) filteredQuery = allYearData.Where(t => t.Date.Month == CurrentMonth); 
+        IEnumerable<LedgerEntry> filteredQuery = allYearData;
+        if (CurrentMonth > 0) filteredQuery = allYearData.Where(t => t.Date.Month == CurrentMonth);
         else if (CurrentQuarter > 0) 
         { int startMonth = (CurrentQuarter - 1) * 3 + 1; filteredQuery = allYearData.Where(t => t.Date.Month >= startMonth && t.Date.Month <= startMonth + 2); } 
 
         Entries = filteredQuery.ToList(); 
         ApplyFilters(); 
-        editSelectedIds.Clear(); printSelectedIds.Clear();  
+        editSelectedIds.Clear(); printSelectedIds.Clear(); printWithoutImageIds.Clear();
     } 
 
     private void ApplyFilters() 
     { 
-        var temp = Entries.AsEnumerable(); 
+        var temp = Entries.AsEnumerable();
         if (!string.IsNullOrEmpty(filterType)) temp = temp.Where(x => x.Type == filterType); 
-        if (!string.IsNullOrEmpty(filterCategory)) temp = temp.Where(x => x.Category.Contains(filterCategory, StringComparison.OrdinalIgnoreCase)); 
+        if (!string.IsNullOrEmpty(filterCategory)) temp = temp.Where(x => x.Category.Contains(filterCategory, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(filterDesc)) temp = temp.Where(x => x.Description.Contains(filterDesc, StringComparison.OrdinalIgnoreCase)); 
 
         FilteredEntries = temp.ToList(); 
-        UniqueCategories = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList(); 
+        UniqueCategories = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
         UniqueDescriptions = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Description)).Select(t => t.Description.Trim()).Distinct().OrderBy(d => d).ToList(); 
     } 
 
     // 💡 모드 토글 로직
     private void ToggleAddForm() 
     { 
-        isAddingNew = !isAddingNew; 
+        isAddingNew = !isAddingNew;
         isBatchEditMode = false; 
         isBatchPrintMode = false; 
         
         if (isAddingNew)  
         { 
             int year = CurrentYear > 2000 ? CurrentYear : DateTime.Now.Year; 
-            int month = CurrentMonth > 0 ? CurrentMonth : DateTime.Now.Month; 
+            int month = CurrentMonth > 0 ? CurrentMonth : DateTime.Now.Month;
             int day = (year == DateTime.Now.Year && month == DateTime.Now.Month) ? DateTime.Now.Day : 1; 
             
-            DateTime defaultDate; 
+            DateTime defaultDate;
             try { defaultDate = new DateTime(year, month, day); } catch { defaultDate = DateTime.Now; } 
 
             newItem = new LedgerEntry  
@@ -839,19 +867,21 @@
                 Category = "", 
                 Description = "", 
                 Note = "" 
-            }; 
+             }; 
         } 
     } 
 
     private void ToggleBatchEditMode() { isBatchEditMode = !isBatchEditMode; isAddingNew = false; isBatchPrintMode = false; editSelectedIds.Clear(); }
-    private void ToggleBatchPrintMode() { isBatchPrintMode = !isBatchPrintMode; isAddingNew = false; isBatchEditMode = false; printSelectedIds.Clear(); }
+    
+    // 🚀 인쇄 선택 모드 토글시 변수 초기화
+    private void ToggleBatchPrintMode() { isBatchPrintMode = !isBatchPrintMode; isAddingNew = false; isBatchEditMode = false; printSelectedIds.Clear(); printWithoutImageIds.Clear(); }
 
     private async Task SaveNewEntry() 
     { 
         if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요."); return; } 
         if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류"; 
         
-        newItem.DepartmentId = SelectedDepartmentId; 
+        newItem.DepartmentId = SelectedDepartmentId;
         newItem.FiscalYear = CurrentYear; 
         newItem.Quarter = GetQuarter(newItem.Date); 
         newItem.Note ??= "";  
@@ -860,12 +890,11 @@
         else { newItem.Expense = 0; } 
         
         DbContext.Transactions.Add(newItem); 
-        await DbContext.SaveChangesAsync();  
-        
+        await DbContext.SaveChangesAsync();
         isAddingNew = false; 
         if (CurrentMonth > 0 && newItem.Date.Month != CurrentMonth) 
         {
-            await JSRuntime.InvokeVoidAsync("alert", $"[{newItem.Date.Month}월] 장부로 저장되었습니다."); 
+            await JSRuntime.InvokeVoidAsync("alert", $"[{newItem.Date.Month}월] 장부로 저장되었습니다.");
         }
         
         newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
@@ -877,82 +906,88 @@
     private async Task SaveEdit() { 
         if (editBuffer != null) { 
             if (string.IsNullOrWhiteSpace(editBuffer.Description)) { await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요."); return; } 
-            var existing = await DbContext.Transactions.FindAsync(editBuffer.Id); 
+            var existing = await DbContext.Transactions.FindAsync(editBuffer.Id);
             if (existing != null) { 
-                existing.Date = editBuffer.Date; existing.Type = editBuffer.Type; existing.Category = string.IsNullOrWhiteSpace(editBuffer.Category) ? "미분류" : editBuffer.Category; existing.Description = editBuffer.Description ?? ""; existing.Note = editBuffer.Note ?? ""; 
+                existing.Date = editBuffer.Date;
+                existing.Type = editBuffer.Type; existing.Category = string.IsNullOrWhiteSpace(editBuffer.Category) ? "미분류" : editBuffer.Category; existing.Description = editBuffer.Description ?? ""; existing.Note = editBuffer.Note ?? "";
                 if (existing.Type == "지출") { existing.Income = 0; existing.Expense = editBuffer.Expense; } else { existing.Expense = 0; existing.Income = editBuffer.Income; } 
-                existing.Quarter = GetQuarter(editBuffer.Date); existing.FiscalYear = editBuffer.Date.Year; 
+                existing.Quarter = GetQuarter(editBuffer.Date);
+                existing.FiscalYear = editBuffer.Date.Year; 
                 await DbContext.SaveChangesAsync(); 
             } 
-            editingItemId = null; await LoadData(); 
+            editingItemId = null;
+            await LoadData(); 
         } 
     } 
 
     private void ToggleEditSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) editSelectedIds.Add(id); else editSelectedIds.Remove(id); } 
     private void ToggleAllEdit(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries) editSelectedIds.Add(item.Id); } else editSelectedIds.Clear(); } 
     private void TogglePrintSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) printSelectedIds.Add(id); else printSelectedIds.Remove(id); } 
-    private void ToggleAllPrint(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries.Where(t => t.Type == "지출" && (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath)))) printSelectedIds.Add(item.Id); } else printSelectedIds.Clear(); } 
+    
+    // 🚀 수정됨: 영수증 유무와 관계없이 지출이면 무조건 인쇄 선택/출력 가능
+    private void ToggleAllPrint(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries.Where(t => t.Type == "지출")) printSelectedIds.Add(item.Id); } else printSelectedIds.Clear(); } 
+
+    // 🚀 빈 영수증 모드 토글 함수들
+    private void SetPrintWithoutImageForSelected() { foreach (var id in printSelectedIds) { printWithoutImageIds.Add(id); } }
+    private void SetPrintWithoutImageForAll() { foreach (var item in FilteredEntries.Where(t => t.Type == "지출")) { printWithoutImageIds.Add(item.Id); printSelectedIds.Add(item.Id); } }
+    private void ClearPrintWithoutImage() { printWithoutImageIds.Clear(); }
 
     private async Task DeleteSingle(int id) { if (await JSRuntime.InvokeAsync<bool>("confirm", "⚠️ [경고] 정말 삭제하시겠습니까?")) { var target = await DbContext.Transactions.FindAsync(id); if (target != null) { DbContext.Transactions.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } } 
     private async Task DeleteSelected() { int count = editSelectedIds.Count; if (await JSRuntime.InvokeAsync<bool>("confirm", $"⚠️ [경고] 선택한 {count}건을 일괄 삭제하시겠습니까?")) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); DbContext.Transactions.RemoveRange(targets); await DbContext.SaveChangesAsync(); await LoadData(); } } 
     private async Task ApplyBulkEdit() { if (editSelectedIds.Count > 0 && !string.IsNullOrEmpty(bulkCategory)) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); foreach (var t in targets) t.Category = bulkCategory; await DbContext.SaveChangesAsync(); bulkCategory = ""; await LoadData(); } } 
 
-    private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 }; 
+    private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
     private void ShowReceiptImage(string url) { currentLargeImageUrl = url; showImageModal = true; } 
     private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; } 
     
     private async Task RemoveReceiptOnly(int entryId) { 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "해당 내역에서 영수증을 분리하시겠습니까?\n(장부는 삭제되지 않으며 서버 영수증은 대기열로 돌아갑니다)"); 
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "해당 내역에서 영수증을 분리하시겠습니까?\n(장부는 삭제되지 않으며 서버 영수증은 대기열로 돌아갑니다)");
         if (confirmed) { 
-            await Accounting.RemoveReceiptAsync(entryId); 
+            await Accounting.RemoveReceiptAsync(entryId);
             var entry = await DbContext.Transactions.FindAsync(entryId); 
             if (entry != null) { entry.ReceiptUrl = ""; entry.ReceiptPath = ""; await DbContext.SaveChangesAsync(); } 
-            DbContext.ChangeTracker.Clear(); await LoadData(); StateHasChanged();  
+            DbContext.ChangeTracker.Clear(); await LoadData(); StateHasChanged();
         } 
     } 
 
     private async Task TriggerPcUpload(int entryId) { targetUploadEntryId = entryId; await JSRuntime.InvokeVoidAsync("triggerFileInput", "pcUploadInput"); } 
     private async Task HandlePcUpload(InputFileChangeEventArgs e) { 
-        var file = e.File; if (file == null || targetUploadEntryId == 0) return; 
-        string result = await Accounting.UploadReceiptAsync(file, targetUploadEntryId); 
+        var file = e.File;
+        if (file == null || targetUploadEntryId == 0) return; 
+        string result = await Accounting.UploadReceiptAsync(file, targetUploadEntryId);
         if (result == "OK") { await JSRuntime.InvokeVoidAsync("alert", "PC 영수증 업로드가 완료되었습니다!"); DbContext.ChangeTracker.Clear(); await LoadData(); StateHasChanged(); } 
-        else { await JSRuntime.InvokeVoidAsync("alert", result); } targetUploadEntryId = 0; 
+        else { await JSRuntime.InvokeVoidAsync("alert", result); } targetUploadEntryId = 0;
     } 
 
     // 🚀 영수증 관리 풀스크린 모달 관련 로직
     private async Task OpenUnmatchedManager() 
     { 
-        showUnmatchedManager = true; 
+        showUnmatchedManager = true;
         selectedUnmatchedReceiptIds.Clear();
         await LoadUnmatchedData();
     } 
 
     private async Task LoadUnmatchedData()
     {
-        unmatchedReceiptsList = null; 
+        unmatchedReceiptsList = null;
         StateHasChanged();
 
-        var usedPaths = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptPath)).Select(t => t.ReceiptPath).ToListAsync(); 
-        var usedUrls = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptUrl)).Select(t => t.ReceiptUrl).ToListAsync(); 
+        var usedPaths = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptPath)).Select(t => t.ReceiptPath).ToListAsync();
+        var usedUrls = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptUrl)).Select(t => t.ReceiptUrl).ToListAsync();
         var allUsed = usedPaths.Concat(usedUrls).ToHashSet();
 
-        // 🚀 수정된 부분: r.ReceiptDate.Year == CurrentYear (현재 보고 있는 장부의 연도와 동일한 영수증만 불러옴)
         var allUploaded = await DbContext.UploadedReceipts
             .Where(r => r.DepartmentId == SelectedDepartmentId && r.ReceiptDate.Year == CurrentYear) 
             .OrderBy(r => r.ReceiptDate)
-            .ToListAsync(); 
-            
+            .ToListAsync();
         unmatchedReceiptsList = allUploaded.Where(r => !allUsed.Contains(r.ImagePath)).ToList(); 
         
         unmatchedEntriesList = Entries.Where(e => e.Type == "지출" && string.IsNullOrEmpty(e.ReceiptPath) && string.IsNullOrEmpty(e.ReceiptUrl)).OrderBy(e => e.Date).ToList();
-
         if (GetFilteredUnmatchedReceipts().Any() && activeUnmatchedReceipt == null) 
             activeUnmatchedReceipt = GetFilteredUnmatchedReceipts().First();
-
         StateHasChanged();
     }
 
-    // 🚀 미분류 영수증 월별 필터 반환
     private List<UploadedReceipt> GetFilteredUnmatchedReceipts()
     {
         if (unmatchedReceiptsList == null) return new List<UploadedReceipt>();
@@ -963,7 +998,6 @@
     private void SelectUnmatchedReceipt(UploadedReceipt r) { activeUnmatchedReceipt = r; }
     private void CloseUnmatchedManager() { showUnmatchedManager = false; activeUnmatchedReceipt = null; } 
 
-    // 🚀 미분류 영수증 일괄 삭제 관련
     private void ToggleUnmatchedSelection(int id, ChangeEventArgs e)
     {
         if ((bool)(e.Value ?? false)) selectedUnmatchedReceiptIds.Add(id);
@@ -997,7 +1031,6 @@
             {
                 if (!string.IsNullOrEmpty(target.ImagePath))
                 {
-                    // 파일 경로 매칭 및 물리적 파일 삭제
                     var filePath = Path.Combine(webRoot, target.ImagePath.TrimStart('/'));
                     if (System.IO.File.Exists(filePath)) System.IO.File.Delete(filePath);
                 }
@@ -1025,10 +1058,10 @@
 
     private async Task AttachServerReceiptToEntry(string imagePath, int entryId) 
     { 
-        var entry = await DbContext.Transactions.FindAsync(entryId); 
+        var entry = await DbContext.Transactions.FindAsync(entryId);
         if (entry != null) 
         { 
-            entry.ReceiptPath = imagePath; 
+            entry.ReceiptPath = imagePath;
             await DbContext.SaveChangesAsync(); 
             DbContext.ChangeTracker.Clear(); 
             await LoadData(); 
@@ -1038,25 +1071,25 @@
 
     private async Task AutoMatchReceipts() 
     { 
-        int matchCount = 0; 
+        int matchCount = 0;
         var availableReceipts = GetFilteredUnmatchedReceipts().ToList();
         var availableEntries = unmatchedEntriesList.ToList();
 
         foreach (var r in availableReceipts) 
         { 
-            var exactMatches = availableEntries.Where(e => e.Date.Date == r.ReceiptDate.Date && e.Expense == r.Amount).ToList(); 
+            var exactMatches = availableEntries.Where(e => e.Date.Date == r.ReceiptDate.Date && e.Expense == r.Amount).ToList();
             LedgerEntry? targetEntry = null;
 
             if (exactMatches.Count == 1) 
             { 
-                targetEntry = exactMatches.First(); 
+                targetEntry = exactMatches.First();
             } 
             else if (exactMatches.Count > 1 && !string.IsNullOrWhiteSpace(r.Description)) 
             { 
                 string rDesc = r.Description.Replace(" ", "");
                 targetEntry = exactMatches.FirstOrDefault(e => 
                     e.Description != null && 
-                    (e.Description.Replace(" ", "").Contains(rDesc) || rDesc.Contains(e.Description.Replace(" ", "")))); 
+                    (e.Description.Replace(" ", "").Contains(rDesc) || rDesc.Contains(e.Description.Replace(" ", ""))));
             } 
 
             if (targetEntry != null)
@@ -1071,40 +1104,64 @@
             }
         } 
 
-        await JSRuntime.InvokeVoidAsync("alert", $"자동 매칭 완료: 총 {matchCount}건의 영수증이 장부와 연결되었습니다."); 
+        await JSRuntime.InvokeVoidAsync("alert", $"자동 매칭 완료: 총 {matchCount}건의 영수증이 장부와 연결되었습니다.");
         DbContext.ChangeTracker.Clear();
         await LoadData(); 
         await LoadUnmatchedData(); 
     } 
 
-    // 🚀 인쇄 관련
+    // 🚀 인쇄 관련 (수정됨)
     private async Task PrintLedger() { printMode = "Ledger"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); } 
-    private async Task PrintAllReceipts() { printTargets = FilteredEntries.Where(t => t.Type == "지출" && (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))).ToList(); if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "현재 첨부된 영수증이 없습니다."); return; } printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); } 
-    private async Task PrintSelectedReceipts() { printTargets = FilteredEntries.Where(t => printSelectedIds.Contains(t.Id) && t.Type == "지출" && (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))).ToList(); if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "선택된 영수증이 없습니다."); return; } printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); } 
+    private async Task PrintAllReceipts() { 
+        printTargets = FilteredEntries.Where(t => t.Type == "지출").ToList(); 
+        if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "출력할 지출 내역이 없습니다."); return; } 
+        printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); 
+    } 
+    private async Task PrintSelectedReceipts() { 
+        printTargets = FilteredEntries.Where(t => printSelectedIds.Contains(t.Id) && t.Type == "지출").ToList(); 
+        if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "선택된 항목이 없습니다."); return; } 
+        printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); 
+    } 
 
     // 🚀 엑셀 다운로드
     private async Task DownloadExcel() { 
         try { 
-            using var workbook = new XLWorkbook(); 
-            var allYearData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId)).OrderBy(t => t.Date).ToListAsync(); 
+            using var workbook = new XLWorkbook();
+            var allYearData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId)).OrderBy(t => t.Date).ToListAsync();
             var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear); 
-            if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId); 
+            if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId);
             var budgetPlans = await budgetQuery.ToListAsync(); 
-            decimal runningBal = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0; 
+            decimal runningBal = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
             var groupedForExcel = allYearData.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList(); 
             foreach (var monthGroup in groupedForExcel) { 
-                var parts = monthGroup.Key.Split('-'); int gYear = int.Parse(parts[0]); int gMonth = int.Parse(parts[1]); 
-                if (CurrentMonth > 0 && gMonth != CurrentMonth) continue; 
+                var parts = monthGroup.Key.Split('-');
+                int gYear = int.Parse(parts[0]); int gMonth = int.Parse(parts[1]); 
+                if (CurrentMonth > 0 && gMonth != CurrentMonth) continue;
                 var ws = workbook.Worksheets.Add($"{gYear}-{gMonth:D2}"); 
-                var headers = new[] { "날짜", "구분", "분류항목", "적요", "비고", "수입", "지출", "잔액" }; 
-                for (int c = 0; c < headers.Length; c++) { ws.Cell(1, c + 1).Value = headers[c]; ws.Cell(1, c + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws.Cell(1, c + 1).Style.Font.Bold = true; ws.Cell(1, c + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center; } 
-                ws.Cell(2, 1).Value = "-"; ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 6).Value = runningBal; ws.Cell(2, 8).Value = runningBal; ws.Column(6).Style.NumberFormat.Format = "#,##0"; ws.Column(7).Style.NumberFormat.Format = "#,##0"; ws.Column(8).Style.NumberFormat.Format = "#,##0"; 
-                int row = 3; decimal mIncome = 0; decimal mExpense = 0; decimal currentSheetBal = runningBal; 
-                foreach (var item in monthGroup) { currentSheetBal += (item.Income - item.Expense); mIncome += item.Income; mExpense += item.Expense; runningBal += (item.Income - item.Expense); ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type; ws.Cell(row, 3).Value = item.Category; string excelDesc = item.Description; if (IsAdmin && SelectedDepartmentId == 0) excelDesc += $" [{item.DepartmentInfo?.Name}]"; ws.Cell(row, 4).Value = excelDesc; ws.Cell(row, 5).Value = item.Note; ws.Cell(row, 6).Value = item.Income == 0 ? "" : item.Income; ws.Cell(row, 7).Value = item.Expense == 0 ? "" : item.Expense; ws.Cell(row, 8).Value = currentSheetBal; row++; } 
-                ws.Cell(row, 1).Value = $"{gYear}년 {gMonth}월 계"; ws.Range(row, 1, row, 5).Merge(); ws.Cell(row, 6).Value = mIncome; ws.Cell(row, 7).Value = mExpense; ws.Cell(row, 8).Value = currentSheetBal; ws.Column(1).Width = 12; ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 35; ws.Column(5).Width = 15; ws.Column(6).Width = 12; ws.Column(7).Width = 12; ws.Column(8).Width = 12; 
+                var headers = new[] { "날짜", "구분", "분류항목", "적요", "비고", "수입", "지출", "잔액" };
+                for (int c = 0; c < headers.Length; c++) { ws.Cell(1, c + 1).Value = headers[c];
+                ws.Cell(1, c + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws.Cell(1, c + 1).Style.Font.Bold = true; ws.Cell(1, c + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                } 
+                ws.Cell(2, 1).Value = "-";
+                ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 6).Value = runningBal; ws.Cell(2, 8).Value = runningBal; ws.Column(6).Style.NumberFormat.Format = "#,##0";
+                ws.Column(7).Style.NumberFormat.Format = "#,##0"; ws.Column(8).Style.NumberFormat.Format = "#,##0"; 
+                int row = 3; decimal mIncome = 0; decimal mExpense = 0;
+                decimal currentSheetBal = runningBal; 
+                foreach (var item in monthGroup) { currentSheetBal += (item.Income - item.Expense); mIncome += item.Income;
+                mExpense += item.Expense; runningBal += (item.Income - item.Expense); ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type; ws.Cell(row, 3).Value = item.Category;
+                string excelDesc = item.Description; if (IsAdmin && SelectedDepartmentId == 0) excelDesc += $" [{item.DepartmentInfo?.Name}]"; ws.Cell(row, 4).Value = excelDesc;
+                ws.Cell(row, 5).Value = item.Note; ws.Cell(row, 6).Value = item.Income == 0 ? "" : item.Income;
+                ws.Cell(row, 7).Value = item.Expense == 0 ? "" : item.Expense; ws.Cell(row, 8).Value = currentSheetBal; row++;
+                } 
+                ws.Cell(row, 1).Value = $"{gYear}년 {gMonth}월 계";
+                ws.Range(row, 1, row, 5).Merge(); ws.Cell(row, 6).Value = mIncome; ws.Cell(row, 7).Value = mExpense; ws.Cell(row, 8).Value = currentSheetBal; ws.Column(1).Width = 12;
+                ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 35; ws.Column(5).Width = 15; ws.Column(6).Width = 12; ws.Column(7).Width = 12;
+                ws.Column(8).Width = 12; 
             } 
-            using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray()); string today = DateTime.Now.ToString("yyyyMMdd"); string deptName = SelectedDepartmentId == 0 ? "전체부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "장부"; string fileName = $"{deptName}-{CurrentYear}년-장부-{today}.xlsx"; 
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", fileName, base64); 
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray()); string today = DateTime.Now.ToString("yyyyMMdd"); string deptName = SelectedDepartmentId == 0 ?
+            "전체부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "장부"; string fileName = $"{deptName}-{CurrentYear}년-장부-{today}.xlsx"; 
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", fileName, base64);
         } catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 생성 오류: {ex.Message}"); } 
     } 
 }

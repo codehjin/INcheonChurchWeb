@@ -49,6 +49,13 @@
                         <i class="bi bi-camera-fill fs-5 me-2 text-warning"></i> 영수증 업로드
                     </NavLink>
                 </div>
+
+                @* 🚀 다중 업로드 메뉴를 if문 안으로 이동! *@
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="receipt-multi-upload">
+                        <span class="bi bi-images me-2" aria-hidden="true"></span> 영수증 다중 업로드 (PC)
+                    </NavLink>
+                </div>
             </div>
         }
 
@@ -87,10 +94,11 @@
                 </NavLink>
             </div>
         </div>
-
-        @* 🚀 메뉴 구분선 및 소제목 추가 *@
-        <div class="mt-3 border-top pt-2 pb-4">
-            <span class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">기능 살펴보기</span>
+        @if (IsMainAccount || IsSubAccount)
+        {
+            @* 🚀 메뉴 구분선 및 소제목 추가 *@
+            <div class="mt-3 border-top pt-2 pb-4">
+                <span class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">기능 살펴보기</span>
         </div>
 
         <div class="nav-item px-3">
@@ -98,8 +106,20 @@
                 <span class="bi bi-journal-bookmark-fill me-2" aria-hidden="true"></span> 사용자 설명서
             </NavLink>
         </div>
+        }
 
     </nav>
+</div>
+<hr class="text-white-50 my-2" />
+<div class="nav-item px-3 mt-3 mb-1">
+    <span class="text-white-50 small fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">기능 살펴보기</span>
+</div>
+
+<div class="nav-item px-3">
+    @* 🚀 target="_blank"를 추가하여 설명서 자체가 새 창에서 열리도록 변경 *@
+    <NavLink class="nav-link" href="manual" target="_blank">
+        <span class="bi bi-journal-bookmark-fill me-2" aria-hidden="true"></span> 사용자 설명서 <i class="bi bi-box-arrow-up-right ms-auto" style="font-size: 0.8rem;"></i>
+    </NavLink>
 </div>
 
 @code {

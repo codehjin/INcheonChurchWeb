@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -32,6 +33,10 @@ namespace INcheonChurchWeb.Models
 
         [ForeignKey("DepartmentId")]
         public virtual Department? Department { get; set; }
+
+        // 🚀 2단계 인증(2FA/OTP) 필드
+        public string? TwoFactorSecret { get; set; } // OTP용 비밀키 (QR코드 생성 시 사용)
+        public bool IsTwoFactorEnabled { get; set; } = false; // 2단계 인증 활성화 여부
     }
 
     // 🚀 3. 회계 장부
@@ -105,5 +110,16 @@ namespace INcheonChurchWeb.Models
         public string Memo { get; set; } = "";
         public string DataType { get; set; } = "";
         public string JsonData { get; set; } = "";
+    }
+
+    // 🚀 9. 시스템 전체 백업 데이터용 DTO (Settings.razor 에러 방지용)
+    public class SystemBackupDto
+    {
+        public DateTime ExportDate { get; set; }
+        public List<Department> Departments { get; set; } = new();
+        public List<User> Users { get; set; } = new();
+        public List<LedgerEntry> Transactions { get; set; } = new();
+        public List<BudgetPlan> BudgetPlans { get; set; } = new();
+        public List<CategoryMapping> CategoryMappings { get; set; } = new();
     }
 }

@@ -65,7 +65,6 @@
         var unclassifiedIncomeCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "수입");
         var unclassifiedExpenseCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "지출");
         var totalUnclassified = unclassifiedIncomeCount + unclassifiedExpenseCount;
-
         <div class="card shadow-sm border-0 mb-4 bg-light">
             <div class="card-body p-4">
                 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -269,7 +268,6 @@
     private bool isLoading = false;
     private bool isSaving = false;
     private string errorMessage = "";
-    
     // 💡 동적 예산 카테고리 로드를 위한 List 전환 (하드코딩 제거)
     private List<string> IncomeCats = new();
     private List<string> ExpenseCats = new();
@@ -283,7 +281,6 @@
     protected override async Task OnInitializedAsync()
     {
         if (UserDepartmentId == 0) return;
-
         if (UserDepartmentName == "관리자" || UserDepartmentName == "교육국" || CurrentUser?.Role == "Admin") 
         { 
             errorMessage = "관리자 계정입니다. 부서 계정으로 로그인하세요.";
@@ -292,17 +289,17 @@
 
         autoRules = await Accounting.GetMappingsAsync(UserDepartmentId);
         LastTransactionDate = await Accounting.GetLastTransactionDateAsync(UserDepartmentId);
-
+        
         // 🚀 DB에서 환경설정의 예산 카테고리를 동적으로 불러옵니다.
         int currentYear = DateTime.Now.Year;
         var budgetPlans = await DbContext.BudgetPlans
             .AsNoTracking()
             .Where(b => b.DepartmentId == UserDepartmentId && b.Year == currentYear)
             .ToListAsync();
-
+        
         IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
         ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
-
+        
         // 예산이 하나도 등록되지 않았을 경우를 대비한 최소한의 기본값 풀
         if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "은행이자", "회비수입", "환급금" };
         if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "공과비", "교육활동비", "여름성경학교", "운영비", "간식비", "부서관리비", "교사회의비", "훈련비" };
@@ -459,35 +456,24 @@
         }
     }
 
+    // 🚀 수정된 자동 분류 로직 (하드코딩 제거 및 수입/지출 완벽 분리)
     private string ClassifyAuto(string text, string type)
     {
-        var matched = autoRules.FirstOrDefault(r => !string.IsNullOrEmpty(r.Keyword) && text.Contains(r.Keyword));
+        // 사용자가 등록한 규칙 중에서, 키워드가 포함되어 있으면서 
+        // 동시에 '수입' 규칙인지 '지출' 규칙인지까지 정확히 일치하는 항목을 찾습니다.
+        var matched = autoRules.FirstOrDefault(r => 
+            !string.IsNullOrEmpty(r.Keyword) && 
+            text.Contains(r.Keyword) &&
+            (r.Category != null && (type == "수입" ? IncomeCats.Contains(r.Category) : ExpenseCats.Contains(r.Category)))
+        );
+        
         if (matched != null) 
         {
-            // 💡 예산 목록에 없는 사용자 지정 키워드일 경우 리스트에 즉시 임시 추가 (UI 깨짐 방지)
-            if (type == "수입" && !IncomeCats.Contains(matched.Category)) IncomeCats.Add(matched.Category);
-            else if (type == "지출" && !ExpenseCats.Contains(matched.Category)) ExpenseCats.Add(matched.Category);
             return matched.Category;
         }
 
-        string cat = "미분류";
-        if (type == "수입")
-        {
-            if (text.Contains("주정헌금") || text.Contains("주일헌금")) cat = "주일헌금";
-            else if (text.Contains("인천중앙교회")) cat = "교회보조금";
-            else if (text.Contains("이자")) cat = "은행이자";
-            
-            // 기본 조건으로 매치된 항목도 바구니 리스트에 없다면 추가
-            if (cat != "미분류" && !IncomeCats.Contains(cat)) IncomeCats.Add(cat);
-        }
-        else
-        {
-            if (text.Contains("다이소") || text.Contains("쿠팡")) cat = "행사비";
-            else if (text.Contains("씨유") || text.Contains("이마트")) cat = "간식비";
-            
-            if (cat != "미분류" && !ExpenseCats.Contains(cat)) ExpenseCats.Add(cat);
-        }
-        return cat;
+        // 매치되는 사용자 규칙이 없으면 무조건 '미분류'
+        return "미분류";
     }
 
     private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
