@@ -337,11 +337,27 @@
 
             SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
 
-            // 해당 연도 장부 데이터 로드
-            var transQuery = DbContext.Transactions.AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
+            // ========================================================
+            // 🚀 수정된 해당 연도 장부 데이터 로드 (분기 설정 날짜 연동)
+            // ========================================================
+            int queryDeptId = DashboardDeptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : DashboardDeptId;
+
+            // 1분기 시작일과 4분기 종료일 조회 (Accounting 서비스 활용)
+            var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 1);
+            var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 4);
+
+            DateTime dashboardStartDate = q1.Start.Date;
+            DateTime dashboardEndDate = q4.End.Date.AddDays(1); // 💡 종료일 누락 방지를 위한 +1일 처리
+
+            // 분기 설정 범위에 맞춰 날짜 조건(>=, <) 추가
+            var transQuery = DbContext.Transactions.AsNoTracking()
+                .Where(t => t.FiscalYear == CurrentYear && t.Date >= dashboardStartDate && t.Date < dashboardEndDate);
+
             if (DashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == DashboardDeptId);
+
             var transactions = await transQuery.ToListAsync();
 
+            // 합계 계산 (기존 로직 동일)
             TotalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
             TotalIncome = transactions.Where(t => IsIncomeType(t.Type)).Sum(t => t.Income);
             SubsidyReceived = transactions.Where(t => IsIncomeType(t.Type) && t.Category == "교회보조금").Sum(t => t.Income);

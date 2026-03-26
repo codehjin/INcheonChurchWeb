@@ -12,73 +12,68 @@
 @inject AppDbContext DbContext
 @rendermode InteractiveServer
 
-<div class="container mt-4">
+<div class="container mt-4 mb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="fw-bold text-primary"><i class="bi bi-bank me-2"></i>은행 거래내역 가져오기</h3>
-        
-        <button class="btn btn-outline-danger fw-bold shadow-sm" @onclick="ClearWorkData">
-            <i class="bi bi-arrow-clockwise me-1"></i> 불러온 내역 초기화
-        </button>
+        <h3 class="fw-bold text-primary"><i class="bi bi-file-earmark-spreadsheet-fill me-2"></i>엑셀 내역 가져오기</h3>
     </div>
 
     @if (!string.IsNullOrEmpty(UserDepartmentName))
     {
-        <div class="alert alert-secondary shadow-sm">
-            현재 <strong>'@UserDepartmentName'</strong> 장부로 기록됩니다.
+        <div class="alert alert-secondary shadow-sm mb-4">
+            현재 <strong>'@UserDepartmentName'</strong> 부서 장부로 작업 중입니다.
             @if (UserDepartmentName == "유년부")
-            { <span class="badge bg-success ms-2">자동 분류 적용됨</span> }
-            else
-            { <span class="badge bg-warning text-dark ms-2">수동 분류 모드</span> }
+            { <span class="badge bg-success ms-2">자동 분류 시스템 ON</span> }
         </div>
     }
 
-    <div class="row mb-4">
-        <div class="col-md-6">
-            <div class="card p-4 shadow-sm bg-light h-100 border-0">
-                <h5 class="fw-bold mb-3">1. 엑셀 파일 선택</h5>
-                <InputFile OnChange="LoadFiles" class="form-control mb-2" accept=".xls,.xlsx,.csv" />
-                <div class="form-text text-muted">은행 엑셀 파일(.xls, .xlsx)을 업로드하세요.</div>
-            </div>
+    @* ========================================================
+       1. 은행 거래내역 가져오기 (상단)
+       ======================================================== *@
+    <div class="card shadow-sm mb-5 border-primary">
+        <div class="card-header bg-primary text-white fw-bold py-3 fs-5">
+            <i class="bi bi-bank me-2"></i> 1. 은행 통장 거래내역 가져오기 (자동 분류)
         </div>
-
-        <div class="col-md-6">
-            <div class="card p-4 shadow-sm h-100 border-primary border-opacity-25">
-                <h5 class="fw-bold mb-3 text-primary">2. 기존 불러온 내역</h5>
-                @if (LastTransactionDate.HasValue)
-                {
-                    <div class="fs-5">마지막 거래일: <strong class="text-success">@LastTransactionDate.Value.ToString("yyyy-MM-dd")</strong></div>
-                    <div class="text-muted small mt-2"><i class="bi bi-info-circle me-1"></i> 이 날짜 이후의 내역만 업로드하세요.</div>
-                }
-                else
-                {
-                    <div class="text-muted"><i class="bi bi-exclamation-circle me-1"></i> 아직 기록된 내역이 없습니다.</div>
-                }
+        <div class="card-body p-4 bg-light">
+            <div class="row align-items-center">
+                <div class="col-md-7">
+                    <p class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i> 은행 홈페이지에서 다운로드한 엑셀 파일을 올려주세요. 지정된 규칙에 따라 <strong>자동으로 항목이 분류되며 미리보기 후 저장</strong>합니다.</p>
+                    <InputFile OnChange="LoadBankFiles" class="form-control border-primary" accept=".xls,.xlsx,.csv" />
+                </div>
+                <div class="col-md-5 text-end mt-3 mt-md-0">
+                    @if (LastTransactionDate.HasValue)
+                    {
+                        <div class="fs-6 border rounded p-2 bg-white d-inline-block text-start shadow-sm">
+                            <span class="text-muted small d-block">마지막 장부 기록일</span>
+                            <strong class="text-success fs-5">@LastTransactionDate.Value.ToString("yyyy-MM-dd")</strong>
+                        </div>
+                    }
+                </div>
             </div>
+            @if (isLoading) { <div class="alert alert-info mt-3 shadow-sm"><div class="spinner-border spinner-border-sm me-2"></div> 은행 엑셀 파일 분석 중...</div> }
         </div>
     </div>
 
-    @if (isLoading) { <div class="alert alert-info shadow-sm"><div class="spinner-border spinner-border-sm me-2"></div> 엑셀 파일 분석 중...</div> }
-    @if (!string.IsNullOrEmpty(errorMessage)) { <div class="alert alert-danger shadow-sm">@errorMessage</div> }
-
+    @* 은행 내역 미리보기 영역 (기존과 동일) *@
     @if (_savedPreviewList != null && _savedPreviewList.Any())
     {
         var unclassifiedIncomeCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "수입");
         var unclassifiedExpenseCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "지출");
         var totalUnclassified = unclassifiedIncomeCount + unclassifiedExpenseCount;
-        <div class="card shadow-sm border-0 mb-4 bg-light">
+
+        <div class="card shadow-sm border-0 mb-5 bg-light">
             <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
                     <h5 class="fw-bold text-dark mb-0">
-                        <i class="bi bi-arrows-move text-primary me-2"></i> 퀵 분류 
-                        <span class="fs-6 text-muted ms-2">(탭을 이동하며 드래그 또는 일괄 지정하세요)</span>
+                        <i class="bi bi-arrows-move text-primary me-2"></i> 퀵 분류 (남은 미분류: @totalUnclassified 건)
                     </h5>
-                    <span class="badge bg-danger rounded-pill px-3 py-2 fs-6 shadow-sm">남은 미분류: @totalUnclassified 건</span>
+                    <button class="btn btn-outline-danger fw-bold btn-sm shadow-sm" @onclick="ClearWorkData">
+                        <i class="bi bi-arrow-clockwise me-1"></i> 목록 비우기
+                    </button>
                 </div>
 
                 <div class="row g-4">
                     <div class="col-md-5">
                         <div class="bg-white p-3 rounded border shadow-sm h-100">
-                            
                             <ul class="nav nav-tabs mb-3" style="cursor:pointer;">
                                 <li class="nav-item w-50 text-center">
                                     <a class="nav-link @(_savedCurrentTab == "수입" ? "active fw-bold text-primary border-primary border-bottom-0" : "text-muted")" 
@@ -99,18 +94,10 @@
                                 <div class="input-group input-group-sm shadow-sm">
                                     <select class="form-select fw-bold border-0" @bind="batchSelectedCategory">
                                         <option value="">(일괄 지정 카테고리 선택)</option>
-                                        @if(_savedCurrentTab == "수입")
-                                        {
-                                            @foreach(var c in IncomeCats) { <option value="@c">@c</option> }
-                                        }
-                                        else
-                                        {
-                                            @foreach(var c in ExpenseCats) { <option value="@c">@c</option> }
-                                        }
+                                        @if(_savedCurrentTab == "수입") { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } }
+                                        else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
                                     </select>
-                                    <button class="btn @(_savedCurrentTab == "수입" ? "btn-primary" : "btn-danger")" 
-                                            @onclick="ApplyBatchToUnclassified" 
-                                            disabled="@(selectedUnclassified.Count == 0 || string.IsNullOrEmpty(batchSelectedCategory))">
+                                    <button class="btn @(_savedCurrentTab == "수입" ? "btn-primary" : "btn-danger")" @onclick="ApplyBatchToUnclassified" disabled="@(selectedUnclassified.Count == 0 || string.IsNullOrEmpty(batchSelectedCategory))">
                                         <i class="bi bi-check2-all"></i> 적용 (@selectedUnclassified.Count)
                                     </button>
                                 </div>
@@ -118,35 +105,22 @@
 
                             <div style="height: 380px; overflow-y: auto; padding-right: 5px;">
                                 @{ var currentList = GetFilteredUnclassified(); }
-                                
                                 @if (!currentList.Any())
                                 {
-                                    <div class="text-center text-muted py-5 mt-4">
-                                        <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
-                                        @_savedCurrentTab 미분류가 모두 처리되었습니다!
-                                    </div>
+                                    <div class="text-center text-muted py-5 mt-4"><i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i> @_savedCurrentTab 미분류가 모두 처리되었습니다!</div>
                                 }
                                 else
                                 {
-                                    <div class="text-end mb-2">
-                                        <button class="btn btn-sm btn-link text-decoration-none p-0" @onclick="SelectAllCurrentTab">전체선택</button>
-                                    </div>
-
+                                    <div class="text-end mb-2"><button class="btn btn-sm btn-link text-decoration-none p-0" @onclick="SelectAllCurrentTab">전체선택</button></div>
                                     @foreach (var item in currentList)
                                     {
-                                        <div class="card mb-2 border cursor-grab shadow-sm transition-all 
-                                                    @(_savedCurrentTab == "수입" ? "border-primary border-opacity-50" : "border-danger border-opacity-50")
-                                                    @(selectedUnclassified.Contains(item) ? (_savedCurrentTab == "수입" ? "bg-primary text-white" : "bg-danger text-white") : "bg-white")" 
-                                             draggable="true" @ondragstart="@(() => HandleDragStart(item))" style="cursor: grab;">
+                                        <div class="card mb-2 border cursor-grab shadow-sm transition-all @(_savedCurrentTab == "수입" ? "border-primary border-opacity-50" : "border-danger border-opacity-50") @(selectedUnclassified.Contains(item) ? (_savedCurrentTab == "수입" ? "bg-primary text-white" : "bg-danger text-white") : "bg-white")" draggable="true" @ondragstart="@(() => HandleDragStart(item))" style="cursor: grab;">
                                             <div class="card-body p-2 d-flex align-items-center">
-                                                <input type="checkbox" class="form-check-input me-3" style="transform: scale(1.3); cursor:pointer;" 
-                                                       checked="@selectedUnclassified.Contains(item)" @onchange="@(e => ToggleUnclassified(item, e))" />
+                                                <input type="checkbox" class="form-check-input me-3" style="transform: scale(1.3); cursor:pointer;" checked="@selectedUnclassified.Contains(item)" @onchange="@(e => ToggleUnclassified(item, e))" />
                                                 <div class="flex-grow-1" @onclick="@(() => ToggleRowClick(item))" style="cursor:pointer;">
                                                     <small class="@(selectedUnclassified.Contains(item) ? "text-light" : "text-muted") d-block">@item.Date.ToString("MM-dd")</small>
                                                     <strong>@item.Description</strong>
-                                                    <div class="text-end fw-bold">
-                                                        @(_savedCurrentTab == "수입" ? $"+{item.Income:N0}" : $"-{item.Expense:N0}")
-                                                    </div>
+                                                    <div class="text-end fw-bold">@(_savedCurrentTab == "수입" ? $"+{item.Income:N0}" : $"-{item.Expense:N0}")</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -165,9 +139,7 @@
                                     @foreach (var cat in IncomeCats)
                                     {
                                         <div class="col-4">
-                                            <div class="card text-center py-4 border-primary shadow-sm drop-zone" 
-                                                 style="background-color: @(draggedItem != null ? "#eef5ff" : "#fff"); transition: 0.2s;"
-                                                 ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                            <div class="card text-center py-4 border-primary shadow-sm drop-zone" style="background-color: @(draggedItem != null ? "#eef5ff" : "#fff"); transition: 0.2s;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
                                                 <div class="card-body p-0"><strong class="text-primary fs-5">@cat</strong></div>
                                             </div>
                                         </div>
@@ -181,10 +153,8 @@
                                     @foreach (var cat in ExpenseCats)
                                     {
                                         <div class="col-4">
-                                            <div class="card text-center py-4 border-danger shadow-sm drop-zone" 
-                                                 style="background-color: @(draggedItem != null ? "#ffeef0" : "#fff"); transition: 0.2s;"
-                                                 ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
-                                                <div class="card-body p-0"><strong class="text-danger">@cat</strong></div>
+                                            <div class="card text-center py-4 border-danger shadow-sm drop-zone" style="background-color: @(draggedItem != null ? "#ffeef0" : "#fff"); transition: 0.2s;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                                <div class="card-body p-0"><strong class="text-danger fs-5">@cat</strong></div>
                                             </div>
                                         </div>
                                     }
@@ -209,18 +179,11 @@
             </button>
         </div>
 
-        <div class="table-responsive shadow-sm bg-white rounded border" style="max-height: 500px; overflow-y: auto;">
+        <div class="table-responsive shadow-sm bg-white rounded border mb-5" style="max-height: 500px; overflow-y: auto;">
             <table class="table table-hover align-middle mb-0 text-center sticky-top">
                 <thead class="table-dark sticky-top">
                     <tr>
-                        <th style="width: 10%">날짜</th>
-                        <th style="width: 8%">구분</th>
-                        <th class="text-start">적요</th>
-                        <th class="text-start">비고</th>
-                        <th style="width: 10%">수입</th>
-                        <th style="width: 10%">지출</th>
-                        <th style="width: 15%">카테고리 수정</th>
-                        <th style="width: 6%">삭제</th>
+                        <th style="width: 10%">날짜</th><th style="width: 8%">구분</th><th class="text-start">적요</th><th class="text-start">비고</th><th style="width: 10%">수입</th><th style="width: 10%">지출</th><th style="width: 15%">카테고리 수정</th><th style="width: 6%">삭제</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -228,30 +191,43 @@
                     {
                         <tr class="@(item.Category == "미분류" ? "table-danger" : "")">
                             <td>@item.Date.ToString("MM-dd")</td>
-                            <td>
-                                @if(item.Type == "수입") { <span class="badge bg-primary bg-opacity-10 text-primary">수입</span> }
-                                else { <span class="badge bg-danger bg-opacity-10 text-danger">지출</span> }
-                            </td>
-                            <td class="text-start">@item.Description</td>
-                            <td class="text-start text-muted small">@item.Note</td>
+                            <td>@if(item.Type == "수입") { <span class="badge bg-primary bg-opacity-10 text-primary">수입</span> } else { <span class="badge bg-danger bg-opacity-10 text-danger">지출</span> }</td>
+                            <td class="text-start">@item.Description</td><td class="text-start text-muted small">@item.Note</td>
                             <td class="text-end text-primary">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
                             <td class="text-end text-danger">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
                             <td>
                                 <select class="form-select form-select-sm fw-bold @(item.Category=="미분류"?"border-danger text-danger":"text-success")" @bind="item.Category">
                                     @if(item.Category == "미분류") { <option value="미분류">미분류 ⚠️</option> }
-                                    @if (item.Type == "수입") { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } }
-                                    else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
+                                    @if (item.Type == "수입") { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } } else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
                                 </select>
                             </td>
-                            <td>
-                                <button class="btn btn-outline-danger btn-sm py-0" @onclick="() => _savedPreviewList.Remove(item)"><i class="bi bi-trash"></i></button>
-                            </td>
+                            <td><button class="btn btn-outline-danger btn-sm py-0" @onclick="() => _savedPreviewList.Remove(item)"><i class="bi bi-trash"></i></button></td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
     }
+
+    @* ========================================================
+       2. 기존 장부 엑셀 복원 (하단 신규 추가)
+       ======================================================== *@
+    <div class="card shadow-sm border-success">
+        <div class="card-header bg-success text-white fw-bold py-3 fs-5">
+            <i class="bi bi-journal-arrow-up me-2"></i> 2. 월별 장부 엑셀 복원 (그대로 올리기)
+        </div>
+        <div class="card-body p-4 bg-light">
+            <div class="alert border-success bg-white shadow-sm mb-3">
+                <i class="bi bi-info-circle-fill text-success me-2"></i><strong>월별 장부 화면에서 다운로드했던 엑셀 파일</strong>을 올려주세요. 이 기능은 자동 분류를 거치지 않고, 엑셀에 적힌 항목 그대로 즉시 장부에 반영됩니다.<br/>
+                <span class="text-danger fw-bold ms-4">※ 주의: 날짜와 금액이 겹치는 기존 장부 내역이 있으면 교체(덮어쓰기) 여부를 묻습니다.</span>
+            </div>
+            
+            <div class="d-flex align-items-center gap-3">
+                <InputFile OnChange="HandleLedgerImport" class="form-control border-success w-50" accept=".xls,.xlsx,.csv" />
+                @if (isLedgerImporting) { <span class="text-success fw-bold"><div class="spinner-border spinner-border-sm me-2"></div>장부에 바로 적용 중...</span> }
+            </div>
+        </div>
+    </div>
 </div>
 
 @code {
@@ -267,8 +243,8 @@
     private List<CategoryMapping> autoRules = new();
     private bool isLoading = false;
     private bool isSaving = false;
-    private string errorMessage = "";
-    // 💡 동적 예산 카테고리 로드를 위한 List 전환 (하드코딩 제거)
+    private bool isLedgerImporting = false; // 장부 업로드 상태 변수
+
     private List<string> IncomeCats = new();
     private List<string> ExpenseCats = new();
     
@@ -281,26 +257,16 @@
     protected override async Task OnInitializedAsync()
     {
         if (UserDepartmentId == 0) return;
-        if (UserDepartmentName == "관리자" || UserDepartmentName == "교육국" || CurrentUser?.Role == "Admin") 
-        { 
-            errorMessage = "관리자 계정입니다. 부서 계정으로 로그인하세요.";
-            return; 
-        }
 
         autoRules = await Accounting.GetMappingsAsync(UserDepartmentId);
         LastTransactionDate = await Accounting.GetLastTransactionDateAsync(UserDepartmentId);
         
-        // 🚀 DB에서 환경설정의 예산 카테고리를 동적으로 불러옵니다.
         int currentYear = DateTime.Now.Year;
-        var budgetPlans = await DbContext.BudgetPlans
-            .AsNoTracking()
-            .Where(b => b.DepartmentId == UserDepartmentId && b.Year == currentYear)
-            .ToListAsync();
+        var budgetPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == UserDepartmentId && b.Year == currentYear).ToListAsync();
         
         IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
         ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
         
-        // 예산이 하나도 등록되지 않았을 경우를 대비한 최소한의 기본값 풀
         if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "은행이자", "회비수입", "환급금" };
         if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "공과비", "교육활동비", "여름성경학교", "운영비", "간식비", "부서관리비", "교사회의비", "훈련비" };
     }
@@ -310,14 +276,13 @@
         _savedPreviewList.Clear();
         _savedCurrentTab = "지출";
         selectedUnclassified.Clear();
-        errorMessage = "";
     }
 
-    private async Task LoadFiles(InputFileChangeEventArgs e)
+    // 🚀 1. 은행 엑셀 가져오기 (기존 기능)
+    private async Task LoadBankFiles(InputFileChangeEventArgs e)
     {
         isLoading = true;
         _savedPreviewList.Clear(); 
-        errorMessage = ""; 
         selectedUnclassified.Clear();
         
         try
@@ -374,117 +339,157 @@
                 }
             }
 
-            if (!_savedPreviewList.Any(x => x.Type == "지출" && x.Category == "미분류") && 
-                 _savedPreviewList.Any(x => x.Type == "수입" && x.Category == "미분류"))
-            {
-                _savedCurrentTab = "수입";
-            }
-            else
-            {
-                _savedCurrentTab = "지출";
-            }
+            if (!_savedPreviewList.Any(x => x.Type == "지출" && x.Category == "미분류") && _savedPreviewList.Any(x => x.Type == "수입" && x.Category == "미분류")) _savedCurrentTab = "수입";
+            else _savedCurrentTab = "지출";
         }
-        catch (Exception ex) { errorMessage = $"오류: {ex.Message}"; }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"오류: {ex.Message}"); }
         finally { isLoading = false; }
     }
 
-    private void ChangeTab(string targetTab)
+    // 🚀 2. 월별 장부 엑셀 복원 (신규 기능 - 바로 덮어쓰기)
+    private async Task HandleLedgerImport(InputFileChangeEventArgs e)
     {
-        _savedCurrentTab = targetTab;
-        selectedUnclassified.Clear(); 
-        batchSelectedCategory = "";
+        isLedgerImporting = true;
+        StateHasChanged();
+        try
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            using var memoryStream = new MemoryStream();
+            await e.File.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024).CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+            
+            // CSV 및 엑셀 모두 지원
+            using var reader = ExcelReaderFactory.CreateReader(memoryStream);
+            var result = reader.AsDataSet();
+            var table = result.Tables[0];
+            
+            int colDate=-1, colType=-1, colCat=-1, colDesc=-1, colIncome=-1, colExpense=-1, colNote=-1, dataStart=0;
+            
+            // 헤더 찾기 (날짜, 구분, 세부항목, 내용, 수입, 지출, 비고)
+            for (int i = 0; i < Math.Min(table.Rows.Count, 10); i++)
+            {
+                var row = table.Rows[i];
+                for(int c=0; c<table.Columns.Count; c++)
+                {
+                    string h = row[c]?.ToString()?.Trim() ?? "";
+                    if (h == "날짜") colDate = c;
+                    else if (h == "구분") colType = c;
+                    else if (h == "세부항목" || h == "항목" || h == "카테고리") colCat = c;
+                    else if (h == "내용" || h == "적요" || h == "내역") colDesc = c;
+                    else if (h == "수입") colIncome = c;
+                    else if (h == "지출") colExpense = c;
+                    else if (h == "비고") colNote = c;
+                }
+                if (colDate >= 0 && colCat >= 0) { dataStart = i + 1; break; }
+            }
+            
+            if (colDate < 0) throw new Exception("엑셀에서 '날짜', '세부항목(항목)', '수입/지출' 등의 표 머리글(헤더)을 찾을 수 없습니다.");
+            
+            var importedList = new List<LedgerEntry>();
+            for (int i = dataStart; i < table.Rows.Count; i++)
+            {
+                var row = table.Rows[i];
+                string dateStr = row[colDate]?.ToString()?.Trim() ?? "";
+                
+                // 빈 줄이나 '월 계', '합계' 등은 건너뜀
+                if (string.IsNullOrEmpty(dateStr) || dateStr.Contains("계") || dateStr.Contains("총")) continue; 
+                
+                if (!DateTime.TryParse(dateStr, out DateTime date)) continue;
+                
+                decimal inc = colIncome >= 0 ? ParseDecimal(row[colIncome]?.ToString()) : 0;
+                decimal exp = colExpense >= 0 ? ParseDecimal(row[colExpense]?.ToString()) : 0;
+                if (inc == 0 && exp == 0) continue;
+                
+                string parsedType = colType >= 0 ? (row[colType]?.ToString()?.Trim() ?? "") : "";
+                if(string.IsNullOrEmpty(parsedType)) parsedType = (inc > 0 ? "수입" : "지출");
+
+                importedList.Add(new LedgerEntry {
+                    DepartmentId = UserDepartmentId,
+                    Date = date,
+                    FiscalYear = date.Year,
+                    Quarter = GetQuarter(date),
+                    Type = parsedType,
+                    Category = colCat >= 0 ? row[colCat]?.ToString()?.Trim() ?? "미분류" : "미분류",
+                    Description = colDesc >= 0 ? row[colDesc]?.ToString()?.Trim() ?? "" : "",
+                    Income = inc,
+                    Expense = exp,
+                    Note = colNote >= 0 ? row[colNote]?.ToString()?.Trim() ?? "" : "",
+                    IsAudited = false
+                });
+            }
+            
+            if (!importedList.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "읽어들일 장부 데이터가 없습니다.");
+                return;
+            }
+            
+            // 🚀 중복 확인 및 덮어쓰기 로직
+            var existingTrans = await DbContext.Transactions.Where(t => t.DepartmentId == UserDepartmentId).ToListAsync();
+            var duplicates = importedList.Where(item => existingTrans.Any(t => t.Date.Date == item.Date.Date && t.Income == item.Income && t.Expense == item.Expense)).ToList();
+            
+            if (duplicates.Any())
+            {
+                bool overwrite = await JSRuntime.InvokeAsync<bool>("confirm", $"⚠️ 경고: 날짜와 금액이 일치하는 기존 장부 내역이 {duplicates.Count}건 발견되었습니다.\n\n중복되는 기존 내역을 삭제하고 지금 올리는 파일 내용으로 완전히 덮어쓰시겠습니까?");
+                if (!overwrite) 
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "장부 업로드가 취소되었습니다.");
+                    return; 
+                }
+                
+                // 기존 중복 데이터 삭제 (교체)
+                foreach (var dup in duplicates)
+                {
+                    var toDelete = existingTrans.Where(t => t.Date.Date == dup.Date.Date && t.Income == dup.Income && t.Expense == dup.Expense).ToList();
+                    DbContext.Transactions.RemoveRange(toDelete);
+                }
+                await DbContext.SaveChangesAsync();
+            }
+            
+            // DB에 일괄 삽입
+            await DbContext.Transactions.AddRangeAsync(importedList);
+            await DbContext.SaveChangesAsync();
+            
+            await JSRuntime.InvokeVoidAsync("alert", $"총 {importedList.Count}건의 장부 데이터가 성공적으로 등록(교체)되었습니다!");
+            Nav.NavigateTo("/monthly");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"장부 업로드 중 오류 발생: {ex.Message}");
+        }
+        finally
+        {
+            isLedgerImporting = false;
+            StateHasChanged();
+        }
     }
 
-    private List<LedgerEntry> GetFilteredUnclassified()
-    {
-        return _savedPreviewList.Where(x => x.Category == "미분류" && x.Type == _savedCurrentTab &&
-            (string.IsNullOrEmpty(searchUnclassified) || 
-             x.Description.Contains(searchUnclassified) || 
-             x.Note.Contains(searchUnclassified))).ToList();
-    }
-
-    private IEnumerable<LedgerEntry> GetFilteredPreview()
-    {
-        if (string.IsNullOrEmpty(searchPreview)) return _savedPreviewList;
-        return _savedPreviewList.Where(x => x.Description.Contains(searchPreview) || x.Note.Contains(searchPreview) || x.Category.Contains(searchPreview));
-    }
-
-    private void ToggleUnclassified(LedgerEntry item, ChangeEventArgs e)
-    {
-        if ((bool)(e.Value ?? false)) selectedUnclassified.Add(item);
-        else selectedUnclassified.Remove(item);
-    }
+    private void ChangeTab(string targetTab) { _savedCurrentTab = targetTab; selectedUnclassified.Clear(); batchSelectedCategory = ""; }
+    private List<LedgerEntry> GetFilteredUnclassified() { return _savedPreviewList.Where(x => x.Category == "미분류" && x.Type == _savedCurrentTab && (string.IsNullOrEmpty(searchUnclassified) || x.Description.Contains(searchUnclassified) || x.Note.Contains(searchUnclassified))).ToList(); }
+    private IEnumerable<LedgerEntry> GetFilteredPreview() { if (string.IsNullOrEmpty(searchPreview)) return _savedPreviewList; return _savedPreviewList.Where(x => x.Description.Contains(searchPreview) || x.Note.Contains(searchPreview) || x.Category.Contains(searchPreview)); }
+    private void ToggleUnclassified(LedgerEntry item, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) selectedUnclassified.Add(item); else selectedUnclassified.Remove(item); }
+    private void ToggleRowClick(LedgerEntry item) { if (selectedUnclassified.Contains(item)) selectedUnclassified.Remove(item); else selectedUnclassified.Add(item); }
+    private void SelectAllCurrentTab() { var currentList = GetFilteredUnclassified(); if (selectedUnclassified.Count == currentList.Count) selectedUnclassified.Clear(); else { foreach(var item in currentList) selectedUnclassified.Add(item); } }
+    private void ApplyBatchToUnclassified() { if (string.IsNullOrEmpty(batchSelectedCategory) || !selectedUnclassified.Any()) return; foreach (var item in selectedUnclassified) { item.Category = batchSelectedCategory; } selectedUnclassified.Clear(); batchSelectedCategory = ""; }
+    private void HandleDragStart(LedgerEntry item) { draggedItem = item; if (!selectedUnclassified.Contains(item)) { selectedUnclassified.Clear(); selectedUnclassified.Add(item); } }
+    private void HandleDrop(string targetCategory) { if (draggedItem != null && selectedUnclassified.Any()) { foreach (var item in selectedUnclassified) { item.Category = targetCategory; } selectedUnclassified.Clear(); draggedItem = null; } }
     
-    private void ToggleRowClick(LedgerEntry item)
-    {
-        if (selectedUnclassified.Contains(item)) selectedUnclassified.Remove(item);
-        else selectedUnclassified.Add(item);
-    }
-
-    private void SelectAllCurrentTab()
-    {
-        var currentList = GetFilteredUnclassified();
-        if (selectedUnclassified.Count == currentList.Count) selectedUnclassified.Clear();
-        else { foreach(var item in currentList) selectedUnclassified.Add(item); }
-    }
-
-    private void ApplyBatchToUnclassified()
-    {
-        if (string.IsNullOrEmpty(batchSelectedCategory) || !selectedUnclassified.Any()) return;
-        foreach (var item in selectedUnclassified) { item.Category = batchSelectedCategory; }
-        selectedUnclassified.Clear();
-        batchSelectedCategory = "";
-    }
-
-    private void HandleDragStart(LedgerEntry item)
-    {
-        draggedItem = item;
-        if (!selectedUnclassified.Contains(item))
-        {
-            selectedUnclassified.Clear();
-            selectedUnclassified.Add(item);
-        }
-    }
-
-    private void HandleDrop(string targetCategory)
-    {
-        if (draggedItem != null && selectedUnclassified.Any())
-        {
-            foreach (var item in selectedUnclassified) { item.Category = targetCategory; }
-            selectedUnclassified.Clear();
-            draggedItem = null;
-        }
-    }
-
-    // 🚀 수정된 자동 분류 로직 (하드코딩 제거 및 수입/지출 완벽 분리)
     private string ClassifyAuto(string text, string type)
     {
-        // 사용자가 등록한 규칙 중에서, 키워드가 포함되어 있으면서 
-        // 동시에 '수입' 규칙인지 '지출' 규칙인지까지 정확히 일치하는 항목을 찾습니다.
-        var matched = autoRules.FirstOrDefault(r => 
-            !string.IsNullOrEmpty(r.Keyword) && 
-            text.Contains(r.Keyword) &&
-            (r.Category != null && (type == "수입" ? IncomeCats.Contains(r.Category) : ExpenseCats.Contains(r.Category)))
-        );
-        
-        if (matched != null) 
-        {
-            return matched.Category;
-        }
-
-        // 매치되는 사용자 규칙이 없으면 무조건 '미분류'
+        var matched = autoRules.FirstOrDefault(r => !string.IsNullOrEmpty(r.Keyword) && text.Contains(r.Keyword) && (r.Category != null && (type == "수입" ? IncomeCats.Contains(r.Category) : ExpenseCats.Contains(r.Category))));
+        if (matched != null) return matched.Category;
         return "미분류";
     }
 
     private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
-    private decimal ParseDecimal(string? value) { if (string.IsNullOrWhiteSpace(value)) return 0; decimal.TryParse(value.Replace(",", ""), out decimal r); return r; }
+    private decimal ParseDecimal(string? value) { if (string.IsNullOrWhiteSpace(value)) return 0; decimal.TryParse(value.Replace("\"", "").Replace(",", ""), out decimal r); return r; }
 
     private async Task SaveToLedger()
     {
         if (!_savedPreviewList.Any()) return;
         if (_savedPreviewList.Any(x => x.Category == "미분류")) { await JSRuntime.InvokeVoidAsync("alert", "미분류 항목을 모두 처리해주세요!"); return; }
 
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"{_savedPreviewList.Count}건을 저장하시겠습니까?"))
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"{_savedPreviewList.Count}건을 장부에 저장하시겠습니까?"))
         {
             isSaving = true;
             try 
@@ -494,7 +499,7 @@
                 await JSRuntime.InvokeVoidAsync("alert", "저장 완료!"); 
                 Nav.NavigateTo("/monthly"); 
             }
-            catch (Exception ex) { errorMessage = $"저장 오류: {ex.Message}"; }
+            catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"저장 오류: {ex.Message}"); }
             finally { isSaving = false; }
         }
     }

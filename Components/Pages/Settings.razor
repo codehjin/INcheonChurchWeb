@@ -275,25 +275,28 @@
             ────────────────────────────── *@
             else if (activeTab == "Quarter" && IsDeptAdmin)
             {
-                <div class="col-md-10 mx-auto mt-4">
-                    <h5 class="fw-bold mb-3 text-info">📌 @TargetYear 년도 분기 날짜 설정</h5>
-                    <div class="card p-4 shadow-sm border-info">
-                        @for (int q = 1; q <= 4; q++)
-                        {
-                            int localQ = q;
-                            <div class="mb-3 row align-items-center bg-light p-2 rounded">
-                                <label class="col-sm-2 col-form-label fw-bold text-center border-end">@q 분기</label>
-                                <div class="col d-flex gap-2 align-items-center">
-                                    <input type="date" class="form-control" @bind="QuarterStartDates[localQ - 1]" />
-                                    <span>~</span>
-                                    <input type="date" class="form-control" @bind="QuarterEndDates[localQ - 1]" />
-                                </div>
-                                <div class="col-sm-2"><button class="btn btn-sm btn-outline-primary w-100 fw-bold" @onclick="() => SaveQuarter(localQ)">저장</button></div>
-                            </div>
-                        }
+            <div class="col-md-10 mx-auto mt-4">
+            <h5 class="fw-bold mb-3 text-info">📌 @TargetYear 년도 분기 날짜 설정</h5>
+            <div class="card p-4 shadow-sm border-info">
+            @for (int q = 1; q <= 4; q++)
+              {
+                int localQ = q;
+                <div class="mb-3 row align-items-center bg-light p-2 rounded">
+                    <label class="col-sm-2 col-form-label fw-bold text-center border-end">@q 분기</label>
+                    <div class="col d-flex gap-2 align-items-center">
+                        @* 🚀 여기에 연속성 연동 버튼 추가 *@
+                        <button class="btn btn-sm btn-outline-secondary text-nowrap" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)">🔗 연속성 맞춤</button>
+                        
+                        <input type="date" class="form-control" @bind="QuarterStartDates[localQ - 1]" />
+                        <span>~</span>
+                        <input type="date" class="form-control" @bind="QuarterEndDates[localQ - 1]" />
                     </div>
+                    <div class="col-sm-2"><button class="btn btn-sm btn-outline-primary w-100 fw-bold" @onclick="() => SaveQuarter(localQ)">저장</button></div>
                 </div>
-            }
+               }
+        </div>
+    </div>
+}
             @* ──────────────────────────────
                [4] 탭: 데이터 백업/복구
             ────────────────────────────── *@
@@ -745,7 +748,21 @@
     private string tempSecret = "";
     private string qrCodeImageUrl = "";
     private string setupOtpCode = "";
-
+    // 🚀 이전 분기 종료일을 기준으로 다음 분기 시작일을 자동 설정하는 메서드
+    private async Task SyncWithPreviousQuarter(int q)
+    {
+        if (q == 1)
+        {
+            // 1분기: 직전 연도의 4분기 종료일을 가져와 +1일 적용
+            var prevQ4 = await AccService.GetQuarterDateRangeAsync(CurrentUser?.DepartmentId ?? 0, TargetYear - 1, 4);
+            QuarterStartDates[0] = prevQ4.End.Date.AddDays(1);
+        }
+        else
+        {
+            // 2, 3, 4분기: 같은 연도의 직전 분기 종료일에 +1일 적용
+            QuarterStartDates[q - 1] = QuarterEndDates[q - 2].Date.AddDays(1);
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         if (CurrentUser == null) return;
@@ -1004,21 +1021,56 @@
         finally { isImporting = false; }
     }
 
+    // 🚀 수정: 다운로드 양식 변경 (예산 및 자동분류 통합)
     private async Task DownloadBulkTemplate()
     {
         try
         {
-            using var workbook = new XLWorkbook(); var wsBudget = workbook.Worksheets.Add("예산일괄입력"); var headers1 = new[] { "구분", "항목", "상세내역", "산출근거", "금액" };
+            using var workbook = new XLWorkbook(); 
+            
+            // 1. 수입/지출 예산 양식 시트
+            var wsBudget = workbook.Worksheets.Add("예산일괄입력"); 
+            var headers1 = new[] { "구분", "항목", "상세내역", "산출근거", "금액" };
             for (int i = 0; i < headers1.Length; i++) { wsBudget.Cell(1, i + 1).Value = headers1[i]; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; }
-            wsBudget.Cell(2, 1).Value = "수입"; wsBudget.Cell(2, 2).Value = "주일헌금"; wsBudget.Cell(2, 3).Value = "예배"; wsBudget.Cell(2, 5).Value = 2600000;
-            wsBudget.Cell(3, 1).Value = "지출"; wsBudget.Cell(3, 2).Value = "행사비"; wsBudget.Cell(3, 3).Value = "성경학교"; wsBudget.Cell(3, 5).Value = 200000;
+            
+            // 🚨 경고용 예시 행 추가 (업로드 시 무시되게끔 처리)
+            wsBudget.Cell(2, 1).Value = "※ 이 행(예시)은 업로드 전에 엑셀에서 반드시 삭제하세요!";
+            wsBudget.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
+            wsBudget.Range(2, 1, 2, 5).Merge(); // 셀 병합
+            
+            wsBudget.Cell(3, 1).Value = "수입"; wsBudget.Cell(3, 2).Value = "주일헌금"; wsBudget.Cell(3, 3).Value = "예배"; wsBudget.Cell(3, 5).Value = 2600000;
+            wsBudget.Cell(4, 1).Value = "지출"; wsBudget.Cell(4, 2).Value = "행사비"; wsBudget.Cell(4, 3).Value = "성경학교"; wsBudget.Cell(4, 5).Value = 200000;
             wsBudget.Columns().AdjustToContents();
+            
+            // 2. 자동분류 키워드 양식 시트
+            var wsMapping = workbook.Worksheets.Add("자동분류일괄입력"); 
+            var headers2 = new[] { "구분", "키워드", "분류될항목" };
+            for (int i = 0; i < headers2.Length; i++) { wsMapping.Cell(1, i + 1).Value = headers2[i]; wsMapping.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsMapping.Cell(1, i + 1).Style.Font.Bold = true; }
+            
+            // 🚨 경고용 예시 행 추가
+            wsMapping.Cell(2, 1).Value = "※ 이 행(예시)은 업로드 전에 엑셀에서 반드시 삭제하세요!";
+            wsMapping.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
+            wsMapping.Range(2, 1, 2, 3).Merge();
+            
+            wsMapping.Cell(3, 1).Value = "수입"; wsMapping.Cell(3, 2).Value = "인천중앙교회"; wsMapping.Cell(3, 3).Value = "교회보조금";
+            wsMapping.Cell(4, 1).Value = "지출"; wsMapping.Cell(4, 2).Value = "다이소"; wsMapping.Cell(4, 3).Value = "행사비";
+            wsMapping.Columns().AdjustToContents();
+
             using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "예산_일괄입력양식.xlsx", base64);
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "일괄입력양식_통합.xlsx", base64);
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 양식 생성 오류: {ex.Message}"); }
     }
-
+    // 🚀 수정: 업로드 전 사전 경고창 추가 및 시트 다중 처리
+    private async Task TriggerBulkImport() 
+    { 
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "⚠️ 주의: 다운로드하신 엑셀 파일 내의 '빨간색 글씨로 된 예시 행'은 엑셀에서 미리 다 지우셨나요?\n\n지우지 않고 올리면 오류가 발생할 수 있습니다. 계속 진행하시겠습니까?");
+        if (confirmed)
+        {
+            await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); 
+        }
+    }
+    
     private async Task HandleBulkImport(InputFileChangeEventArgs e)
     {
         if (CurrentUser == null) return; var file = e.File; if (file == null) return;
@@ -1028,14 +1080,19 @@
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance); using var memoryStream = new MemoryStream();
             await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream); memoryStream.Position = 0;
             using var reader = ExcelReaderFactory.CreateReader(memoryStream); var result = reader.AsDataSet();
-            int budgetCount = 0; int deptId = CurrentUser.DepartmentId;
+            int budgetCount = 0; int mappingCount = 0; int deptId = CurrentUser.DepartmentId;
+            
             foreach (DataTable table in result.Tables)
             {
                 if (table.TableName == "예산일괄입력")
                 {
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
-                        var row = table.Rows[i]; string type = row[0]?.ToString()?.Trim() ?? ""; string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? ""; string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
+                        var row = table.Rows[i]; 
+                        string type = row[0]?.ToString()?.Trim() ?? ""; 
+                        if (type.Contains("삭제하세요")) continue; // 🚨 안전장치: 혹시 안 지웠더라도 이 행은 건너뜀
+                        
+                        string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? ""; string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
                         if (string.IsNullOrEmpty(cat)) continue;
                         if (type == "수입") type = "Income"; if (type == "지출") type = "Expense";
                         if (type != "Income" && type != "Expense") continue;
@@ -1043,14 +1100,28 @@
                         DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = type, Category = cat, SubCategory = sub, CalcDetail = calc, Amount = amt }); budgetCount++;
                     }
                 }
+                else if (table.TableName == "자동분류일괄입력")
+                {
+                    for (int i = 1; i < table.Rows.Count; i++)
+                    {
+                        var row = table.Rows[i];
+                        string type = row[0]?.ToString()?.Trim() ?? "";
+                        if (type.Contains("삭제하세요")) continue; // 🚨 안전장치
+                        
+                        string keyword = row[1]?.ToString()?.Trim() ?? ""; string cat = row[2]?.ToString()?.Trim() ?? "";
+                        if (string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
+                        
+                        DbContext.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = keyword, Category = cat }); mappingCount++;
+                    }
+                }
             }
-            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", $"✅ 일괄 입력 완료! {budgetCount}건 추가");
+            await DbContext.SaveChangesAsync(); await LoadData(); 
+            await JSRuntime.InvokeVoidAsync("alert", $"✅ 일괄 입력 완료!\n- 예산: {budgetCount}건\n- 자동분류: {mappingCount}건");
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 엑셀 처리 중 오류: {ex.Message}"); }
         finally { isImporting = false; bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
-    private async Task TriggerBulkImport() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); }
     private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(customBackupMemo) ? "사용자 수동 백업" : customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); customBackupMemo = ""; await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "성공적으로 백업되었습니다."); }
     private async Task RestoreData(DataBackup b) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "복구하시겠습니까?") == true) { await AccService.RestoreFromBackupAsync(b.Id); await LoadData(); } }
     private async Task DeleteBackup(int backupId) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "삭제하시겠습니까?") == true) { var target = await DbContext.DataBackups.FindAsync(backupId); if (target != null) { DbContext.DataBackups.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } }
