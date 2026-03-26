@@ -323,10 +323,10 @@
                 <label class="form-label fw-bold text-muted small">분기 선택</label>
                 <select class="form-select form-select-sm w-auto fw-bold text-center mx-auto" @onchange="OnQuarterChanged" value="@CurrentQuarter">
                     <option value="0">전체 분기</option>
-                    <option value="1">1분기 (1~3월)</option>
-                    <option value="2">2분기 (4~6월)</option>
-                    <option value="3">3분기 (7~9월)</option>
-                    <option value="4">4분기 (10~12월)</option>
+                    <option value="1">1분기 (11~2월)</option>
+                    <option value="2">2분기 (3~5월)</option>
+                    <option value="3">3분기 (6~8월)</option>
+                    <option value="4">4분기 (9~11월)</option>
                 </select>
             </div>
             <div class="col-md-3">
@@ -1137,18 +1137,51 @@
         if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "운영비", "부서관리비", "기타지출" }; 
 
         decimal baseCarryOver = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-        var prevData = allYearData.Where(x => x.Date.Month < CurrentMonth).ToList(); 
-        if (CurrentMonth == 0 && CurrentQuarter == 0) prevData.Clear();
-        else if (CurrentQuarter > 0) prevData = allYearData.Where(x => x.Date.Month < ((CurrentQuarter - 1) * 3 + 1)).ToList();
+        
+        // =========================================================
+        // 🚀 수정됨: 1~4분기 날짜를 불러와 이월금과 필터링을 정확하게 연동
+        // =========================================================
+        int queryDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+        var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 1);
+        var q2 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 2);
+        var q3 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 3);
+        var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 4);
+
+        var prevData = new List<LedgerEntry>();
+        IEnumerable<LedgerEntry> filteredQuery = allYearData;
+
+        if (CurrentMonth > 0) 
+        {
+            // 💡 11, 12월은 이전 연도에 귀속 (예: 2026 회계연도의 11월 = 2025년 11월)
+            int mYear = (CurrentMonth == 11 || CurrentMonth == 12) ? CurrentYear - 1 : CurrentYear;
+            DateTime monthStart = new DateTime(mYear, CurrentMonth, 1);
+            DateTime monthEnd = new DateTime(mYear, CurrentMonth, DateTime.DaysInMonth(mYear, CurrentMonth));
+            
+            // 11월의 경우 설정된 시작일(4째주 월)과 종료일(3째주 주일)을 정확히 반영
+            if (CurrentMonth == 11 && mYear == CurrentYear - 1) monthStart = q1.Start.Date;
+            if (CurrentMonth == 11 && mYear == CurrentYear) monthEnd = q4.End.Date;
+
+            filteredQuery = allYearData.Where(t => t.Date.Date >= monthStart && t.Date.Date <= monthEnd);
+            prevData = allYearData.Where(x => x.Date.Date < monthStart).ToList();
+        }
+        else if (CurrentQuarter > 0) 
+        { 
+            DateTime qStart = CurrentQuarter switch { 1 => q1.Start, 2 => q2.Start, 3 => q3.Start, 4 => q4.Start, _ => q1.Start };
+            DateTime qEnd = CurrentQuarter switch { 1 => q1.End, 2 => q2.End, 3 => q3.End, 4 => q4.End, _ => q4.End };
+
+            filteredQuery = allYearData.Where(t => t.Date.Date >= qStart.Date && t.Date.Date <= qEnd.Date);
+            prevData = allYearData.Where(x => x.Date.Date < qStart.Date).ToList();
+        } 
+        else 
+        {
+            // 전체 보기인 경우 1분기 시작 ~ 4분기 종료
+            filteredQuery = allYearData.Where(t => t.Date.Date >= q1.Start.Date && t.Date.Date <= q4.End.Date);
+        }
+
         CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense); 
 
-        IEnumerable<LedgerEntry> filteredQuery = allYearData;
-        if (CurrentMonth > 0) filteredQuery = allYearData.Where(t => t.Date.Month == CurrentMonth);
-        else if (CurrentQuarter > 0) 
-        { int startMonth = (CurrentQuarter - 1) * 3 + 1; filteredQuery = allYearData.Where(t => t.Date.Month >= startMonth && t.Date.Month <= startMonth + 2); } 
-
         Entries = filteredQuery.ToList(); 
-        ApplyFilters(); 
+        ApplyFilters();
         editSelectedIds.Clear(); printSelectedIds.Clear(); printWithoutImageIds.Clear();
     } 
 
@@ -1259,7 +1292,7 @@
     private async Task DeleteSelected() { int count = editSelectedIds.Count; if (await JSRuntime.InvokeAsync<bool>("confirm", $"⚠️ [경고] 선택한 {count}건을 일괄 삭제하시겠습니까?")) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); DbContext.Transactions.RemoveRange(targets); await DbContext.SaveChangesAsync(); await LoadData(); } } 
     private async Task ApplyBulkEdit() { if (editSelectedIds.Count > 0 && !string.IsNullOrEmpty(bulkCategory)) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); foreach (var t in targets) t.Category = bulkCategory; await DbContext.SaveChangesAsync(); bulkCategory = ""; await LoadData(); } } 
 
-    private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
+    private int GetQuarter(DateTime d) => d.Month switch { 11 or 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
     private void ShowReceiptImage(string url) { currentLargeImageUrl = url; showImageModal = true; } 
     private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; } 
     

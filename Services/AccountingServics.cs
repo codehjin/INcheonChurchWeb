@@ -26,8 +26,13 @@ namespace INcheonChurchWeb.Services
     // [DTO] 단일 부서 통계용
     public class StatItem { public string Category { get; set; } = ""; public decimal Budget { get; set; } public decimal Spent { get; set; } }
 
-    public class AccountingService
+    // 🚀 1. 기존 public class 대신 public partial class 하나만 남깁니다.
+    public partial class AccountingService
     {
+        // 🚀 2. 정규식 생성기는 반드시 클래스의 '{' 안쪽에 위치해야 합니다.
+        [GeneratedRegex(@"[\\/:*?""<>|]")]
+        private static partial Regex InvalidFileNameChars();
+
         private readonly AppDbContext _db;
         private readonly IWebHostEnvironment _env;
 
@@ -36,45 +41,48 @@ namespace INcheonChurchWeb.Services
             _db = db;
             _env = env;
         }
-
         // =========================================================
-        // [1-1] 보조금 현황 계산 로직 (SQLite 호환성 - 메모리 합계 방식)
+        // [1-1] 보조금 현황 계산 로직
         // =========================================================
-        // 🚀 string dept -> int deptId 로 수정됨
-        public async Task<(DateTime Start, DateTime End)> GetFiscalYearRangeAsync(int deptId, int year)
+        // 🚀 11월 3째주 주일을 구하는 헬퍼 메서드 추가
+        public static DateTime GetThirdSundayOfNovember(int year)
         {
-            var q1Range = await GetQuarterDateRangeAsync(deptId, year, 1);
-            var q4Range = await GetQuarterDateRangeAsync(deptId, year, 4);
-            return (q1Range.Start, q4Range.End);
+            DateTime nov1 = new DateTime(year, 11, 1);
+            int daysToSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
+            DateTime firstSunday = nov1.AddDays(daysToSunday);
+            return firstSunday.AddDays(14); // 첫째 주일 + 14일 = 셋째 주일
         }
 
-        public async Task<(decimal TotalReceived, decimal TotalUsed)> GetSubsidyStatusAsync(int deptId, int year)
+        // 🚀 분기 날짜 로직 업데이트
+        public async Task<(DateTime Start, DateTime End)> GetQuarterDateRangeAsync(int deptId, int year, int quarter)
         {
-            var budgetList = await _db.BudgetPlans.AsNoTracking()
-                .Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == "Income" && b.Category == "교회보조금")
-                .Select(b => b.Amount).ToListAsync();
+            string key = $"Quarter_{year}_Q{quarter}";
+            var setting = await _db.CategoryMappings.AsNoTracking().FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
 
-            var expenseList = await _db.Transactions.AsNoTracking()
-                .Where(t => t.DepartmentId == deptId && t.FiscalYear == year && t.Type == "지출")
-                .Select(t => t.Expense).ToListAsync();
+            // 1. DB에 설정된 분기값이 있으면 우선 적용
+            if (setting != null && setting.Category.Contains('~'))
+            {
+                var parts = setting.Category.Split('~');
+                if (DateTime.TryParse(parts[0], out DateTime s) && DateTime.TryParse(parts[1], out DateTime e))
+                {
+                    return (s, e);
+                }
+            }
 
-            return (budgetList.Sum(), expenseList.Sum());
+            // 2. 설정이 없을 경우 새로운 기준(11월~11월)에 따른 기본값 계산
+            DateTime prevNovThirdSun = GetThirdSundayOfNovember(year - 1);
+            DateTime q1Start = prevNovThirdSun.AddDays(1); // 전년도 11월 4째주 월요일 시작
+            DateTime currentNovThirdSun = GetThirdSundayOfNovember(year); // 당해년도 11월 3째주 주일 마감
+
+            return quarter switch
+            {
+                1 => (q1Start, new DateTime(year, 2, DateTime.DaysInMonth(year, 2))),
+                2 => (new DateTime(year, 3, 1), new DateTime(year, 5, 31)),
+                3 => (new DateTime(year, 6, 1), new DateTime(year, 8, 31)),
+                4 => (new DateTime(year, 9, 1), currentNovThirdSun),
+                _ => (q1Start, currentNovThirdSun) // 전체 (회계연도 전체)
+            };
         }
-
-        public async Task<(decimal TotalReceived, decimal TotalUsed)> GetSubsidyStatusForReportAsync(int deptId, int year)
-        {
-            var budgetList = await _db.BudgetPlans.AsNoTracking()
-                .Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == "Income" && b.Category == "교회보조금")
-                .Select(b => b.Amount).ToListAsync();
-
-            // ExpenseReport 테이블도 DepartmentId 를 쓴다고 가정
-            var usedList = await _db.ExpenseReports.AsNoTracking()
-                .Where(r => r.DepartmentId == deptId && r.FiscalYear == year)
-                .Select(r => r.TotalAmount).ToListAsync();
-
-            return (budgetList.Sum(), usedList.Sum());
-        }
-
         // =========================================================
         // [1-2] 분기 설정: 날짜 범위 저장 및 조회
         // =========================================================
@@ -94,30 +102,6 @@ namespace INcheonChurchWeb.Services
                 setting.Category = rangeStr;
             }
             await _db.SaveChangesAsync();
-        }
-
-        public async Task<(DateTime Start, DateTime End)> GetQuarterDateRangeAsync(int deptId, int year, int quarter)
-        {
-            string key = $"Quarter_{year}_Q{quarter}";
-            var setting = await _db.CategoryMappings.AsNoTracking().FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
-
-            if (setting != null && setting.Category.Contains("~"))
-            {
-                var parts = setting.Category.Split('~');
-                if (DateTime.TryParse(parts[0], out DateTime s) && DateTime.TryParse(parts[1], out DateTime e))
-                {
-                    return (s, e);
-                }
-            }
-
-            return quarter switch
-            {
-                1 => (new DateTime(year - 1, 12, 1), new DateTime(year, 2, DateTime.DaysInMonth(year, 2))),
-                2 => (new DateTime(year, 3, 1), new DateTime(year, 5, 31)),
-                3 => (new DateTime(year, 6, 1), new DateTime(year, 8, 31)),
-                4 => (new DateTime(year, 9, 1), new DateTime(year, 11, 30)),
-                _ => (new DateTime(year, 1, 1), new DateTime(year, 12, 31))
-            };
         }
 
         // =========================================================
@@ -176,7 +160,7 @@ namespace INcheonChurchWeb.Services
                 // 특수 부서(관리자 등) 제외
                 if (d.Name == "관리자") continue;
 
-                string shortName = d.Name.Length >= 2 ? d.Name.Substring(0, 2) : d.Name;
+                string shortName = d.Name.Length >= 2 ? d.Name[..2] : d.Name;
                 decimal budget = budgets.Where(b => b.DepartmentId == d.Id).Sum(b => b.Amount);
                 decimal spent = trans.Where(t => t.DepartmentId == d.Id && t.Type == "지출").Sum(t => t.Expense);
 
@@ -205,13 +189,13 @@ namespace INcheonChurchWeb.Services
             try
             {
                 string extension = Path.GetExtension(file.Name).ToLower();
-                string safeDesc = Regex.Replace(entry.Description, @"[\\/:*?""<>|]", "_");
+                string safeDesc = InvalidFileNameChars().Replace(entry.Description, "_");
                 string newFileName = $"{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}.jpg";
                 string uploadFolder = Path.Combine(_env.WebRootPath, "uploads");
                 if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
                 string filePath = Path.Combine(uploadFolder, newFileName);
 
-                using (var inputStream = file.OpenReadStream(1024 * 1024 * 20))
+                using var inputStream = file.OpenReadStream(1024 * 1024 * 20);
                 {
                     if (extension == ".pdf") { using (var fs = new FileStream(filePath, FileMode.Create)) { await inputStream.CopyToAsync(fs); } }
                     else
@@ -305,8 +289,8 @@ namespace INcheonChurchWeb.Services
                 int fiscalYear = entry.FiscalYear == 0 ? entry.Date.Year : entry.FiscalYear;
                 if (entry.Date.Month == 11 || entry.Date.Month == 12)
                 {
-                    var q4End = await GetQuarterDateRangeAsync(entry.DepartmentId, entry.Date.Year, 4);
-                    if (entry.Date > q4End.End) fiscalYear = entry.Date.Year + 1;
+                    var (_, end) = await GetQuarterDateRangeAsync(entry.DepartmentId, entry.Date.Year, 4);
+                    if (entry.Date > end) fiscalYear = entry.Date.Year + 1;
                 }
 
                 int quarter = await GetQuarterNumberAsync(entry.DepartmentId, fiscalYear, entry.Date);
@@ -450,7 +434,7 @@ namespace INcheonChurchWeb.Services
             return list;
         }
 
-        private List<string> SplitCsvLine(string line)
+        private static List<string> SplitCsvLine(string line)
         {
             var result = new List<string>();
             bool inQuote = false;
@@ -477,7 +461,7 @@ namespace INcheonChurchWeb.Services
             return 4;
         }
 
-        private string ClassifyTransaction(string text, string type, List<CategoryMapping> mappings)
+        private static string ClassifyTransaction(string text, string type, List<CategoryMapping> mappings)
         {
             foreach (var m in mappings)
                 if (!string.IsNullOrEmpty(m.Keyword) && text.Contains(m.Keyword))
@@ -607,8 +591,30 @@ namespace INcheonChurchWeb.Services
             await _db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId && r.FiscalYear == year).OrderByDescending(r => r.Date).ToListAsync();
 
         public async Task DeleteExpenseReportAsync(int id) { var target = await _db.ExpenseReports.FindAsync(id); if (target != null) { _db.ExpenseReports.Remove(target); await _db.SaveChangesAsync(); } }
+        // =========================================================
+        // [신규 추가] 지출결의서 작성용 예산 및 기 신청액 통계 조회 (SQLite 호환성 패치)
+        // =========================================================
+        public async Task<(decimal TotalReceived, decimal TotalUsed)> GetSubsidyStatusForReportAsync(int deptId, int year)
+        {
+            // 1. 총 예산(수령액): 해당 연도 수입 예산 총합 (SQLite decimal Sum 오류 방지를 위해 메모리에서 합산)
+            var budgetList = await _db.BudgetPlans.AsNoTracking()
+                .Where(b => b.DepartmentId == deptId && b.Year == year && (b.Type == "Income" || b.Type == "수입"))
+                .Select(b => b.Amount)
+                .ToListAsync();
 
-        private decimal ParseMoney(string s) => decimal.TryParse((s ?? "").Replace(",", "").Replace("\"", "").Trim(), out decimal r) ? r : 0;
+            decimal totalBudget = budgetList.Sum();
+
+            // 2. 기 신청액: 해당 연도에 이미 작성된 지출결의서들의 총합
+            var usedList = await _db.ExpenseReports.AsNoTracking()
+                .Where(r => r.DepartmentId == deptId && r.FiscalYear == year)
+                .Select(r => r.TotalAmount)
+                .ToListAsync();
+
+            decimal totalUsed = usedList.Sum();
+
+            return (totalBudget, totalUsed);
+        }
+        private static decimal ParseMoney(string s) => decimal.TryParse((s ?? "").Replace(",", "").Replace("\"", "").Trim(), out decimal r) ? r : 0;
 
         public async Task<List<LedgerEntry>> GetLedgerAsync(int deptId, int year)
         {
