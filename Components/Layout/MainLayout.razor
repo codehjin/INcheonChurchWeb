@@ -4,7 +4,7 @@
 @using INcheonChurchWeb.Models
 
 <div class="page">
-    @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 완벽 해결) *@
+    @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 방지) *@
     @if (!isLoaded)
     {
         <div class="d-flex justify-content-center align-items-center vh-100 w-100 bg-light" style="position: fixed; top: 0; left: 0; z-index: 9999;">
@@ -25,30 +25,34 @@
         </div>
 
         <main class="d-flex flex-column min-vh-100">
-            @* 📱 모바일 상단 헤더 & 메뉴바를 묶어주는 고정(Sticky) 컨테이너 *@
-            <div class="d-sm-none sticky-top" style="z-index: 1050; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
 
-                <div class="mobile-top-header">
-                    <div class="mobile-header-title">
-                        <span class="mobile-user-name">👤 @CurrentUser.Username 님</span>
-                        <span class="mobile-dept-name">@(CurrentUser.Department?.Name ?? "소속없음")</span>
+            @* ====================================================
+               📱 모바일 상단 헤더 & 넓은 터치 아이콘 메뉴 (Sticky)
+               ==================================================== *@
+            <div class="d-sm-none sticky-top bg-white" style="box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+
+                @* 1. 사용자 정보 (부서명 파란색 굵게 ➔ 아이디 순서) *@
+                <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="fw-bold text-primary" style="font-size: 1.1rem; letter-spacing: -0.5px;">@(CurrentUser.Department?.Name ?? "소속없음")</span>
+                        <span class="fw-bold text-dark" style="font-size: 0.9rem;">👤 @CurrentUser.Username 님</span>
                     </div>
-                    <button class="btn btn-outline-light mobile-logout-btn" @onclick="Logout">로그아웃</button>
+                    <button class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3 py-1" @onclick="Logout" style="font-size: 0.75rem;">로그아웃</button>
                 </div>
 
-                @* 📱 하단에서 위로(헤더 바로 아래) 이동한 모바일 탭 네비게이션 *@
-                <nav class="mobile-top-nav">
-                    <NavLink class="mobile-nav-item" href="" Match="NavLinkMatch.All">
-                        <i class="bi bi-grid-1x2-fill"></i>
-                        <span>홈</span>
+                @* 2. 손가락 터치 면적을 넉넉하게 확보한 아이콘 탭 메뉴 *@
+                <nav class="d-flex border-bottom shadow-sm">
+                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="" Match="NavLinkMatch.All">
+                        <i class="bi bi-grid-1x2-fill fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
+                        <span style="font-size: 0.75rem; font-weight: 700;">홈</span>
                     </NavLink>
-                    <NavLink class="mobile-nav-item" href="receipt-upload">
-                        <i class="bi bi-camera-fill"></i>
-                        <span>영수증</span>
+                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="receipt-upload">
+                        <i class="bi bi-camera-fill fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
+                        <span style="font-size: 0.75rem; font-weight: 700;">영수증</span>
                     </NavLink>
-                    <NavLink class="mobile-nav-item" href="monthly">
-                        <i class="bi bi-book-half"></i>
-                        <span>장부</span>
+                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="monthly">
+                        <i class="bi bi-book-half fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
+                        <span style="font-size: 0.75rem; font-weight: 700;">장부</span>
                     </NavLink>
                 </nav>
             </div>
@@ -73,7 +77,57 @@
     }
 </div>
 
-@* 📱 SweetAlert2 경고창 *@
+@* 🚀 모바일 탭 버튼 터치 최적화 스타일 (외부 CSS에 구애받지 않도록 컴포넌트 내부에서 확실하게 강제 적용) *@
+<style>
+    .mobile-nav-btn {
+        color: #8e95a5 !important;
+        transition: all 0.2s ease;
+        position: relative;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+    }
+
+        .mobile-nav-btn .icon-btn {
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        /* 활성화된 탭 디자인 */
+        .mobile-nav-btn.active {
+            color: #1a56db !important;
+            background-color: rgba(26, 86, 219, 0.03);
+        }
+
+            .mobile-nav-btn.active .icon-btn {
+                color: #1a56db !important; /* 아이콘 색상 파란색으로 변경 */
+                transform: translateY(-2px); /* 터치 시 살짝 올라가는 효과 */
+            }
+
+            /* 하단 파란색 지시선 */
+            .mobile-nav-btn.active::after {
+                content: '';
+                position: absolute;
+                bottom: 0;
+                left: 20%;
+                right: 20%;
+                height: 4px;
+                background-color: #1a56db;
+                border-top-left-radius: 4px;
+                border-top-right-radius: 4px;
+            }
+
+        .mobile-nav-btn:active {
+            background-color: #f0f2f5;
+        }
+
+    /* 모바일 콘텐츠 상단 여백 (고정 헤더 가림 방지) */
+    @@media (max-width: 640px) {
+        .mobile-content {
+            padding-top: 15px;
+        }
+    }
+</style>
+
+@* 📱 SweetAlert2 경고창 세팅 *@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     function formatMessage(msg) {
@@ -112,7 +166,7 @@
 
 @code {
     private User? CurrentUser;
-    private bool isLoaded = false; // 🚀 로딩 상태를 추적하는 변수 추가
+    private bool isLoaded = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -128,7 +182,6 @@
             }
             catch { }
 
-            // 🚀 데이터를 읽어온 후에만 화면을 렌더링하도록 설정
             isLoaded = true;
             StateHasChanged();
         }
