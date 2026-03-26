@@ -1,141 +1,122 @@
 ﻿@using INcheonChurchWeb.Models
 
-<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">인천중앙교회 교육국</a>
+<div class="top-row ps-3 navbar navbar-dark bg-transparent border-0 mt-2 mb-3">
+    <div class="container-fluid justify-content-center">
+        <a class="navbar-brand fw-bold fs-5" href="">
+            <i class="bi bi-building me-2 text-warning"></i>인천중앙교회 교육국
+        </a>
     </div>
 </div>
 
-@* 🚀 C#이나 JS 대신 순수 CSS로 동작하는 체크박스 햄버거 버튼 *@
 <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
 
-@* 🚀 메뉴 항목을 클릭하면 체크박스를 다시 눌러서 창을 닫게 만듦 *@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column pb-4">
+    <nav class="flex-column pb-4 px-2">
 
-        @* ==========================================
-           📊 [홈] 누구나 접근 가능 (모바일/PC)
-           ========================================== *@
-        <div class="nav-item px-3 mt-2">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <i class="bi bi-house-door-fill fs-5 me-2"></i> 대시보드
+        <div class="nav-item menu-line mt-1">
+            <NavLink class="nav-link text-white-50" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-grid-1x2-fill fs-5 me-3"></i> 대시보드
             </NavLink>
         </div>
 
-        @* ==========================================
-           📝 [1단계: 기안] 메인회계 전용 (PC 중심)
-           ========================================== *@
         @if (IsMainAccount)
         {
-            <div class="d-none d-sm-block mt-3 border-top pt-2">
-                <div class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">사전 준비 및 기안</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="expense-report-quarterly">
-                        <i class="bi bi-file-earmark-text-fill fs-5 me-2"></i> 지출결의서
-                    </NavLink>
-                </div>
+            <div class="nav-item menu-line d-none d-sm-block">
+                <NavLink class="nav-link text-white-50" href="expense-report-quarterly">
+                    <i class="bi bi-file-earmark-text-fill fs-5 me-3"></i> 지출결의서
+                </NavLink>
             </div>
         }
 
-        @* ==========================================
-           💳 [2단계: 증빙] 메인회계 & 보조회계 전용 (모바일/PC)
-           ========================================== *@
         @if (IsMainAccount || IsSubAccount)
         {
-            <div class="mt-3 border-top pt-2">
-                <div class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">지출 및 증빙</div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="receipt-upload">
-                        <i class="bi bi-camera-fill fs-5 me-2 text-warning"></i> 영수증 업로드
-                    </NavLink>
-                </div>
-
-                @* 🚀 다중 업로드 메뉴를 if문 안으로 이동! *@
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="receipt-multi-upload">
-                        <span class="bi bi-images me-2" aria-hidden="true"></span> 영수증 다중 업로드 (PC)
-                    </NavLink>
-                </div>
+            <div class="nav-item menu-line">
+                <NavLink class="nav-link text-white-50" href="receipt-upload">
+                    <i class="bi bi-camera-fill fs-5 me-3 text-warning"></i> 모바일 영수증
+                </NavLink>
+            </div>
+            <div class="nav-item menu-line d-none d-sm-block">
+                <NavLink class="nav-link text-white-50" href="receipt-multi-upload">
+                    <i class="bi bi-images fs-5 me-3"></i> PC 다중업로드
+                </NavLink>
             </div>
         }
 
-        @* ==========================================
-           📒 [3단계: 장부 처리] (PC 중심)
-           ========================================== *@
-        <div class="d-none d-sm-block mt-3 border-top pt-2">
-            <div class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">회계 장부 확인 및 처리</div>
-
-            @* 메인회계만 은행 내역 업로드 가능 *@
+        <div class="d-none d-sm-block">
             @if (IsMainAccount)
             {
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="bank-import">
-                        <i class="bi bi-bank fs-5 me-2"></i> 은행내역 불러오기
+                <div class="nav-item menu-line">
+                    <NavLink class="nav-link text-white-50" href="bank-import">
+                        <i class="bi bi-bank2 fs-5 me-3"></i> 엑셀 내역 가져오기
                     </NavLink>
                 </div>
             }
 
-            @* 월별장부는 모두가 열람 가능 (수정/삭제 등은 페이지 내부에서 권한 통제) *@
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="monthly">
-                    <i class="bi bi-calendar3 fs-5 me-2"></i> 월별장부
+            <div class="nav-item menu-line">
+                <NavLink class="nav-link text-white-50" href="monthly">
+                    <i class="bi bi-book-half fs-5 me-3"></i> 월별 장부
                 </NavLink>
             </div>
-        </div>
-               
-        @* ==========================================
-           ⚙️ [기초 설정] 누구나 접근 (세부 권한은 설정 페이지 내부에서 처리)
-           ========================================== *@
-        <div class="mt-3 border-top pt-2 pb-4">
-            <div class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">환경 설정</div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="settings">
-                    <i class="bi bi-gear-fill fs-5 me-2"></i> 환경설정
-                </NavLink>
-            </div>
-        </div>
-        @if (IsMainAccount || IsSubAccount)
-        {
-            @* 🚀 메뉴 구분선 및 소제목 추가 *@
-            <div class="mt-3 border-top pt-2 pb-4">
-                <span class="text-white-50 px-3 mb-1" style="font-size: 0.8rem;">기능 살펴보기</span>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="manual">
-                <span class="bi bi-journal-bookmark-fill me-2" aria-hidden="true"></span> 사용자 설명서
+        <div class="nav-item menu-line">
+            <NavLink class="nav-link text-white-50" href="settings">
+                <i class="bi bi-gear-fill fs-5 me-3"></i> 환경설정
             </NavLink>
         </div>
-        }
 
+        @if (IsMainAccount || IsSubAccount)
+        {
+            <div class="nav-item menu-line border-0">
+                <NavLink class="nav-link text-white-50" href="manual" target="_blank">
+                    <i class="bi bi-question-circle-fill fs-5 me-3"></i> 도움말 <i class="bi bi-box-arrow-up-right ms-auto" style="font-size: 0.75rem;"></i>
+                </NavLink>
+            </div>
+        }
     </nav>
 </div>
-<hr class="text-white-50 my-2" />
-<div class="nav-item px-3 mt-3 mb-1">
-    <span class="text-white-50 small fw-bold" style="font-size: 0.75rem; letter-spacing: 1px;">기능 살펴보기</span>
-</div>
 
-<div class="nav-item px-3">
-    @* 🚀 target="_blank"를 추가하여 설명서 자체가 새 창에서 열리도록 변경 *@
-    <NavLink class="nav-link" href="manual" target="_blank">
-        <span class="bi bi-journal-bookmark-fill me-2" aria-hidden="true"></span> 사용자 설명서 <i class="bi bi-box-arrow-up-right ms-auto" style="font-size: 0.8rem;"></i>
-    </NavLink>
-</div>
+@* 🚀 호버 스타일 및 메뉴 하단 라인(구분선) 처리 *@
+<style>
+    .menu-line {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* 얇은 화이트 구분선 */
+        padding-top: 0.1rem;
+        padding-bottom: 0.1rem;
+    }
+
+    .nav-link {
+        border-radius: 8px;
+        padding: 0.6rem 1rem;
+        transition: all 0.2s ease;
+        margin-bottom: 2px;
+    }
+
+        .nav-link:hover {
+            background-color: rgba(255,255,255,0.1);
+            color: #fff !important;
+        }
+
+        .nav-link.active {
+            background-color: rgba(255,255,255,0.15);
+            color: #fff !important;
+            font-weight: bold;
+        }
+
+            .nav-link.active i {
+                color: #ffc107 !important;
+            }
+</style>
 
 @code {
     [Parameter] public User? CurrentUser { get; set; }
 
-    // 💡 1. 관리자 및 감사 그룹 (기존 CanViewAll 논리와 동일)
     private bool IsViewerOrAdmin => CurrentUser?.Role == "Admin" ||
                                     CurrentUser?.Role == "Auditor" ||
                                     CurrentUser?.Department?.Name == "교육국" ||
                                     CurrentUser?.Department?.Name == "관리자";
 
-    // 💡 2. 보조회계 계정 확인
-    // 실제 데이터베이스에 저장되는 보조회계의 Role 또는 Department 이름에 맞게 수정하세요.
     private bool IsSubAccount => CurrentUser?.Role == "SubAccount" ||
                                  CurrentUser?.Role == "보조회계";
 
-    // 💡 3. 일반 메인회계 (관리자도 아니고, 보조회계도 아닌 부서 담당자)
     private bool IsMainAccount => !IsViewerOrAdmin && !IsSubAccount;
 }

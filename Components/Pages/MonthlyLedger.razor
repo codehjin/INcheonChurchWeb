@@ -20,7 +20,12 @@
     .table-fixed-layout { table-layout: fixed; word-break: break-all; } 
     .table-fixed-layout th, .table-fixed-layout td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
     .screen-only { display: block; } 
-    .print-only { display: none; } 
+    .print-only { display: none; }
+
+    /* 📱 모바일(640px 이하)에서 PC 전용 장부 테이블 숨김 */
+    @@media (max-width: 640px) {
+        .screen-only { display: none !important; }
+    }
 
     /* =========================================
        2. 인쇄(Print) 전용 최적화 스타일
@@ -52,79 +57,305 @@
 
     /* 관리 화면용 썸네일 호버 효과 */
     .receipt-thumbnail:hover { transform: translateY(-5px); transition: all 0.2s ease; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
+
+    /* =========================================
+       📱 모바일 장부 뷰 전용 스타일
+       ========================================= */
+    .mobile-ledger-view {
+        padding-bottom: 0.5rem;
+    }
+
+    /* 요약 카드 행 */
+    .mobile-summary-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .mobile-summary-card {
+        flex: 1;
+        background: #fff;
+        border-radius: 12px;
+        padding: 10px 8px;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border-top: 3px solid transparent;
+    }
+
+    .mobile-summary-card.income  { border-top-color: #1565c0; }
+    .mobile-summary-card.expense { border-top-color: #c62828; }
+    .mobile-summary-card.balance { border-top-color: #2e7d32; }
+
+    .mobile-summary-card .label {
+        font-size: 0.68rem;
+        color: #888;
+        font-weight: 600;
+        margin-bottom: 3px;
+    }
+
+    .mobile-summary-card.income  .amount { color: #1565c0; }
+    .mobile-summary-card.expense .amount { color: #c62828; }
+    .mobile-summary-card.balance .amount { color: #2e7d32; }
+
+    .mobile-summary-card .amount {
+        font-size: 0.85rem;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+    }
+
+    /* 탭 바 */
+    .mobile-tab-bar {
+        display: flex;
+        border-radius: 10px;
+        background: #f1f3f5;
+        padding: 4px;
+        margin-bottom: 10px;
+        gap: 4px;
+    }
+
+    .mobile-tab-btn {
+        flex: 1;
+        border: none;
+        background: transparent;
+        border-radius: 8px;
+        padding: 8px 0;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #666;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+    }
+
+    .mobile-tab-btn.active {
+        background: #fff;
+        color: #1565c0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    }
+
+    .mobile-tab-btn.expense-active {
+        color: #c62828;
+    }
+
+    .mobile-tab-count {
+        display: inline-block;
+        background: #e9ecef;
+        border-radius: 20px;
+        padding: 0 6px;
+        font-size: 0.7rem;
+        margin-left: 3px;
+        font-weight: 700;
+        color: #555;
+    }
+
+    /* 항목 리스트 */
+    .mobile-entry-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .mobile-empty-msg {
+        text-align: center;
+        padding: 40px 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* 개별 카드 */
+    .mobile-entry-card {
+        display: flex;
+        align-items: center;
+        background: #fff;
+        border-radius: 10px;
+        padding: 10px 12px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+        gap: 10px;
+    }
+
+    .mobile-entry-left {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        min-width: 38px;
+    }
+
+    .mobile-entry-date {
+        font-size: 0.72rem;
+        color: #888;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .mobile-rcpt-btn {
+        background: #e8f0fe;
+        border: none;
+        border-radius: 6px;
+        color: #1565c0;
+        width: 26px;
+        height: 22px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+
+    .mobile-entry-center {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .mobile-entry-category {
+        font-size: 0.72rem;
+        color: #1565c0;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 1px;
+    }
+
+    .mobile-entry-desc {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #222;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-entry-note {
+        font-size: 0.68rem;
+        color: #aaa;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .mobile-entry-amount {
+        font-size: 0.88rem;
+        font-weight: 800;
+        white-space: nowrap;
+        letter-spacing: -0.5px;
+    }
+
+    .mobile-entry-amount.income  { color: #1565c0; }
+    .mobile-entry-amount.expense { color: #c62828; }
 </style>
 
-<div class="container-fluid mt-4 px-4">
-    @* 🚀 최상단: 제목과 주요 이동 버튼 *@
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print flex-wrap gap-2">
+<div class="container-fluid mt-3 mt-sm-4 px-3 px-sm-4">
+
+    @* ============================================================
+       🖥️ PC 전용: 제목 + 엑셀/관리 버튼
+       ============================================================ *@
+    <div class="d-none d-sm-flex justify-content-between align-items-center mb-4 no-print flex-wrap gap-2">
         <h3 class="fw-bold text-primary mb-0"><i class="bi bi-calendar-check me-2"></i>월별 재정 장부</h3>
         <div class="d-flex align-items-center gap-2 flex-wrap">
             @if (CanEditLedger)
             {
                 <button class="btn btn-primary fw-bold px-4 shadow-sm" @onclick="OpenUnmatchedManager"><i class="bi bi-receipt-cutoff me-2"></i> 매치 안된 영수증 관리</button>
             }
-            <button class="btn btn-success fw-bold px-4 shadow-sm" @onclick="DownloadExcel"><i class="bi bi-file-earmark-excel me-2"></i> 엑셀 다운로드</button> 
+            <button class="btn btn-success fw-bold px-4 shadow-sm" @onclick="DownloadExcel"><i class="bi bi-file-earmark-excel me-2"></i> 엑셀 다운로드</button>
         </div>
-    </div> 
+    </div>
 
-    <div class="card p-3 mb-4 bg-light shadow-sm border-0 no-print">
+    @* ============================================================
+       📱 모바일 전용: 컴팩트 연도/월 컨트롤
+       ============================================================ *@
+    <div class="d-flex d-sm-none align-items-center justify-content-between mb-3 no-print gap-2">
+        @* 연도 선택 *@
+        <div class="d-flex align-items-center gap-1">
+            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeYear(-1)">◀</button>
+            <span class="fw-bold" style="font-size:0.9rem; white-space:nowrap;">@(CurrentYear)년</span>
+            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeYear(1)">▶</button>
+        </div>
+        @* 월 선택 *@
+        <div class="d-flex align-items-center gap-1">
+            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeMonth(-1)">◀</button>
+            <select class="form-select form-select-sm fw-bold text-center" style="font-size:0.8rem; width:auto; min-width:70px;" @onchange="OnMonthChanged" value="@CurrentMonth">
+                <option value="0">전체</option>
+                @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> }
+            </select>
+            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeMonth(1)">▶</button>
+        </div>
+        @* 부서(관리자만) *@
+        @if (IsAdmin)
+        {
+            <select class="form-select form-select-sm fw-bold text-primary" style="font-size:0.75rem; width:auto; max-width:90px;" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
+                <option value="0">전체</option>
+                @foreach (var dept in Departments)
+                {
+                    @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
+                    { <option value="@dept.Id">@dept.Name</option> }
+                }
+            </select>
+        }
+    </div>
+
+    @* ============================================================
+       🖥️ PC 전용: 기존 4열 필터 카드 (연도/월/분기/부서)
+       ============================================================ *@
+    <div class="card p-3 mb-4 bg-light shadow-sm border-0 no-print d-none d-sm-block">
         <div class="row g-3 align-items-center text-center">
             <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">회계연도</label> 
+                <label class="form-label fw-bold text-muted small">회계연도</label>
                 <div class="d-flex justify-content-center align-items-center gap-2">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(-1)">◀</button> 
-                    <span class="fw-bold fs-5">@CurrentYear 년</span> 
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(1)">▶</button> 
-                </div> 
-            </div> 
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(-1)">◀</button>
+                    <span class="fw-bold fs-5">@CurrentYear 년</span>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(1)">▶</button>
+                </div>
+            </div>
             <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">월 선택</label> 
+                <label class="form-label fw-bold text-muted small">월 선택</label>
                 <div class="d-flex justify-content-center align-items-center gap-2">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(-1)">◀</button> 
-                    <select class="form-select form-select-sm w-auto fw-bold text-center" @onchange="OnMonthChanged" value="@CurrentMonth"> 
-                        <option value="0">전체 보기</option> 
-                        @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> } 
-                    </select> 
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(1)">▶</button> 
-                </div> 
-            </div> 
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(-1)">◀</button>
+                    <select class="form-select form-select-sm w-auto fw-bold text-center" @onchange="OnMonthChanged" value="@CurrentMonth">
+                        <option value="0">전체 보기</option>
+                        @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> }
+                    </select>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(1)">▶</button>
+                </div>
+            </div>
             <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">분기 선택</label> 
-                <select class="form-select form-select-sm w-auto fw-bold text-center mx-auto" @onchange="OnQuarterChanged" value="@CurrentQuarter"> 
-                    <option value="0">전체 분기</option> 
-                    <option value="1">1분기 (1~3월)</option> 
-                    <option value="2">2분기 (4~6월)</option> 
-                    <option value="3">3분기 (7~9월)</option> 
-                    <option value="4">4분기 (10~12월)</option> 
-                </select> 
-            </div> 
+                <label class="form-label fw-bold text-muted small">분기 선택</label>
+                <select class="form-select form-select-sm w-auto fw-bold text-center mx-auto" @onchange="OnQuarterChanged" value="@CurrentQuarter">
+                    <option value="0">전체 분기</option>
+                    <option value="1">1분기 (1~3월)</option>
+                    <option value="2">2분기 (4~6월)</option>
+                    <option value="3">3분기 (7~9월)</option>
+                    <option value="4">4분기 (10~12월)</option>
+                </select>
+            </div>
             <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">부서</label> 
+                <label class="form-label fw-bold text-muted small">부서</label>
                 @if (IsAdmin)
                 {
-                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartmentId"> 
-                        <option value="0">부서 전체보기</option> 
-                        @foreach (var dept in Departments) 
+                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
+                        <option value="0">부서 전체보기</option>
+                        @foreach (var dept in Departments)
                         {
-                            @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀") 
-                            { <option value="@dept.Id">@dept.Name</option> } 
+                            @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
+                            { <option value="@dept.Id">@dept.Name</option> }
                         }
-                    </select> 
+                    </select>
                 }
                 else
                 {
-                    <div class="fw-bold text-primary fs-5">@(CurrentUser?.Department?.Name ?? "로그인 필요")</div> 
+                    <div class="fw-bold text-primary fs-5">@(CurrentUser?.Department?.Name ?? "로그인 필요")</div>
                 }
-            </div> 
-        </div> 
-    </div> 
+            </div>
+        </div>
+    </div>
 
     <InputFile id="pcUploadInput" OnChange="HandlePcUpload" style="display:none;" accept="image/*,.pdf" /> 
 
-    @* 🚀 편집 도구 토글 및 일괄 기능 영역 *@
+    @* 🚀 편집 도구 토글 및 일괄 기능 영역 (PC 전용) *@
     @if (CanEditLedger)
     {
-        <div class="d-flex gap-2 mb-3 no-print">
+        <div class="d-none d-sm-flex gap-2 mb-3 no-print">
             <button class="btn @(isAddingNew ? "btn-secondary" : "btn-outline-primary") fw-bold" @onclick="ToggleAddForm">
                 <i class="bi @(isAddingNew ? "bi-dash-lg" : "bi-plus-lg") me-1"></i>수동 건별 입력
             </button>
@@ -180,9 +411,98 @@
         string currentMonthYearForSeq = ""; 
         int seq = 1; 
 
+        @* ============================================================
+           📱 모바일 전용: 수입/지출 탭 뷰 (640px 이하, 인쇄 제외)
+           기존 PC 기능은 아래 screen-only 영역에 그대로 유지됩니다.
+           ============================================================ *@
+        <div class="d-block d-sm-none no-print mobile-ledger-view">
+            @{
+                var mobileIncome  = FilteredEntries.Where(e => e.Type == "수입").OrderByDescending(e => e.Date).ToList();
+                var mobileExpense = FilteredEntries.Where(e => e.Type == "지출").OrderByDescending(e => e.Date).ToList();
+                decimal mobileIncomeTotal  = mobileIncome.Sum(e => e.Income);
+                decimal mobileExpenseTotal = mobileExpense.Sum(e => e.Expense);
+                decimal mobileBalance      = CarryOverAmount + mobileIncomeTotal - mobileExpenseTotal;
+            }
+
+            @* 요약 카드 *@
+            <div class="mobile-summary-row">
+                <div class="mobile-summary-card income">
+                    <div class="label">수입</div>
+                    <div class="amount">@mobileIncomeTotal.ToString("N0")</div>
+                </div>
+                <div class="mobile-summary-card expense">
+                    <div class="label">지출</div>
+                    <div class="amount">@mobileExpenseTotal.ToString("N0")</div>
+                </div>
+                <div class="mobile-summary-card balance">
+                    <div class="label">잔액</div>
+                    <div class="amount">@mobileBalance.ToString("N0")</div>
+                </div>
+            </div>
+
+            @* 탭 버튼 *@
+            <div class="mobile-tab-bar">
+                <button class="mobile-tab-btn @(mobileLedgerTab == "income" ? "active" : "")"
+                        @onclick='() => mobileLedgerTab = "income"'>
+                    <i class="bi bi-arrow-down-circle-fill text-primary me-1"></i>
+                    수입 <span class="mobile-tab-count">@mobileIncome.Count</span>
+                </button>
+                <button class="mobile-tab-btn @(mobileLedgerTab == "expense" ? "active expense-active" : "")"
+                        @onclick='() => mobileLedgerTab = "expense"'>
+                    <i class="bi bi-arrow-up-circle-fill text-danger me-1"></i>
+                    지출 <span class="mobile-tab-count">@mobileExpense.Count</span>
+                </button>
+            </div>
+
+            @* 탭 콘텐츠 *@
+            <div class="mobile-entry-list">
+                @{
+                    var mobileList = mobileLedgerTab == "income" ? mobileIncome : mobileExpense;
+                }
+                @if (!mobileList.Any())
+                {
+                    <div class="mobile-empty-msg">
+                        <i class="bi bi-inbox fs-3 text-muted"></i>
+                        <div class="text-muted mt-2">내역이 없습니다</div>
+                    </div>
+                }
+                @foreach (var item in mobileList)
+                {
+                    bool hasRcpt = !string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath);
+                    string rcptUrl = hasRcpt ? (!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath!) + $"?v={DateTime.Now.Ticks}" : "";
+                    decimal amt = item.Type == "수입" ? item.Income : item.Expense;
+                    <div class="mobile-entry-card">
+                        <div class="mobile-entry-left">
+                            <div class="mobile-entry-date">@item.Date.ToString("MM/dd")</div>
+                            @if (hasRcpt)
+                            {
+                                <button class="mobile-rcpt-btn" @onclick="() => ShowReceiptImage(rcptUrl)" title="영수증 보기">
+                                    <i class="bi bi-receipt"></i>
+                                </button>
+                            }
+                        </div>
+                        <div class="mobile-entry-center">
+                            <div class="mobile-entry-category">@item.Category</div>
+                            <div class="mobile-entry-desc">@item.Description</div>
+                            @if (!string.IsNullOrEmpty(item.Note))
+                            {
+                                <div class="mobile-entry-note">@item.Note</div>
+                            }
+                        </div>
+                        <div class="mobile-entry-amount @(item.Type == "수입" ? "income" : "expense")">
+                            @amt.ToString("N0")
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ============================================================
+           🖥️ PC 전용: 기존 기능 전체 유지 (641px 이상 + 인쇄)
+           ============================================================ *@
         <div class="screen-only no-print">
             @* 🚀 인쇄 도구 모음 (장부 표 바로 위) *@
-            <div class="d-flex justify-content-between align-items-end mb-2">
+            <div class="d-none d-sm-flex justify-content-between align-items-end mb-2">
                 <div class="fw-bold text-primary fs-5 pt-2"><i class="bi bi-list-columns me-2"></i> @CurrentYear 년 @periodLabel 통합 장부</div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <button class="btn btn-secondary fw-bold btn-sm" @onclick="PrintLedger"><i class="bi bi-printer me-1"></i> 장부 인쇄</button>
@@ -748,7 +1068,10 @@
     private bool isAddingNew = false;
     private LedgerEntry newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
     private int? editingItemId = null; 
-    private LedgerEntry? editBuffer = null; 
+    private LedgerEntry? editBuffer = null;
+
+    // 📱 모바일 전용: 수입/지출 탭 상태
+    private string mobileLedgerTab = "expense";
     
     private bool showImageModal = false; 
     private string currentLargeImageUrl = "";

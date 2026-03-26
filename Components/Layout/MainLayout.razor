@@ -4,27 +4,67 @@
 @using INcheonChurchWeb.Models
 
 <div class="page">
-    @if (CurrentUser == null)
+    @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 완벽 해결) *@
+    @if (!isLoaded)
+    {
+        <div class="d-flex justify-content-center align-items-center vh-100 w-100 bg-light" style="position: fixed; top: 0; left: 0; z-index: 9999;">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (CurrentUser == null)
     {
         <INcheonChurchWeb.Components.Pages.Login OnLoginSuccess="HandleLoginSuccess" />
     }
     else
     {
-        <div class="sidebar">
+        @* 🖥️ PC용 사이드바 *@
+        <div class="sidebar d-none d-sm-block">
             <NavMenu CurrentUser="CurrentUser" />
         </div>
 
-        <main>
-            <div class="top-row px-4 d-flex align-items-center">
-                @* 🚀 모바일 환경 최적화: 화면이 좁을 땐 부서명을 숨기고 긴 이름은 ... 으로 자릅니다 *@
-                <span class="me-3 text-truncate" style="max-width: 60vw;">
-                    👤 <b>@CurrentUser.Username</b>님
-                    <span class="d-none d-sm-inline">(@(CurrentUser.Department?.Name ?? "소속없음"))</span>
-                </span>
-                <button class="btn btn-sm btn-outline-danger fw-bold text-nowrap" @onclick="Logout">로그아웃</button>
+        <main class="d-flex flex-column min-vh-100">
+            @* 📱 모바일 상단 헤더 & 메뉴바를 묶어주는 고정(Sticky) 컨테이너 *@
+            <div class="d-sm-none sticky-top" style="z-index: 1050; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+
+                <div class="mobile-top-header">
+                    <div class="mobile-header-title">
+                        <span class="mobile-user-name">👤 @CurrentUser.Username 님</span>
+                        <span class="mobile-dept-name">@(CurrentUser.Department?.Name ?? "소속없음")</span>
+                    </div>
+                    <button class="btn btn-outline-light mobile-logout-btn" @onclick="Logout">로그아웃</button>
+                </div>
+
+                @* 📱 하단에서 위로(헤더 바로 아래) 이동한 모바일 탭 네비게이션 *@
+                <nav class="mobile-top-nav">
+                    <NavLink class="mobile-nav-item" href="" Match="NavLinkMatch.All">
+                        <i class="bi bi-grid-1x2-fill"></i>
+                        <span>홈</span>
+                    </NavLink>
+                    <NavLink class="mobile-nav-item" href="receipt-upload">
+                        <i class="bi bi-camera-fill"></i>
+                        <span>영수증</span>
+                    </NavLink>
+                    <NavLink class="mobile-nav-item" href="monthly">
+                        <i class="bi bi-book-half"></i>
+                        <span>장부</span>
+                    </NavLink>
+                </nav>
             </div>
 
-            <article class="content px-4">
+            @* 🖥️ PC용 상단 바 *@
+            <div class="top-row px-4 d-none d-sm-flex align-items-center shadow-sm bg-white">
+                <span class="me-auto fw-bold text-dark fs-5">
+                    @(CurrentUser.Department?.Name ?? "소속없음") 재정관리
+                </span>
+                <span class="me-3 text-secondary">
+                    👤 <b>@CurrentUser.Username</b> 님
+                </span>
+                <button class="btn btn-sm btn-danger fw-bold rounded-pill px-3" @onclick="Logout">로그아웃</button>
+            </div>
+
+            <article class="content px-3 px-sm-4 mobile-content flex-grow-1">
                 <CascadingValue Value="CurrentUser">
                     @Body
                 </CascadingValue>
@@ -33,40 +73,37 @@
     }
 </div>
 
-@* 🚀 화면 중앙 정렬 & 글자 크기 2px 증가 예쁜 경고창(SweetAlert2) 스크립트 *@
+@* 📱 SweetAlert2 경고창 *@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // 메시지 줄바꿈 처리 및 폰트 사이즈(18px) 포맷팅
     function formatMessage(msg) {
         if (typeof msg !== 'string') msg = String(msg);
         let safeMsg = msg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         safeMsg = safeMsg.replace(/\n/g, '<br/>');
-        return `<div style="font-size: 18px; font-weight: 500; line-height: 1.6; color: #333; padding: 10px 0;">${safeMsg}</div>`;
+        return `<div style="font-size: 16px; font-weight: 500; line-height: 1.5; color: #333; padding: 5px 0;">${safeMsg}</div>`;
     }
 
-    // 기본 alert 교체
     window.alert = function (message) {
         return Swal.fire({
             html: formatMessage(message),
             confirmButtonText: '확인',
-            confirmButtonColor: '#0d6efd',
+            confirmButtonColor: '#1a56db',
             allowOutsideClick: false,
-            width: '420px',
-            animation: false // 빠른 팝업을 위해 애니메이션 제거 (원하면 true)
+            width: '380px',
+            animation: false
         });
     };
 
-    // 기본 confirm 교체
     window.confirm = function (message) {
         return Swal.fire({
             html: formatMessage(message),
             showCancelButton: true,
             confirmButtonText: '확인',
             cancelButtonText: '취소',
-            confirmButtonColor: '#0d6efd',
-            cancelButtonColor: '#6c757d',
+            confirmButtonColor: '#1a56db',
+            cancelButtonColor: '#8e95a5',
             allowOutsideClick: false,
-            width: '420px'
+            width: '380px'
         }).then((result) => {
             return result.isConfirmed;
         });
@@ -75,8 +112,8 @@
 
 @code {
     private User? CurrentUser;
+    private bool isLoaded = false; // 🚀 로딩 상태를 추적하는 변수 추가
 
-    // 🚀 화면이 켜질 때, 스마트폰 금고에 저장된 로그인 정보가 있는지 확인
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -89,16 +126,14 @@
                     CurrentUser = result.Value;
                 }
             }
-            catch
-            {
-                // 브라우저 캐시가 꼬였거나 없으면 무시 (다시 로그인하도록 둠)
-            }
+            catch { }
 
+            // 🚀 데이터를 읽어온 후에만 화면을 렌더링하도록 설정
+            isLoaded = true;
             StateHasChanged();
         }
     }
 
-    // 🚀 로그인 성공 시 스마트폰 금고에 정보 저장
     private async Task HandleLoginSuccess(User user)
     {
         CurrentUser = user;
@@ -106,7 +141,6 @@
         StateHasChanged();
     }
 
-    // 🚀 로그아웃 시 금고에서 정보 삭제
     private async Task Logout()
     {
         CurrentUser = null;
