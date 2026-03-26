@@ -180,17 +180,28 @@ namespace INcheonChurchWeb.Services
         }
 
         // =========================================================
-        // 2. 영수증 이미지 최적화 업로드 (수정 없음)
+        // 2. 영수증 이미지 최적화 업로드
         // =========================================================
         public async Task<string> UploadReceiptAsync(IBrowserFile file, int transactionId)
         {
-            var entry = await _db.Transactions.FindAsync(transactionId);
+            // 🚀 부서 정보를 가져오기 위해 Include 추가
+            var entry = await _db.Transactions.Include(t => t.DepartmentInfo)
+                                              .FirstOrDefaultAsync(t => t.Id == transactionId);
+
             if (entry == null) return "내역을 찾을 수 없습니다.";
+
             try
             {
                 string extension = Path.GetExtension(file.Name).ToLower();
-                string safeDesc = InvalidFileNameChars().Replace(entry.Description, "_");
-                string newFileName = $"{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}.jpg";
+                if (extension != ".pdf") extension = ".jpg"; // 이미지는 jpg로 통일
+
+                // 파일명 오류 방지 및 부서명 추출
+                string safeDesc = InvalidFileNameChars().Replace(entry.Description ?? "내용없음", "_");
+                string deptName = entry.DepartmentInfo?.Name ?? "부서미정";
+
+                // 🚀 요청하신 파일명 규칙: 부서명_날짜_구분_적요.확장자
+                string newFileName = $"{deptName}_{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}{extension}";
+
                 string uploadFolder = Path.Combine(_env.WebRootPath, "uploads");
                 if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
                 string filePath = Path.Combine(uploadFolder, newFileName);

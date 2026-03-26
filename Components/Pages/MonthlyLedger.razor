@@ -1414,16 +1414,49 @@
 
     private async Task AttachServerReceiptToEntry(string imagePath, int entryId) 
     { 
-        var entry = await DbContext.Transactions.FindAsync(entryId);
+        // 🚀 부서명을 가져오기 위해 Include 추가
+        var entry = await DbContext.Transactions.Include(t => t.DepartmentInfo)
+                                                .FirstOrDefaultAsync(t => t.Id == entryId);
+                                                
         if (entry != null) 
         { 
-            entry.ReceiptPath = imagePath;
+            // 🚀 모바일 영수증을 장부에 붙일 때, 물리적 파일명도 새 규칙으로 자동 변경 (부서명_날짜_구분_적요)
+            string webRoot = Env.WebRootPath;
+            string oldFullPath = Path.Combine(webRoot, imagePath.TrimStart('/'));
+            string newImagePath = imagePath; 
+            
+            if (System.IO.File.Exists(oldFullPath))
+            {
+                string extension = Path.GetExtension(oldFullPath);
+                string safeDesc = entry.Description ?? "내용없음";
+                
+                // 파일명에 쓸 수 없는 특수문자 제거
+                foreach (var c in System.IO.Path.GetInvalidFileNameChars())
+                {
+                    safeDesc = safeDesc.Replace(c, '_');
+                }
+                
+                string deptName = entry.DepartmentInfo?.Name ?? "부서미정";
+                string newFileName = $"{deptName}_{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}{extension}";
+                string newFullPath = Path.Combine(webRoot, "uploads", newFileName);
+                
+                try 
+                {
+                    // 서버 내 파일 이름 실제 변경
+                    System.IO.File.Move(oldFullPath, newFullPath, true);
+                    newImagePath = $"/uploads/{newFileName}";
+                } 
+                catch { /* 오류 시 기존 이름 유지 */ }
+            }
+
+            entry.ReceiptPath = newImagePath;
             await DbContext.SaveChangesAsync(); 
             DbContext.ChangeTracker.Clear(); 
+            
             await LoadData(); 
             await LoadUnmatchedData(); 
         } 
-    } 
+    }
 
     private async Task AutoMatchReceipts() 
     { 
