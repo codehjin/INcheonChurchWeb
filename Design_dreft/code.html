@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+
+<html class="light" lang="ko"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>월간 장부 - 거래 내역 고도화</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#4e4637",
+                        "surface-container-highest": "#e4e3d7",
+                        "on-tertiary-fixed": "#001c39",
+                        "tertiary": "#174577",
+                        "surface-container-high": "#eae9dd",
+                        "inverse-primary": "#eec067",
+                        "secondary-container": "#f7dcb1",
+                        "outline-variant": "#d2c5b2",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#5d4200",
+                        "tertiary-container": "#345d90",
+                        "background": "#fbfaee",
+                        "surface-dim": "#dbdbcf",
+                        "surface-container-low": "#f5f4e8",
+                        "tertiary-fixed-dim": "#a4c9ff",
+                        "outline": "#807666",
+                        "on-background": "#1b1c15",
+                        "on-tertiary-fixed-variant": "#1b487a",
+                        "tertiary-fixed": "#d4e3ff",
+                        "error-container": "#ffdad6",
+                        "surface-container": "#efeee2",
+                        "on-primary": "#ffffff",
+                        "primary-fixed": "#ffdea5",
+                        "primary-fixed-dim": "#eec067",
+                        "on-secondary-container": "#73603d",
+                        "on-secondary-fixed-variant": "#554424",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#fbfaee",
+                        "primary-container": "#785600",
+                        "error": "#ba1a1a",
+                        "inverse-on-surface": "#f2f1e5",
+                        "on-secondary-fixed": "#261901",
+                        "on-surface": "#1b1c15",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#303129",
+                        "surface-variant": "#e4e3d7",
+                        "primary": "#5a4000",
+                        "on-primary-fixed": "#271900",
+                        "surface-bright": "#fbfaee",
+                        "on-tertiary-container": "#bcd6ff",
+                        "secondary": "#6f5c39",
+                        "secondary-fixed": "#f9dfb3",
+                        "secondary-fixed-dim": "#dcc399",
+                        "on-primary-container": "#fdce73",
+                        "surface-tint": "#7b5803",
+                        "on-tertiary": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Manrope"],
+                        "label": ["Manrope"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', 'Malgun Gothic', sans-serif; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .ledger-card { background-color: #f5f4e8; border-radius: 0.375rem; transition: all 0.3s ease; }
+        .gold-gradient { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .tab-active {
+            color: #785600;
+            position: relative;
+        }
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background-color: #785600;
+            border-radius: 2px;
+        }
+        .fluid-title-lg { font-size: clamp(1.5rem, 4vw, 2.25rem); }
+        .fluid-title-md { font-size: clamp(1.25rem, 3vw, 1.875rem); }
+        .fluid-currency-xxl { font-size: clamp(1.75rem, 4.5vw, 2.5rem); }
+        .fluid-currency-xl { font-size: clamp(1.25rem, 3.5vw, 2rem); }
+        .fluid-currency-symbol-lg { font-size: clamp(1rem, 2.5vw, 1.5rem); }
+        .fluid-label { font-size: clamp(0.55rem, 1.2vw, 0.6rem); }
+        .compact-selector {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #f5f4e8;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.5rem;
+        }
+        .selector-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.125rem;
+            border-radius: 0.25rem;
+            color: #785600;
+            transition: background-color 0.2s;
+        }
+        .selector-btn:hover { background-color: #eae9dd; }
+        .selector-value {
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: #1b1c15;
+            min-width: 3rem;
+            text-align: center;
+        }
+        .selector-divider {
+            width: 1px;
+            height: 1rem;
+            background-color: #d2c5b2;
+            opacity: 0.5;
+            margin: 0 0.5rem;
+        }
+        .header-action-btn {
+            opacity: 0.4;
+            transition: opacity 0.2s;
+            cursor: pointer;
+        }
+        .header-action-btn:hover { opacity: 1; }
+        .ledger-row-white { background-color: #ffffff; }
+        .ledger-row-tonal { background-color: #f5f4e8; }
+        .inline-input {
+            width: 100%;
+            background-color: #fbfaee;
+            border: 1px solid transparent;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: #1b1c15;
+            transition: border-color 0.2s;
+        }
+        .inline-input:focus {
+            outline: none;
+            border-color: #785600;
+            background-color: #ffffff;
+            box-shadow: none;
+        }
+        .inline-select {
+            width: 100%;
+            background-color: #fbfaee;
+            border: 1px solid transparent;
+            border-radius: 0.25rem;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #785600;
+            cursor: pointer;
+        }
+        .inline-select:focus {
+            outline: none;
+            border-color: #785600;
+            box-shadow: none;
+        }
+        .truncate-cell {
+            max-width: 160px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease;
+        }
+        .icon-btn:hover {
+            background-color: #eae9dd;
+        }
+        .icon-btn.primary-action {
+            color: #785600;
+        }
+        .icon-btn.error-action {
+            color: #ba1a1a;
+        }
+        .icon-btn.gold-action {
+            background: linear-gradient(135deg, #785600 0%, #5a4000 100%);
+            color: white;
+        }
+        .icon-btn.gold-action:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+    .fluid-sidebar-title { font-size: clamp(1.2rem, 2vw, 1.5rem); }</style>
+</head>
+<body class="bg-background text-on-surface">
+<aside class="hidden md:flex h-screen w-64 fixed left-0 top-0 overflow-y-auto bg-[#eae9dd] flex-col py-6 pr-4 z-50">
+<div class="px-8 mb-10">
+<h1 class="font-extrabold text-[#785600] uppercase tracking-widest fluid-sidebar-title" style="">인천중앙교회 교육국</h1>
+<p class="text-[10px] font-medium tracking-[0.2em] text-[#303129] opacity-60 uppercase" style="">회계 관리 시스템</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-8 py-4 text-stone-600 hover:bg-[#f5f4e8]/50 hover:translate-x-1 transition-all duration-300 rounded-r-lg" href="#" style="">
+<span class="material-symbols-outlined mr-3" data-icon="dashboard" style="">dashboard</span>
+<span class="text-sm font-medium tracking-wide" style="">대시보드</span>
+</a>
+<a class="flex items-center px-8 py-4 text-stone-600 hover:bg-[#f5f4e8]/50 hover:translate-x-1 transition-all duration-300 rounded-r-lg" href="#" style="">
+<span class="material-symbols-outlined mr-3" data-icon="receipt_long" style="">receipt_long</span>
+<span class="text-sm font-medium tracking-wide" style="">지출결의서</span>
+</a><a class="flex items-center px-8 py-4 text-stone-600 hover:bg-[#f5f4e8]/50 hover:translate-x-1 transition-all duration-300 rounded-r-lg" href="#" style="">
+<span class="material-symbols-outlined mr-3" data-icon="receipt" style="">receipt</span>
+<span class="text-sm font-medium tracking-wide" style="">수집 및 정리</span>
+</a>
+<a class="flex items-center px-8 py-4 bg-gradient-to-br from-[#785600] to-[#5a4000] text-white rounded-r-lg shadow-lg transition-all duration-300" href="#" style="">
+<span class="material-symbols-outlined mr-3" data-icon="edit_note" style="">edit_note</span>
+<span class="text-sm font-semibold tracking-wide" style="">장부작성</span>
+</a>
+<a class="flex items-center px-8 py-4 text-stone-600 hover:bg-[#f5f4e8]/50 hover:translate-x-1 transition-all duration-300 rounded-r-lg" href="#" style="">
+<span class="material-symbols-outlined mr-3" data-icon="settings" style="">settings</span>
+<span class="text-sm font-medium tracking-wide" style="">환경설정</span>
+</a>
+</nav>
+</aside>
+<main class="md:ml-64 min-h-screen">
+<header class="bg-[#fbfaee]/80 backdrop-blur-md sticky top-0 z-40 w-full px-8 py-4 flex flex-col gap-4 shadow-[0_10px_25px_rgba(48,49,41,0.04)]">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-4">
+<span class="md:hidden material-symbols-outlined text-[#785600]" data-icon="menu" style="">menu</span>
+<h2 class="fluid-title-md font-bold tracking-tighter text-[#785600] uppercase" style="">장부 작성</h2>
+</div>
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-2">
+<span class="text-xs font-bold text-[#785600] px-2 uppercase tracking-wider" style="">홍길동</span><button class="flex items-center gap-1 text-[#303129] opacity-70 hover:bg-[#eae9dd] px-3 py-2 rounded-full transition-colors" style="">
+<span class="material-symbols-outlined text-xl" data-icon="logout" style="">logout</span>
+<span class="text-xs font-bold uppercase tracking-wider hidden lg:inline" style="">로그아웃</span>
+</button>
+<div class="h-10 w-10 rounded-full overflow-hidden border-none ml-2">
+<img alt="사용자 프로필" class="" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAzhAeXrUj0WV7QHkS6zvdbau-fxCprKbcq6NDOuiKWtdf298Lxs9YXom0YK4AKBOJD_zfj5fsRTiX9UhdqiL-5Meg7G6q-AdztTVMzApMpIfJo9rERpEolBDqY65v9bk8aaRsZk1emA6zdtKt2pvjIK99CUhnjlo_EMIOAyCyeBZAxmBtErOzDjQQqW6I6aEwrFFzVnKmvzavgwK3BgOWBSyIMwRoULePXh3q16o0PFSydx01HPWilxU95VefEgrkC3VkwGvhQORg" style=""/>
+</div>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 pt-2 space-y-6" id="monthly-ledger-content">
+<section class="flex flex-wrap items-center gap-4">
+<div class="flex items-center compact-selector">
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_left" style="">chevron_left</span></button>
+<span class="selector-value" style="">2023</span>
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_right" style="">chevron_right</span></button>
+<div class="selector-divider"></div>
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_left" style="">chevron_left</span></button>
+<span class="selector-value" style="">4분기</span>
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_right" style="">chevron_right</span></button>
+<div class="selector-divider"></div>
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_left" style="">chevron_left</span></button>
+<span class="selector-value whitespace-nowrap" style="">10월</span>
+<button class="selector-btn" style=""><span class="material-symbols-outlined text-lg" data-icon="chevron_right" style="">chevron_right</span></button>
+</div>
+</section>
+<section class="grid grid-cols-1 md:grid-cols-3 gap-5">
+<div class="ledger-card p-5 flex flex-col justify-between min-h-[100px] border-none shadow-none">
+<span class="fluid-label uppercase tracking-widest font-bold text-on-surface-variant opacity-60" style="">전월 이월금</span>
+<div class="mt-1 flex items-baseline gap-1">
+<span class="fluid-currency-symbol-lg font-light tabular-nums tracking-tighter" style="">₩</span>
+<span class="fluid-currency-xl font-extrabold tabular-nums tracking-tighter" style="">42,850,000</span>
+</div>
+</div>
+<div class="ledger-card p-5 flex flex-col justify-between min-h-[100px] relative overflow-hidden border-none shadow-none">
+<div class="relative z-10">
+<span class="fluid-label uppercase tracking-widest font-bold text-on-surface-variant opacity-60" style="">당월 수입/지출</span>
+<div class="mt-1 flex flex-wrap items-baseline gap-2">
+<span class="text-xl lg:text-2xl font-extrabold tabular-nums tracking-tighter text-[#785600]" style="">+ ₩12,400,000</span>
+<span class="text-[10px] lg:text-xs font-medium text-error tabular-nums" style="">- ₩3,120,000</span>
+</div>
+</div>
+<div class="absolute -right-4 -bottom-4 opacity-5">
+<span class="material-symbols-outlined text-6xl" data-icon="trending_up" style="">trending_up</span>
+</div>
+</div>
+<div class="ledger-card p-5 flex flex-col justify-between min-h-[100px] bg-white border-none shadow-sm">
+<span class="fluid-label uppercase tracking-widest font-bold text-[#785600]" style="">현재 잔액</span>
+<div class="mt-1 flex items-baseline gap-1">
+<span class="fluid-currency-symbol-lg font-light tabular-nums tracking-tighter text-[#5a4000]" style="">₩</span>
+<span class="fluid-currency-xxl font-black tabular-nums tracking-tighter text-[#785600]" style="">52,130,000</span>
+</div>
+</div>
+</section>
+<section class="space-y-4">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-end px-2 gap-4"><div>
+<h3 class="fluid-title-md font-bold tracking-tight text-on-surface" style="">2026년 4월 내역</h3>
+</div>
+<div class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+<div class="flex items-center bg-[#f5f4e8] px-3 py-1.5 rounded w-full sm:w-64">
+<span class="material-symbols-outlined text-sm text-[#785600] mr-2" data-icon="search" style="">search</span>
+<input class="bg-transparent border-none text-[10px] focus:ring-0 w-full font-medium p-0" placeholder="내역 내 검색..." type="text"/>
+</div>
+<button class="flex-1 sm:flex-none px-4 py-1.5 gold-gradient text-white rounded text-[10px] font-bold uppercase tracking-widest shadow-md flex items-center justify-center gap-1" style="">
+<span class="material-symbols-outlined text-xs" style="">edit_square</span>
+일괄 수정
+</button>
+<button class="flex-1 sm:flex-none px-4 py-1.5 gold-gradient text-white rounded text-[10px] font-bold uppercase tracking-widest shadow-md flex items-center justify-center gap-1" style="">
+<span class="material-symbols-outlined text-xs" style="">print</span>
+일괄 인쇄
+</button>
+<button class="flex-1 sm:flex-none px-4 py-1.5 gold-gradient text-white rounded text-[10px] font-bold uppercase tracking-widest shadow-md flex items-center justify-center gap-1" style="">
+<span class="material-symbols-outlined text-xs" style="">download</span>
+엑셀 내보내기
+</button>
+</div></div>
+<div class="overflow-x-auto rounded-lg bg-surface-container-low shadow-sm">
+<table class="w-full text-left border-collapse min-w-[1100px]">
+<thead>
+<tr class="text-[9px] uppercase tracking-[0.2em] font-black text-on-surface-variant/50">
+<th class="px-6 py-4" style="">
+<div class="flex items-center gap-1">
+<span class="" style="">순번</span>
+<div class="flex flex-col">
+<span class="material-symbols-outlined text-[10px] header-action-btn" style="">swap_vert</span>
+</div>
+</div>
+</th>
+<th class="px-4 py-4" style="">
+<div class="flex items-center gap-1">
+<span class="" style="">날짜</span>
+<span class="material-symbols-outlined text-[10px] header-action-btn" style="">filter_list</span>
+</div>
+</th>
+<th class="px-4 py-4" style="">
+<div class="flex items-center gap-1">
+<span class="" style="">구분</span>
+<span class="material-symbols-outlined text-[10px] header-action-btn" style="">filter_list</span>
+</div>
+</th>
+<th class="px-4 py-4" style="">
+<div class="flex items-center gap-1">
+<span class="" style="">분류항목</span>
+<span class="material-symbols-outlined text-[10px] header-action-btn" style="">filter_list</span>
+</div>
+</th>
+<th class="px-4 py-4" style="">비고</th>
+<th class="px-4 py-4 text-right" style="">수입</th>
+<th class="px-4 py-4 text-right" style="">지출</th>
+<th class="px-4 py-4 text-right" style="">잔액</th>
+<th class="px-4 py-4 text-center" style="">관리</th>
+<th class="px-6 py-4 text-center" style="">영수증</th>
+</tr>
+</thead>
+<tbody class="text-xs font-medium text-on-surface">
+<tr class="ledger-row-white hover:bg-surface-container-highest/20 transition-colors">
+<td class="px-6 py-5 tabular-nums opacity-60" style="">1</td>
+<td class="px-4 py-5 tabular-nums" style="">25.10.24</td>
+<td class="px-4 py-5" style=""><span class="text-[#785600] font-bold" style="">수입</span></td>
+<td class="px-4 py-5 font-bold truncate-cell" style="" title="여름성경학교 지원금">여름성경학교 지원금</td>
+<td class="px-4 py-5 text-on-surface-variant/60 truncate-cell" style="" title="교회 교육국 하반기 예산 배정">교회 교육국 하반기 예산 배정</td>
+<td class="px-4 py-5 text-right tabular-nums text-[#785600] font-bold" style="">₩5,000,000</td>
+<td class="px-4 py-5 text-right tabular-nums" style="">-</td>
+<td class="px-4 py-5 text-right tabular-nums font-bold" style="">₩47,850,000</td>
+<td class="px-4 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="수정"><span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span></button>
+<button class="icon-btn error-action" style="" title="삭제"><span class="material-symbols-outlined text-lg" data-icon="delete" style="">delete</span></button>
+</div>
+</td>
+<td class="px-6 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="영수증 첨부"><span class="material-symbols-outlined text-lg" data-icon="receipt_long" style="">receipt_long</span></button>
+<button class="icon-btn error-action" style="" title="영수증 삭제"><span class="material-symbols-outlined text-lg" data-icon="close" style="">close</span></button>
+</div>
+</td>
+</tr>
+<tr class="ledger-row-tonal hover:bg-surface-container-highest/20 transition-colors">
+<td class="px-6 py-5 tabular-nums opacity-60" style="">2</td>
+<td class="px-4 py-5 tabular-nums" style="">25.10.22</td>
+<td class="px-4 py-5" style=""><span class="text-error font-bold" style="">지출</span></td>
+<td class="px-4 py-5 font-bold truncate-cell" style="" title="비품 구입">비품 구입</td>
+<td class="px-4 py-5 text-on-surface-variant/60 truncate-cell" style="" title="유치부실 공기청정기 필터 및 간식">유치부실 공기청정기 필터 및 간식</td>
+<td class="px-4 py-5 text-right tabular-nums" style="">-</td>
+<td class="px-4 py-5 text-right tabular-nums text-error font-bold" style="">₩120,000</td>
+<td class="px-4 py-5 text-right tabular-nums font-bold" style="">₩47,730,000</td>
+<td class="px-4 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="수정"><span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span></button>
+<button class="icon-btn error-action" style="" title="삭제"><span class="material-symbols-outlined text-lg" data-icon="delete" style="">delete</span></button>
+</div>
+</td>
+<td class="px-6 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="영수증 첨부"><span class="material-symbols-outlined text-lg" data-icon="receipt_long" style="">receipt_long</span></button>
+<button class="icon-btn error-action" style="" title="영수증 삭제"><span class="material-symbols-outlined text-lg" data-icon="close" style="">close</span></button>
+</div>
+</td>
+</tr>
+<tr class="ledger-row-white hover:bg-surface-container-highest/20 transition-colors">
+<td class="px-6 py-5 tabular-nums opacity-60" style="">3</td>
+<td class="px-4 py-5 tabular-nums" style="">25.10.18</td>
+<td class="px-4 py-5" style=""><span class="text-error font-bold" style="">지출</span></td>
+<td class="px-4 py-5 font-bold truncate-cell" style="" title="겨울성경학교 기획">겨울성경학교 기획</td>
+<td class="px-4 py-5 text-on-surface-variant/60 truncate-cell" style="" title="사전 답사 및 기획 회의 식대">사전 답사 및 기획 회의 식대</td>
+<td class="px-4 py-5 text-right tabular-nums" style="">-</td>
+<td class="px-4 py-5 text-right tabular-nums text-error font-bold" style="">₩450,000</td>
+<td class="px-4 py-5 text-right tabular-nums font-bold" style="">₩47,280,000</td>
+<td class="px-4 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="수정"><span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span></button>
+<button class="icon-btn error-action" style="" title="삭제"><span class="material-symbols-outlined text-lg" data-icon="delete" style="">delete</span></button>
+</div>
+</td>
+<td class="px-6 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="영수증 첨부"><span class="material-symbols-outlined text-lg" data-icon="receipt_long" style="">receipt_long</span></button>
+<button class="icon-btn error-action" style="" title="영수증 삭제"><span class="material-symbols-outlined text-lg" data-icon="close" style="">close</span></button>
+</div>
+</td>
+</tr>
+<tr class="ledger-row-tonal hover:bg-surface-container-highest/20 transition-colors">
+<td class="px-6 py-5 tabular-nums opacity-60" style="">4</td>
+<td class="px-4 py-5 tabular-nums" style="">25.10.15</td>
+<td class="px-4 py-5" style=""><span class="text-[#785600] font-bold" style="">수입</span></td>
+<td class="px-4 py-5 font-bold truncate-cell" style="" title="특별 헌금">특별 헌금</td>
+<td class="px-4 py-5 text-on-surface-variant/60 truncate-cell" style="" title="교육관 증축을 위한 특별 지정 헌금">교육관 증축을 위한 특별 지정 헌금</td>
+<td class="px-4 py-5 text-right tabular-nums text-[#785600] font-bold" style="">₩4,850,000</td>
+<td class="px-4 py-5 text-right tabular-nums" style="">-</td>
+<td class="px-4 py-5 text-right tabular-nums font-bold" style="">₩52,130,000</td>
+<td class="px-4 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="수정"><span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span></button>
+<button class="icon-btn error-action" style="" title="삭제"><span class="material-symbols-outlined text-lg" data-icon="delete" style="">delete</span></button>
+</div>
+</td>
+<td class="px-6 py-5" style="">
+<div class="flex justify-center gap-1">
+<button class="icon-btn primary-action" style="" title="영수증 첨부"><span class="material-symbols-outlined text-lg" data-icon="receipt_long" style="">receipt_long</span></button>
+<button class="icon-btn error-action" style="" title="영수증 삭제"><span class="material-symbols-outlined text-lg" data-icon="close" style="">close</span></button>
+</div>
+</td>
+</tr>
+<!-- New Entry Row -->
+<tr class="ledger-row-white border-t-2 border-[#785600]/20">
+<td class="px-6 py-4 tabular-nums opacity-60 font-bold text-[#785600]" style="">NEW</td>
+<td class="px-4 py-4" style="">
+<input class="inline-input tabular-nums" placeholder="26.04.01" type="text"/>
+</td>
+<td class="px-4 py-4" style="">
+<select class="inline-select">
+<option value="income">수입</option>
+<option value="expense">지출</option>
+</select>
+</td>
+<td class="px-4 py-4" style="">
+<input class="inline-input font-bold" placeholder="항목 입력" type="text"/>
+</td>
+<td class="px-4 py-4" style="">
+<input class="inline-input" placeholder="비고 입력" type="text"/>
+</td>
+<td class="px-4 py-4" style="">
+<input class="inline-input text-right tabular-nums text-[#785600]" placeholder="0" type="text"/>
+</td>
+<td class="px-4 py-4" style="">
+<input class="inline-input text-right tabular-nums text-error" placeholder="0" type="text"/>
+</td>
+<td class="px-4 py-4 text-right tabular-nums font-bold opacity-30 italic" style="">자동계산</td>
+<td class="px-4 py-4 text-center" style="">
+<button class="icon-btn gold-action shadow-md" style="" title="저장"><span class="material-symbols-outlined text-xl" data-icon="check" style="">check</span></button>
+</td>
+<td class="px-6 py-4 text-center" style="">
+<button class="bg-surface-container-high text-on-surface-variant/40 px-3 py-1 rounded text-[10px] font-bold cursor-not-allowed" style=""><span class="material-symbols-outlined text-lg" data-icon="attach_file" style="">attach_file</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#fbfaee]/90 backdrop-blur-lg flex justify-around items-center py-4 px-6 z-50 shadow-[0_-10px_30px_rgba(48,49,41,0.08)]">
+<a class="flex flex-col items-center text-on-surface opacity-50" href="#" style="">
+<span class="material-symbols-outlined" data-icon="dashboard" style="">dashboard</span>
+<span class="text-[10px] mt-1 font-bold" style="">대시보드</span>
+</a>
+<a class="flex flex-col items-center text-on-surface opacity-50" href="#" style="">
+<span class="material-symbols-outlined" data-icon="receipt_long" style="">receipt_long</span>
+<span class="text-[10px] mt-1 font-bold" style="">지출</span>
+</a>
+<a class="flex flex-col items-center text-[#785600]" href="#" style="">
+<span class="material-symbols-outlined" data-icon="edit_note" style='font-variation-settings: "FILL" 1;'>edit_note</span>
+<span class="text-[10px] mt-1 font-bold" style="">장부</span>
+</a>
+<a class="flex flex-col items-center text-on-surface opacity-50" href="#" style="">
+<span class="material-symbols-outlined" data-icon="settings" style="">settings</span>
+<span class="text-[10px] mt-1 font-bold" style="">설정</span>
+</a>
+</nav>
+</body></html>

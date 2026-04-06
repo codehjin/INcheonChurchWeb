@@ -10,11 +10,18 @@ main {
     background-color: #f4f6f9;
 }
 
-/* PC 사이드바 그라데이션 (모바일 헤더와 통일) */
 .sidebar {
-    background: linear-gradient(180deg, #1e3c72 0%, #2a5298 100%);
-    box-shadow: 2px 0 15px rgba(0,0,0,0.1);
+    background-image: none !important; /* 🚀 핵심: 기본 파란색 그라데이션 이미지를 강제로 지움 */
+    background-color: var(--surface-low) !important; /* 베이지 톤 배경 적용 */
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 2px 0 15px rgba(0,0,0,0.03);
 }
+
+    /* 좌상단 로고 영역의 배경도 확실히 투명하게 처리 */
+    .sidebar .top-row {
+        background-color: transparent !important;
+        background-image: none !important;
+    }
 
 /* PC 상단 바 */
 .top-row {

@@ -9,220 +9,395 @@
 
 <PageTitle>인천중앙교회 재정 시스템</PageTitle>
 
-<div class="container mt-4 mb-5">
-    @if (string.IsNullOrEmpty(CurrentUser?.Username))
-    {
-        @* 로그인 전 화면 *@
-        <div class="text-center py-5">
-            <i class="bi bi-shield-lock text-muted" style="font-size: 4rem;"></i>
-            <h4 class="mt-3 fw-bold text-secondary">로그인이 필요합니다</h4>
-            <p class="text-muted">좌측 메뉴에서 로그인 후 부서별 장부와 대시보드를 확인하세요.</p>
-        </div>
+<style>
+    /* ── Tactile Ledger Design Tokens (mapped from app.css variables) ── */
+    .dash-hero-card {
+        background-color: var(--surface-lowest);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 20px rgba(48, 49, 41, 0.04);
+        border: none;
+        padding: 2rem 2.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 200px;
     }
-    else
-    {
-        @* 1. 환영 인사 및 부서/연도 선택 헤더 *@
-        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom flex-wrap gap-3">
-            <div class="d-flex align-items-center">
-                <i class="bi bi-pie-chart-fill text-primary fs-1 me-3"></i>
+
+    .dash-detail-card {
+        background-color: var(--surface-lowest);
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 20px rgba(48, 49, 41, 0.04);
+        border: none;
+        padding: 2rem 2.5rem;
+    }
+
+    .dash-label {
+        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;         /* 0.2em → 0.04em 완화 */
+        color: var(--primary-gold);
+        opacity: 0.85;                  /* 약간 부드럽게 */
+        margin-bottom: 0.5rem;
+    }
+
+    .dash-hero-amount {
+        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-weight: 900;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+        color: var(--on-surface);
+        line-height: 1.1;
+    }
+
+    .dash-badge-pct {
+        background-color: var(--surface-low);
+        border-radius: 9999px;
+        padding: 0.25rem 0.875rem;
+        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-weight: 700;
+        color: var(--primary-gold);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+    }
+
+    .dash-progress-bg {
+        background-color: var(--surface-low);
+        height: 0.5rem;
+        border-radius: 9999px;
+        overflow: hidden;
+    }
+
+    .dash-progress-fill {
+        background: var(--gold-gradient);
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.5s ease-out;
+    }
+
+    .dash-meta-label {
+        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--on-surface-muted);
+    }
+
+    .dash-filter-chip {
+        background-color: var(--surface-lowest);
+        border-radius: 0.5rem;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(48, 49, 41, 0.06);
+        border: none;
+    }
+
+    .dash-filter-chip-label {
+        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--on-surface-muted);
+    }
+
+    .dash-filter-chip-value {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: var(--on-surface);
+    }
+
+    /* 상세 항목 진행 바 */
+    .dash-stat-row {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .dash-stat-meta {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--on-surface);
+    }
+
+    /* 지출결의서 테이블 — No-Line */
+    .dash-list-wrap {
+        overflow: hidden;
+        border-radius: 0.75rem;
+        background-color: rgba(255,255,255,0.5);
+    }
+
+    .dash-list-head th {
+        padding: 1rem 2rem;
+        font-size: 0.875rem;            /* 10px → 14px ↑ */
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--primary-gold);
+        opacity: 0.85;
+        background-color: var(--surface-lowest);
+        box-shadow: 0 2px 8px rgba(48,49,41,0.04);
+        border: none !important;
+    }
+
+    .dash-list-body tr {
+        transition: background-color 0.15s ease-out;
+    }
+
+    .dash-list-body tr:hover {
+        background-color: rgba(255,255,255,0.8);
+    }
+
+    .dash-list-body tr:nth-child(even) {
+        background-color: rgba(255,255,255,0.35);
+    }
+
+    .dash-list-body td {
+        padding: 1.25rem 2rem;
+        font-size: 0.875rem;
+        vertical-align: middle;
+        border: none !important;
+    }
+
+    .dash-status-waiting {
+        font-size: 0.875rem;            /* 12px → 14px ↑ */
+        font-weight: 600;
+        color: var(--primary-gold);
+        background-color: var(--surface-low);
+        padding: 0.2rem 0.6rem;
+        border-radius: 0.25rem;
+    }
+
+    .dash-status-done {
+        font-size: 0.875rem;            /* 12px → 14px ↑ */
+        font-weight: 600;
+        color: var(--on-surface-muted);
+        font-variant-numeric: tabular-nums;
+    }
+</style>
+
+@if (CurrentUser != null)
+{
+    <div style="padding: 2rem 2.5rem; max-width: 1280px; margin: 0 auto; padding-bottom: 5rem;">
+
+        @* ── 필터 & 타이틀 ── *@
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2.5rem;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1.5rem;">
                 <div>
-                    <h2 class="fw-bold mb-0">대시보드</h2>
-                    <p class="text-muted mb-0">@CurrentYear 년도 예산 및 지출 현황을 한눈에 확인하세요.</p>
+                    <h3 style="font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; letter-spacing: -0.02em; color: var(--on-surface); margin-bottom: 0.25rem; line-height: 1.2;">
+                        @CurrentYear 재정 현황 요약
+                    </h3>
+                    <p style="color: var(--on-surface-sub); font-size: 0.9375rem; font-weight: 400; line-height: 1.5; opacity: 0.85; margin: 0;">
+                        현재 회계 기간의 재정 성과 상세 내역입니다.
+                    </p>
                 </div>
-            </div>
-
-            <div class="d-flex align-items-center gap-3">
-                @* 연도 이동 컨트롤 *@
-                <div class="d-flex align-items-center gap-1 bg-light p-2 rounded shadow-sm border">
-                    <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="() => ChangeYear(-1)" disabled="@(CurrentYear <= 2024)">◀</button>
-                    <span class="fw-bold fs-5 px-2 text-primary" style="min-width: 80px; text-align: center;">@CurrentYear 년</span>
-                    <button class="btn btn-sm btn-outline-secondary fw-bold" @onclick="() => ChangeYear(1)" disabled="@(CurrentYear >= DateTime.Now.Year + 1)">▶</button>
-                </div>
-
-                @* 관리자용 부서 필터 *@
-                @if (IsAdmin)
-                {
-                    <div class="d-flex align-items-center bg-light p-2 rounded shadow-sm border">
-                        <i class="bi bi-funnel-fill text-secondary me-2 ms-1"></i>
-                        <label class="fw-bold me-2 text-dark text-nowrap">부서 필터:</label>
-                        @* 🚀 value를 숫자로 받도록 수정 *@
-                        <select class="form-select border-primary fw-bold text-primary w-auto" @onchange="OnDeptChanged" value="@DashboardDeptId">
-                            <option value="0">전체 부서 통합보기</option>
-                            @foreach (var dept in Departments)
-                            {
-                                @* 관리자용 특수 부서는 제외하고 보여줌 *@
-                                @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
+                <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                    @* 연도 이동 칩 *@
+                    <div class="dash-filter-chip">
+                        <button style="background: none; border: none; color: var(--on-surface-sub); font-weight: 700; padding: 0; cursor: pointer;" @onclick="() => ChangeYear(-1)">◀</button>
+                        <span class="dash-filter-chip-label">연도</span>
+                        <span class="dash-filter-chip-value" style="font-variant-numeric: tabular-nums;">@CurrentYear</span>
+                        <button style="background: none; border: none; color: var(--on-surface-sub); font-weight: 700; padding: 0; cursor: pointer;" @onclick="() => ChangeYear(1)">▶</button>
+                    </div>
+                    @* 부서 선택 칩 (관리자만) *@
+                    @if (IsAdmin)
+                    {
+                        <div class="dash-filter-chip">
+                            <span class="dash-filter-chip-label">부서</span>
+                            <select style="background: none; border: none; font-size: 0.875rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;"
+                                    @onchange="OnDeptChanged" value="@DashboardDeptId">
+                                <option value="0">전체 부서</option>
+                                @foreach (var dept in Departments)
                                 {
-                                    <option value="@dept.Id">@dept.Name</option>
+                                    @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀" && dept.Name != "감사위원회")
+                                    {
+                                        <option value="@dept.Id">@dept.Name</option>
+                                    }
                                 }
-                            }
-                        </select>
-                    </div>
-                }
-                else
-                {
-                    <div class="badge bg-primary fs-5 p-2 shadow-sm">
-                        <i class="bi bi-person-badge me-2"></i>
-                        @* 🚀 수정: .Name이 null일 경우를 대비해 Username이라도 출력 *@
-                        @(CurrentUser?.Department?.Name ?? CurrentUser?.Username ?? "사용자")
-                    </div>
-                }
+                            </select>
+                        </div>
+                    }
+                </div>
             </div>
         </div>
 
-        @if (isLoading)
-        {
-            <div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 text-muted">데이터를 불러오는 중...</p></div>
-        }
-        else
-        {
-            @* 1. 예산 및 보조금 진척도 *@
-            <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100 p-4">
-                        <h5 class="fw-bold text-danger mb-3"><i class="bi bi-pie-chart-fill me-2"></i>총 지출 예산 진척도</h5>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">사용액: <strong>@TotalExpense.ToString("N0")</strong>원</span>
-                            <span class="text-muted">예산: <strong>@TotalBudget.ToString("N0")</strong>원</span>
-                        </div>
-                        <div class="progress" style="height: 25px;">
-                            <div class="progress-bar @ProgressBarColor progress-bar-striped progress-bar-animated fw-bold fs-6" role="progressbar" style="width: @ProgressPercentage.ToString("0.0")%">
-                                @ProgressPercentage.ToString("0.0")%
+        @* ── Hero Metrics (지출 / 수입) ── *@
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+
+            @* 지출 실적 카드 *@
+            <article class="dash-hero-card">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <p class="dash-label">지출 실적</p>
+                        <h4 class="dash-hero-amount">₩@TotalExpense.ToString("N0")</h4>
+                    </div>
+                    <span class="dash-badge-pct">예산 대비 @ProgressPercentage.ToString("0")%</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span class="dash-meta-label">진행률</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">
+                            한도: ₩@TotalBudget.ToString("N0") &nbsp;|&nbsp; 잔여: ₩@RemainingBudget.ToString("N0")
+                        </span>
+                    </div>
+                    <div class="dash-progress-bg">
+                        <div class="dash-progress-fill" style="width: @(Math.Min(ProgressPercentage, 100).ToString("0.0"))%;"></div>
+                    </div>
+                </div>
+            </article>
+
+            @* 수입 내역 카드 *@
+            <article class="dash-hero-card" style="background-color: var(--surface-low);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <p class="dash-label">수입 내역</p>
+                        <h4 class="dash-hero-amount">₩@TotalIncome.ToString("N0")</h4>
+                    </div>
+                    <span class="dash-badge-pct">보조금 수령 @IncomeRate%</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span class="dash-meta-label">진행률</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">보조금: ₩@SubsidyReceived.ToString("N0")</span>
+                    </div>
+                    <div class="dash-progress-bg">
+                        <div class="dash-progress-fill" style="width: @(Math.Min(IncomeRate, 100))%;"></div>
+                    </div>
+                </div>
+            </article>
+        </div>
+
+        @* ── 항목별 상세 (지출 / 수입) ── *@
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+
+            @* 지출 항목별 상세 *@
+            <div class="dash-detail-card">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 항목별 상세</h5>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    @if (ExpenseStats.Any())
+                    {
+                        @foreach (var stat in ExpenseStats.Take(5))
+                        {
+                            <div class="dash-stat-row">
+                                <div class="dash-stat-meta">
+                                    <span>@stat.Category</span>
+                                    <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0") (@stat.Percentage%)</span>
+                                </div>
+                                <div class="dash-progress-bg">
+                                    <div class="dash-progress-fill" style="width: @stat.Percentage%; opacity: 0.75;"></div>
+                                </div>
                             </div>
-                        </div>
-                        <div class="text-end mt-2 small fw-bold text-secondary">잔여 지출 예산: @RemainingBudget.ToString("N0") 원</div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100 p-4 bg-primary bg-opacity-10">
-                        <h5 class="fw-bold text-primary mb-3"><i class="bi bi-piggy-bank-fill me-2"></i>총 수입(교회보조금 포함) 진척도</h5>
-                        <div class="d-flex justify-content-between mb-1">
-                            <span class="text-muted">수입/입금액: <strong class="text-primary">@TotalIncome.ToString("N0")</strong>원</span>
-                            <span class="text-muted">수입 예산: <strong>@TotalIncomeBudget.ToString("N0")</strong>원</span>
-                        </div>
-                        <div class="progress" style="height: 25px;">
-                            <div class="progress-bar bg-primary fw-bold fs-6" role="progressbar" style="width: @IncomeRate%;">@IncomeRate%</div>
-                        </div>
-                        <div class="text-end mt-2 small fw-bold text-secondary">
-                            (참고: 보조금 수령액 @SubsidyReceived.ToString("N0")원 / 예산 @SubsidyBudget.ToString("N0")원)
-                        </div>
-                    </div>
+                        }
+                    }
+                    else
+                    {
+                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">집행 내역이 없습니다.</p>
+                    }
                 </div>
             </div>
 
-            @* 2. 수입/지출 항목별 통계 차트 (가로 바) *@
-            <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold text-primary mb-0"><i class="bi bi-graph-up-arrow me-2"></i>수입 항목 비율 (장부 기준 총 @TotalIncome.ToString("N0")원)</h6>
-                        </div>
-                        <div class="card-body" style="max-height: 350px; overflow-y: auto;">
-                            @if (!IncomeStats.Any())
-                            {
-                                <div class="text-muted text-center py-4">수입 내역이 없습니다.</div>
-                            }
-                            @foreach (var stat in IncomeStats)
-                            {
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between small mb-1">
-                                        <span class="fw-bold">@stat.Category</span>
-                                        <span class="text-primary">@stat.Amount.ToString("N0")원 (@stat.Percentage%)</span>
-                                    </div>
-                                    <div class="progress" style="height: 12px;">
-                                        <div class="progress-bar bg-primary opacity-75" role="progressbar" style="width: @stat.Percentage%;"></div>
-                                    </div>
-                                </div>
-                            }
-                        </div>
-                    </div>
+            @* 수입 항목별 상세 *@
+            <div class="dash-detail-card">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
+                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 항목별 상세</h5>
                 </div>
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-header bg-white border-bottom py-3">
-                            <h6 class="fw-bold text-danger mb-0"><i class="bi bi-graph-down-arrow me-2"></i>지출 항목 비율 (장부 기준 총 @TotalExpense.ToString("N0")원)</h6>
-                        </div>
-                        <div class="card-body" style="max-height: 350px; overflow-y: auto;">
-                            @if (!ExpenseStats.Any())
-                            {
-                                <div class="text-muted text-center py-4">지출 내역이 없습니다.</div>
-                            }
-                            @foreach (var stat in ExpenseStats)
-                            {
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between small mb-1">
-                                        <span class="fw-bold">@stat.Category</span>
-                                        <span class="text-danger">@stat.Amount.ToString("N0")원 (@stat.Percentage%)</span>
-                                    </div>
-                                    <div class="progress" style="height: 12px;">
-                                        <div class="progress-bar bg-danger opacity-75" role="progressbar" style="width: @stat.Percentage%;"></div>
-                                    </div>
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    @if (IncomeStats.Any())
+                    {
+                        @foreach (var stat in IncomeStats.Take(5))
+                        {
+                            <div class="dash-stat-row">
+                                <div class="dash-stat-meta">
+                                    <span>@stat.Category</span>
+                                    <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0") (@stat.Percentage%)</span>
                                 </div>
-                            }
-                        </div>
-                    </div>
+                                <div class="dash-progress-bg">
+                                    <div class="dash-progress-fill" style="width: @stat.Percentage%; opacity: 0.75;"></div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">수입 내역이 없습니다.</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* ── 지출결의서 신청현황 ── *@
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; padding-bottom: 2rem;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem;">
+                <div>
+                    <h4 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin-bottom: 0.25rem;">지출결의서 신청현황</h4>
+                    <p style="font-size: 0.875rem; color: var(--on-surface-muted); font-weight: 400; line-height: 1.5; margin: 0;">모든 승인 대기 및 완료된 신청 건의 상태입니다.</p>
+                </div>
+                <div style="text-align: right;">
+                    <p class="dash-label" style="margin-bottom: 0.25rem;">총 신청액 누계</p>
+                    <p style="font-size: 1.5rem; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--on-surface); margin: 0;">
+                        ₩@SubsidyRequests.Sum(r => r.Amount).ToString("N0")
+                    </p>
                 </div>
             </div>
 
-            @* 3. 교회보조금 신청현황 (지출결의서 & 장부 자동 매칭) *@
-            <div class="card border-0 shadow-sm mb-5">
-                <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
-                    <h5 class="fw-bold text-dark mb-0"><i class="bi bi-file-earmark-check-fill text-success me-2"></i>지출결의서 신청 및 입금 현황</h5>
-                    <span class="badge bg-light text-dark border fs-6">총 신청액 누계: <span class="text-primary fw-bold">@SubsidyRequests.Sum(r => r.Amount).ToString("N0")원</span></span>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle text-center mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>결의서 작성일</th>
-                                <th class="text-start">결의서 제목 (적요)</th>
-                                <th class="text-end">신청 금액</th>
-                                <th>상태</th>
-                                <th>실제 입금일 (장부 매칭)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
+            @* No-Line 테이블 *@
+            <div class="dash-list-wrap">
+                <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                    <thead>
+                        <tr class="dash-list-head">
+                            <th>작성일</th>
+                            <th>제목</th>
+                            <th style="text-align: right;">신청금액</th>
+                            <th style="text-align: center;">입금일</th>
+                        </tr>
+                    </thead>
+                    <tbody class="dash-list-body">
+                        @if (SubsidyRequests.Any())
+                        {
                             @foreach (var req in SubsidyRequests)
                             {
                                 <tr>
-                                    <td>@req.RequestDate.ToString("yyyy-MM-dd")</td>
-                                    <td class="text-start fw-bold">@req.Title</td>
-                                    <td class="text-end text-primary fw-bold pe-4">@req.Amount.ToString("N0") 원</td>
-                                    <td>
-                                        @if (req.DepositDate.HasValue)
-                                        {
-                                            <span class="badge bg-success px-3 py-2"><i class="bi bi-check-circle me-1"></i>입금완료</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-warning text-dark px-3 py-2"><i class="bi bi-hourglass-split me-1"></i>미입금(대기)</span>
-                                        }
+                                    <td style="font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.75;">
+                                        @req.RequestDate.ToShortDateString()
                                     </td>
-                                    <td>
+                                    <td style="font-weight: 700; color: var(--on-surface);">
+                                        @req.Title
+                                    </td>
+                                    <td style="text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--on-surface);">
+                                        ₩@req.Amount.ToString("N0")
+                                    </td>
+                                    <td style="text-align: center;">
                                         @if (req.DepositDate.HasValue)
                                         {
-                                            <strong class="text-success">@req.DepositDate.Value.ToString("yyyy-MM-dd")</strong>
+                                            <span class="dash-status-done">@req.DepositDate.Value.ToString("yyyy.MM.dd")</span>
                                         }
                                         else
                                         {
-                                            <span class="text-muted">-</span>
+                                            <span class="dash-status-waiting">입금대기</span>
                                         }
                                     </td>
                                 </tr>
                             }
-                            @if (!SubsidyRequests.Any())
-                            {
-                                <tr><td colspan="5" class="py-5 text-muted">해당 연도에 작성된 지출결의서가 없습니다.</td></tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-muted); font-size: 0.875rem;">
+                                    신청 내역이 없습니다.
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
-        }
-    }
-</div>
+        </div>
+
+    </div>
+}
 
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
@@ -234,17 +409,14 @@
     // 0 이면 "전체"를 의미합니다.
     private int DashboardDeptId = 0;
 
-    private bool isLoading = true;
-
-    // 🚀 문자열 배열 대신 실제 DB의 Department 목록을 가져옵니다.
+   // 🚀 문자열 배열 대신 실제 DB의 Department 목록을 가져옵니다.
     private List<Department> Departments = new();
 
     private decimal TotalBudget = 0;
     private decimal TotalExpense = 0;
     private decimal RemainingBudget => TotalBudget - TotalExpense;
     private double ProgressPercentage = 0;
-    private string ProgressBarColor = "bg-success";
-
+ 
     private decimal TotalIncomeBudget = 0;
     private int IncomeRate = 0;
     private decimal SubsidyBudget = 0;
@@ -265,18 +437,18 @@
 
         if (CurrentUser != null && CurrentUser.Department != null)
         {
-            // 🚀 Auditor(감사/국장) 권한이 추가되었습니다.
-            if (CurrentUser.Department.Name == "교육국" || CurrentUser.Department.Name == "관리자" || CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
+            // 🚀 수정됨: 최고관리자와 감사/국장은 전체 부서 드롭다운 활성화
+            if (CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
             {
                 IsAdmin = true;
-                DashboardDeptId = 0; // 0 = 전체보기
+                DashboardDeptId = 0; // 0 = 전체보기 기본값
             }
             else
             {
                 IsAdmin = false;
-                DashboardDeptId = CurrentUser.DepartmentId; // 자기 부서 고정
+                DashboardDeptId = CurrentUser.DepartmentId; // 자기 부서로 고정 (조회, 부서운영자 모두 해당)
             }
-
+           
             try
             {
                 // 🚀 문자열이 아닌 Id 기반으로 필터링
@@ -294,11 +466,7 @@
             catch { /* ignore */ }
 
             await LoadDashboardData();
-        }
-        else
-        {
-            isLoading = false;
-        }
+        }       
     }
 
     private async Task ChangeYear(int offset)
@@ -322,7 +490,6 @@
 
     private async Task LoadDashboardData()
     {
-        isLoading = true;
         StateHasChanged();
 
         try
@@ -366,12 +533,8 @@
             {
                 ProgressPercentage = (double)(TotalExpense / TotalBudget) * 100;
                 if (ProgressPercentage > 100) ProgressPercentage = 100;
-                if (ProgressPercentage >= 90) ProgressBarColor = "bg-danger";
-                else if (ProgressPercentage >= 70) ProgressBarColor = "bg-warning";
-                else ProgressBarColor = "bg-success";
             }
-            else { ProgressPercentage = 0; ProgressBarColor = "bg-success"; }
-
+            
             IncomeRate = TotalIncomeBudget > 0 ? (int)Math.Round((TotalIncome / TotalIncomeBudget) * 100) : 0;
             if (IncomeRate > 100) IncomeRate = 100;
 
@@ -433,7 +596,7 @@
         }
         finally
         {
-            isLoading = false;
+            
         }
     }
 }

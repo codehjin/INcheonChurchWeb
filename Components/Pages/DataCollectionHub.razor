@@ -1,0 +1,1414 @@
+﻿@page "/data-collection"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using ExcelDataReader
+@using System.Data
+@using System.IO
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.AspNetCore.Components.Forms
+@inject AppDbContext DbContext
+@inject IWebHostEnvironment Env
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+@inject INcheonChurchWeb.Services.OcrService OcrService
+@inject AccountingService Accounting
+@rendermode InteractiveServer
+
+<PageTitle>수집 및 정리</PageTitle>
+
+<style>
+    .hub-surface { background-color: #fbfaee; }
+    .hub-card { background-color: #ffffff; border-radius: 0.375rem; border: none; box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04); transition: all 0.2s ease-out; }
+    .hub-card-warm { background-color: #f5f4e8; border-radius: 0.375rem; border: none; }
+    .hub-tab-bar { background-color: #f5f4e8; border-radius: 0.75rem; padding: 0.375rem; display: inline-flex; gap: 0.25rem; }
+    .hub-tab { padding: 0.625rem 1.5rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out; white-space: nowrap; }
+    .hub-tab:hover { background-color: #eae9dd; }
+    .hub-tab.active { background-color: #ffffff; color: #5a4000; box-shadow: 0 2px 6px rgba(48, 49, 41, 0.06); font-weight: 700; }
+    .hub-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.25rem; padding: 0.75rem 2.5rem; font-size: 0.875rem; transition: all 0.15s ease-out; }
+    .hub-gold-btn:hover { transform: scale(1.03); color: #ffffff; }
+    .hub-gold-btn:active { transform: scale(0.97); }
+    .hub-gold-btn:disabled { opacity: 0.5; transform: none; }
+    .hub-secondary-btn { background-color: #eae9dd; color: #5a4000; font-weight: 700; border: none; border-radius: 0.5rem; padding: 0.75rem 2rem; font-size: 0.875rem; transition: all 0.2s ease-out; }
+    .hub-secondary-btn:hover { background-color: #e4e3d7; color: #5a4000; }
+    .hub-input { background-color: #ffffff; border: none; border-radius: 0.375rem; padding: 0.625rem 1rem; font-size: 1rem; color: #1b1c15; transition: box-shadow 0.2s ease-out; }
+    .hub-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(123, 88, 3, 0.2); }
+    .hub-label { font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #4e4637; margin-bottom: 0.375rem; }
+    .hub-info-box { background-color: #f5f4e8; border-radius: 0.375rem; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1rem; }
+    .hub-receipt-item { background-color: #f5f4e8; border-radius: 0.75rem; padding: 1rem; display: flex; align-items: center; gap: 1rem; transition: box-shadow 0.2s ease-out; cursor: pointer; }
+    .hub-receipt-item:hover { box-shadow: 0 4px 12px rgba(48, 49, 41, 0.08); }
+    .hub-receipt-item.selected { background-color: #eae9dd; }
+    .hub-table-row { transition: background-color 0.15s ease-out; }
+    .hub-table-row:hover { background-color: #ffffff; }
+    .hub-table-header { background-color: rgba(234, 233, 221, 0.5); }
+    .hub-badge { font-size: 0.625rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+    .hub-badge-cat { background-color: rgba(23, 69, 119, 0.1); color: #174577; }
+    .hub-tabular { font-variant-numeric: tabular-nums; }
+    .hub-bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(251, 250, 238, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 1.25rem 2rem; z-index: 1040; box-shadow: 0 -20px 40px rgba(48, 49, 41, 0.06); display: flex; align-items: center; justify-content: space-between; }
+    .hub-dashed-upload { border: 2px dashed #d2c5b2; border-radius: 0.75rem; padding: 3rem 2rem; text-align: center; cursor: pointer; transition: all 0.2s ease-out; background-color: #ffffff; }
+    .hub-dashed-upload:hover { border-color: #785600; background-color: #f5f4e8; }
+    .hub-file-table td, .hub-file-table th { border: none !important; padding: 0.875rem 1rem; vertical-align: middle; }
+    ..hub-file-table thead th { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4e4637; }
+    .hub-delete-btn { opacity: 0; transition: opacity 0.15s ease-out; color: #ba1a1a; background: none; border: none; padding: 0.25rem; cursor: pointer; font-size: 1rem; }
+    .hub-receipt-item:hover .hub-delete-btn { opacity: 1; }
+    .hub-amount { color: #5a4000; font-weight: 800; font-size: 1.1rem !important; }
+    .hub-preview-img { max-height: 250px; border-radius: 0.375rem; object-fit: contain; }
+</style>
+
+<div class="hub-surface min-vh-100" style="padding-bottom: @(activeTab == "matching" ? "7rem" : "2rem");">
+    <div class="container-fluid px-3 px-md-5 pt-4">
+
+        <div class="mb-4">
+            <h2 class="fw-bold mb-1" style="color: #1b1c15; font-family: 'Manrope', sans-serif; letter-spacing: -0.02em;">수집 및 정리</h2>
+            <p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">영수증과 장부 데이터를 매칭하여 정확한 회계를 관리하세요.</p>
+        </div>
+
+        <div class="mb-4">
+            <div class="hub-tab-bar">
+                <button class="hub-tab @(activeTab == "single" ? "active" : "")" @onclick='() => activeTab = "single"'>
+                    <i class="bi bi-receipt me-1"></i>영수증(단일)
+                </button>
+                <button class="hub-tab @(activeTab == "multi" ? "active" : "")" @onclick='() => activeTab = "multi"'>
+                    <i class="bi bi-images me-1"></i>영수증(일괄)
+                </button>
+                <button class="hub-tab @(activeTab == "excel" ? "active" : "")" @onclick='() => activeTab = "excel"'>
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i>엑셀 내역
+                </button>
+                <button class="hub-tab @(activeTab == "matching" ? "active" : "")" @onclick="ActivateMatchingTab">
+                    <i class="bi bi-link-45deg me-1"></i>장부 매칭
+                    @if (pendingReceipts.Any())
+                    {
+                        <span class="ms-1 px-2 py-0 rounded-pill" style="background-color: #5a4000; color: #fff; font-size: 0.6875rem; font-weight: 800;">@pendingReceipts.Count</span>
+                    }
+                </button>
+            </div>
+        </div>
+
+        @* ????????????????????????????????????????????????????????????????
+           TAB 1: 영수증(단일) ? ReceiptUpload.razor 로직
+        ???????????????????????????????????????????????????????????????? *@
+        @if (activeTab == "single")
+        {
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="hub-card p-4 p-md-5">
+
+                        <div class="hub-info-box mb-4">
+                            <i class="bi bi-robot fs-4" style="color: #785600;"></i>
+                            <div class="d-flex justify-content-between align-items-center flex-grow-1">
+                                <div>
+                                    <div class="fw-bold" style="color: #1b1c15; font-size: 0.875rem;">이번 달 AI 자동 판독</div>
+                                    <div style="color: #4e4637; font-size: 0.75rem;">사진 선택 시 자동으로 날짜·금액·사용처를 인식합니다.</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="fw-bold hub-tabular" style="font-size: 1.25rem; color: @(currentOcrUsage >= 1000 ? "#ba1a1a" : "#5a4000");">@currentOcrUsage</span>
+                                    <span style="color: #4e4637; font-size: 0.75rem;"> / 1,000</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <InputFile id="hubSingleFileInput" OnChange="HandleFileSelected" style="display:none;" accept="image/*" />
+                        <label for="hubSingleFileInput" class="hub-dashed-upload w-100 mb-4 d-flex align-items-center justify-content-center" style="@(currentOcrUsage >= 1000 ? "border-color: #ba1a1a; opacity: 0.6;" : "")">
+                            @if (isOcrProcessing)
+                            {
+                                <div class="spinner-border me-3" style="color: #785600;" role="status"></div>
+                                <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI가 영수증 읽는 중...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-camera-fill me-3" style="font-size: 2rem; color: #785600;"></i>
+                                <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">@(string.IsNullOrEmpty(selectedFileName) ? "여기를 눌러 사진 찾기" : "사진 다시 선택하기")</span>
+                            }
+                        </label>
+                        @if (currentOcrUsage >= 1000)
+                        {
+                            <div class="text-center mb-3" style="color: #ba1a1a; font-size: 0.8rem; font-weight: 700;">이번 달 무료 제공량을 모두 사용했습니다. 수동으로 입력해주세요.</div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(previewImageUrl))
+                        {
+                            <div class="text-center mb-4 p-3 rounded" style="background-color: #f5f4e8;">
+                                <img src="@previewImageUrl" class="hub-preview-img" />
+                            </div>
+                        }
+
+                        <div class="mb-3">
+                            <div class="hub-label">1. 결제 날짜</div>
+                            <input type="date" class="form-control hub-input" @bind="newReceipt.ReceiptDate" />
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="hub-label" style="color: #ba1a1a;">2. 결제 금액 (숫자만)</div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="number" class="form-control hub-input flex-grow-1 text-end fw-bold" @bind="inputAmount" placeholder="예: 15000" />
+                                <span class="fw-bold" style="color: #4e4637;">원</span>
+                                @if (inputAmount.HasValue)
+                                {
+                                    <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="() => { inputAmount = null; }"><i class="bi bi-x-circle"></i></button>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="hub-label">3. 적요 (사용처 / 내용)</div>
+                            <div class="d-flex gap-2 align-items-center">
+                                <input type="text" class="form-control hub-input flex-grow-1" @bind="newReceipt.Description" placeholder="예: 다이소" />
+                                @if (!string.IsNullOrEmpty(newReceipt.Description))
+                                {
+                                    <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="() => { newReceipt.Description = string.Empty; }"><i class="bi bi-x-circle"></i></button>
+                                }
+                            </div>
+                        </div>
+
+                        <button class="hub-gold-btn w-100 py-3" @onclick="UploadReceipt" disabled="@(isUploading || isOcrProcessing)">
+                            @if (isUploading)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span><span>업로드 중...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-cloud-arrow-up-fill me-2"></i><span>확인 완료 / 서버로 전송</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+
+        @* ????????????????????????????????????????????????????????????????
+           TAB 2: 영수증(일괄) ? ReceiptMultiUpload.razor 로직
+        ???????????????????????????????????????????????????????????????? *@
+        @if (activeTab == "multi")
+        {
+            <div class="hub-card p-4 p-md-5">
+
+                <div class="hub-info-box mb-4">
+                    <i class="bi bi-info-circle-fill" style="color: #785600; font-size: 1.25rem;"></i>
+                    <div>
+                        <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 0.875rem;">작업 효율 팁</div>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.8125rem; line-height: 1.5;">최대 20장의 영수증 사진을 한 번에 선택하세요. AI가 자동으로 날짜와 금액을 판독하여 장부에 임시 저장합니다. 비어있거나 잘못 인식된 항목은 월별장부에서 수정할 수 있습니다.</p>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <InputFile multiple OnChange="HandleFilesSelected" class="form-control hub-input" accept="image/*" />
+                    <div class="mt-2" style="font-size: 0.75rem; font-weight: 700; color: #ba1a1a;">※ 한 번에 최대 20장까지만 업로드 가능합니다.</div>
+                </div>
+
+                @if (fileStatuses.Any())
+                {
+                    <div class="hub-card-warm rounded p-0 mb-4 overflow-hidden">
+                        <table class="table mb-0 hub-file-table">
+                            <thead class="hub-table-header">
+                                <tr>
+                                    <th>파일명</th>
+                                    <th>AI 판독 상태</th>
+                                    <th>인식된 날짜</th>
+                                    <th class="text-end">인식된 금액</th>
+                                    <th>인식된 사용처</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var file in fileStatuses)
+                                {
+                                    <tr class="hub-table-row">
+                                        <td class="text-truncate fw-bold" style="max-width: 150px; color: #1b1c15;" title="@file.FileName">@file.FileName</td>
+                                        <td>
+                                            @if (file.Status == FileStatus.Pending)
+                                            {
+                                                <span class="hub-badge" style="background-color: #eae9dd; color: #4e4637;">대기중</span>
+                                            }
+                                            else if (file.Status == FileStatus.Processing)
+                                            {
+                                                <span class="hub-badge" style="background-color: rgba(120, 86, 0, 0.1); color: #785600;"><span class="spinner-border spinner-border-sm me-1"></span>분석중</span>
+                                            }
+                                            else if (file.Status == FileStatus.Success)
+                                            {
+                                                <span class="hub-badge" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">성공</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">실패/수동필요</span>
+                                            }
+                                        </td>
+                                        <td class="hub-tabular" style="color: #4e4637;">@(file.ParsedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                                        <td class="text-end hub-tabular hub-amount">@(file.ParsedAmount > 0 ? file.ParsedAmount.ToString("#,0") + "원" : "-")</td>
+                                        <td style="color: #1b1c15;">@(string.IsNullOrEmpty(file.ParsedDescription) ? "-" : file.ParsedDescription)</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <button class="hub-gold-btn w-100 py-3" @onclick="ProcessAllFiles" disabled="@isProcessing">
+                        @if (isProcessing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span><span>@($"{processedCount} / {fileStatuses.Count} 처리중...")</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-magic me-2"></i><span>전체 AI 분석 및 서버 저장 시작</span>
+                        }
+                    </button>
+                }
+            </div>
+        }
+
+        @* ????????????????????????????????????????????????????????????????
+  TAB 3: 엑셀 내역 업로드 ? BankImport.razor 로직
+ ???????????????????????????????????????????????????????????????? *@
+ @if (activeTab == "excel")
+ {
+     @if (!string.IsNullOrEmpty(UserDepartmentName))
+     {
+         <div class="hub-info-box mb-4">
+             <i class="bi bi-building" style="color: #785600; font-size: 1.25rem;"></i>
+             <div>
+                 <span style="color: #1b1c15; font-weight: 700;">현재 '@UserDepartmentName' 부서 장부로 작업 중입니다.</span>
+                 
+                 @* 🚀 하드코딩 제거: 등록된 자동 분류 규칙(autoRules)이 존재하면 뱃지를 표시 *@
+                 @if (autoRules != null && autoRules.Any())
+                 {
+                     <span class="hub-badge ms-2" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">자동 분류 ON (@(autoRules.Count)개 규칙 적용중)</span>
+                 }
+             </div>
+         </div>
+     }
+
+            <div class="hub-card p-4 p-md-5 mb-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <i class="bi bi-bank fs-4" style="color: #785600;"></i>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: #1b1c15;">은행 통장 거래내역 가져오기</h5>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.8125rem;">자동 분류 규칙에 따라 항목이 분류되며, 미리보기 후 저장합니다.</p>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <InputFile OnChange="LoadBankFiles" class="form-control hub-input" accept=".xls,.xlsx,.csv" />
+                    </div>
+                    @if (LastTransactionDate.HasValue)
+                    {
+                        <div class="p-2 px-3 rounded" style="background-color: #f5f4e8;">
+                            <span style="color: #4e4637; font-size: 0.75rem; display: block;">마지막 장부 기록일</span>
+                            <strong class="hub-tabular" style="color: #5a4000; font-size: 1.1rem;">@LastTransactionDate.Value.ToString("yyyy-MM-dd")</strong>
+                        </div>
+                    }
+                </div>
+                @if (isLoading)
+                {
+                    <div class="mt-3 p-3 rounded d-flex align-items-center gap-2" style="background-color: #f5f4e8;">
+                        <div class="spinner-border spinner-border-sm" style="color: #785600;"></div>
+                        <span style="color: #5a4000; font-weight: 600; font-size: 0.875rem;">은행 엑셀 파일 분석 중...</span>
+                    </div>
+                }
+            </div>
+
+            @if (_savedPreviewList != null && _savedPreviewList.Any())
+            {
+                var unclassifiedIncomeCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "수입");
+                var unclassifiedExpenseCount = _savedPreviewList.Count(x => x.Category == "미분류" && x.Type == "지출");
+                var totalUnclassified = unclassifiedIncomeCount + unclassifiedExpenseCount;
+
+                <div class="hub-card p-4 mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="fw-bold mb-0" style="color: #1b1c15;">
+                            <i class="bi bi-arrows-move me-2" style="color: #785600;"></i>퀵 분류 (남은 미분류: @totalUnclassified 건)
+                        </h5>
+                        <button class="hub-secondary-btn px-3 py-2" style="font-size: 0.8rem;" @onclick="ClearWorkData">
+                            <i class="bi bi-arrow-clockwise me-1"></i>목록 비우기
+                        </button>
+                    </div>
+
+                    <div class="row g-4">
+                        <div class="col-md-5">
+                            <div class="hub-card p-3" style="background-color: #ffffff;">
+                                <div class="d-flex rounded p-1 mb-3" style="background-color: #f5f4e8;">
+                                    <button class="btn btn-sm flex-fill fw-bold @(_savedCurrentTab == "수입" ? "bg-white shadow-sm" : "")"
+                                            style="border-radius: 0.375rem; color: @(_savedCurrentTab == "수입" ? "#5a4000" : "#4e4637"); border: none;"
+                                            @onclick="@(() => ChangeTab("수입"))">
+                                        ?? 수입 (@unclassifiedIncomeCount)
+                                    </button>
+                                    <button class="btn btn-sm flex-fill fw-bold @(_savedCurrentTab == "지출" ? "bg-white shadow-sm" : "")"
+                                            style="border-radius: 0.375rem; color: @(_savedCurrentTab == "지출" ? "#ba1a1a" : "#4e4637"); border: none;"
+                                            @onclick="@(() => ChangeTab("지출"))">
+                                        ?? 지출 (@unclassifiedExpenseCount)
+                                    </button>
+                                </div>
+
+                                <div class="mb-3 p-2 rounded" style="background-color: #f5f4e8;">
+                                    <input type="text" class="form-control hub-input mb-2" placeholder="?? 텍스트 검색..." @bind="searchUnclassified" @bind:event="oninput" />
+                                    <div class="d-flex gap-1">
+                                        <select class="form-select hub-input fw-bold flex-grow-1" style="font-size: 0.8rem;" @bind="batchSelectedCategory">
+                                            <option value="">(일괄 지정 카테고리 선택)</option>
+                                            @if(_savedCurrentTab == "수입") { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } }
+                                            else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
+                                        </select>
+                                        <button class="hub-gold-btn px-3 py-1" style="font-size: 0.75rem; padding: 0.4rem 0.75rem;" @onclick="ApplyBatchToUnclassified" disabled="@(selectedUnclassified.Count == 0 || string.IsNullOrEmpty(batchSelectedCategory))">
+                                            <i class="bi bi-check2-all"></i> 적용 (@selectedUnclassified.Count)
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div style="height: 380px; overflow-y: auto; padding-right: 5px;">
+                                    @{ var currentList = GetFilteredUnclassified(); }
+                                    @if (!currentList.Any())
+                                    {
+                                        <div class="text-center py-5 mt-4" style="color: #4e4637;"><i class="bi bi-check-circle fs-1 d-block mb-2" style="color: #174577;"></i> @_savedCurrentTab 미분류가 모두 처리되었습니다!</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-end mb-2"><button class="btn btn-sm p-0" style="color: #5a4000; font-weight: 600; font-size: 0.75rem; text-decoration: none; border: none; background: none;" @onclick="SelectAllCurrentTab">전체선택</button></div>
+                                        @foreach (var item in currentList)
+                                        {
+                                            <div class="p-2 mb-2 rounded d-flex align-items-center" style="background-color: @(selectedUnclassified.Contains(item) ? (_savedCurrentTab == "수입" ? "rgba(90, 64, 0, 0.15)" : "rgba(186, 26, 26, 0.1)") : "#f5f4e8"); cursor: grab; transition: all 0.15s ease-out;" draggable="true" @ondragstart="@(() => HandleDragStart(item))">
+                                                <input type="checkbox" class="form-check-input me-3" style="transform: scale(1.2); cursor:pointer;" checked="@selectedUnclassified.Contains(item)" @onchange="@(e => ToggleUnclassified(item, e))" />
+                                                <div class="flex-grow-1" @onclick="@(() => ToggleRowClick(item))" style="cursor:pointer;">
+                                                    <small class="d-block" style="color: #4e4637; font-size: 0.7rem; font-weight: 600;">@item.Date.ToString("MM-dd")</small>
+                                                    <strong style="color: #1b1c15; font-size: 0.875rem;">@item.Description</strong>
+                                                    <div class="text-end fw-bold hub-tabular" style="color: @(_savedCurrentTab == "수입" ? "#5a4000" : "#ba1a1a"); font-size: 0.875rem;">@(_savedCurrentTab == "수입" ? $"+{item.Income:N0}" : $"-{item.Expense:N0}")</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-7">
+                            <div class="hub-card p-3" style="background-color: #ffffff;">
+                                @if (_savedCurrentTab == "수입")
+                                {
+                                    <div class="fw-bold mb-3 pb-2" style="color: #5a4000; font-size: 1.1rem;"><i class="bi bi-box-arrow-in-down me-2"></i>수입 전용 바구니</div>
+                                    <div class="row g-3">
+                                        @foreach (var cat in IncomeCats)
+                                        {
+                                            <div class="col-4">
+                                                <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(90, 64, 0, 0.06)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                                    <strong style="color: #5a4000; font-size: 1rem;">@cat</strong>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="fw-bold mb-3 pb-2" style="color: #ba1a1a; font-size: 1.1rem;"><i class="bi bi-cart-dash me-2"></i>지출 전용 바구니</div>
+                                    <div class="row g-3">
+                                        @foreach (var cat in ExpenseCats)
+                                        {
+                                            <div class="col-4">
+                                                <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(186, 26, 26, 0.04)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                                    <strong style="color: #ba1a1a; font-size: 1rem;">@cat</strong>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-end mb-3 mt-4">
+                    <div>
+                        <h5 class="fw-bold mb-2" style="color: #1b1c15;">최종 장부 미리보기 (@_savedPreviewList.Count 건)</h5>
+                        <input type="text" class="form-control hub-input" placeholder="?? 전체 내역 검색..." style="width: 250px;" @bind="searchPreview" @bind:event="oninput" />
+                    </div>
+                    <button class="hub-gold-btn" @onclick="SaveToLedger" disabled="@(isSaving || totalUnclassified > 0)">
+                        @if (isSaving) { <span><div class="spinner-border spinner-border-sm me-2"></div>저장 중...</span> }
+                        else if (totalUnclassified > 0) { <span>?? 미분류 해결 필요 (@totalUnclassified)</span> }
+                        else { <span><i class="bi bi-floppy-fill me-2"></i>장부에 저장하기</span> }
+                    </button>
+                </div>
+
+                <div class="hub-card-warm rounded overflow-hidden mb-4" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table mb-0 hub-file-table">
+                        <thead class="hub-table-header" style="position: sticky; top: 0; z-index: 1;">
+                            <tr>
+                                <th style="width: 10%">날짜</th><th style="width: 8%">구분</th><th class="text-start">적요</th><th class="text-start">비고</th><th style="width: 10%" class="text-end">수입</th><th style="width: 10%" class="text-end">지출</th><th style="width: 15%">카테고리 수정</th><th style="width: 6%"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in GetFilteredPreview())
+                            {
+                                <tr class="hub-table-row" style="@(item.Category == "미분류" ? "background-color: rgba(186, 26, 26, 0.05);" : "")">
+                                    <td class="hub-tabular" style="color: #4e4637;">@item.Date.ToString("MM-dd")</td>
+                                    <td>
+                                        @if(item.Type == "수입") { <span class="hub-badge" style="background-color: rgba(90, 64, 0, 0.1); color: #5a4000;">수입</span> }
+                                        else { <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">지출</span> }
+                                    </td>
+                                    <td class="text-start fw-bold" style="color: #1b1c15;">@item.Description</td>
+                                    <td class="text-start" style="color: #4e4637; font-size: 0.8rem;">@item.Note</td>
+                                    <td class="text-end hub-tabular" style="color: #5a4000; font-weight: 700;">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
+                                    <td class="text-end hub-tabular" style="color: #ba1a1a; font-weight: 700;">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
+                                    <td>
+                                        <select class="form-select hub-input fw-bold" style="font-size: 0.75rem; padding: 0.3rem 0.5rem; @(item.Category=="미분류" ? "color: #ba1a1a;" : "color: #174577;")" @bind="item.Category">
+                                            @if(item.Category == "미분류") { <option value="미분류">미분류 ??</option> }
+                                            @if (item.Type == "수입") { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } } else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
+                                        </select>
+                                    </td>
+                                    <td><button class="btn btn-sm p-0" style="color: #ba1a1a; border: none; background: none;" @onclick="() => _savedPreviewList.Remove(item)"><i class="bi bi-trash"></i></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+
+            <div class="hub-card p-4 p-md-5 mt-4">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <i class="bi bi-journal-arrow-up fs-4" style="color: #174577;"></i>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: #1b1c15;">월별 장부 엑셀 복원 (그대로 올리기)</h5>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.8125rem;">월별 장부 화면에서 다운로드했던 엑셀 파일을 올려주세요. 자동 분류 없이 그대로 즉시 반영됩니다.</p>
+                    </div>
+                </div>
+                <div class="p-3 rounded mb-3" style="background-color: #f5f4e8;">
+                    <span style="color: #ba1a1a; font-weight: 700; font-size: 0.8rem;">※ 주의: 날짜와 금액이 겹치는 기존 장부 내역이 있으면 교체(덮어쓰기) 여부를 묻습니다.</span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <InputFile OnChange="HandleLedgerImport" class="form-control hub-input" style="max-width: 50%;" accept=".xls,.xlsx,.csv" />
+                    @if (isLedgerImporting)
+                    {
+                        <span style="color: #174577; font-weight: 700; font-size: 0.875rem;">
+                            <div class="spinner-border spinner-border-sm me-2"></div>장부에 바로 적용 중...
+                        </span>
+                    }
+                </div>
+            </div>
+        }
+
+        @* ????????????????????????????????????????????????????????????????
+           TAB 4: 장부 매칭 ? ReceiptQuery + MonthlyLedger 매칭 로직 병합
+        ???????????????????????????????????????????????????????????????? *@
+        @if (activeTab == "matching")
+        {
+            <div class="hub-info-box mb-4">
+                <i class="bi bi-info-circle" style="color: #785600; font-size: 1.25rem;"></i>
+                <div>
+                    <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 0.875rem;">사용법 안내</div>
+                    <p class="mb-0" style="color: #4e4637; font-size: 0.8125rem; line-height: 1.6;">왼쪽 리스트에서 미연결된 영수증을 선택하고, 오른쪽 리스트에서 매칭할 장부 데이터를 선택한 뒤 하단의 '건별매치' 버튼을 누르세요. 날짜와 금액이 일치하는 항목들은 '자동매치' 기능을 통해 한 번에 정리할 수 있습니다.</p>
+                </div>
+            </div>
+
+            <div class="row g-4" style="align-items: stretch;">
+                <div class="col-lg-5 d-flex flex-column">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <h5 class="fw-bold mb-0 d-flex align-items-center gap-2" style="color: #1b1c15;">
+                            미연결 영수증
+                            <span class="hub-tabular px-2 py-1 rounded-pill" style="background-color: rgba(90, 64, 0, 0.1); color: #5a4000; font-size: 0.8rem;">@pendingReceipts.Count</span>
+                        </h5>
+                        <select class="form-select hub-input fw-bold" style="width: auto; font-size: 0.75rem; padding: 0.3rem 0.75rem;" @bind="matchingFilterMonth">
+                            <option value="0">전체 기간</option>
+                            @for (int m = 1; m <= 12; m++) { <option value="@m">@(m)월</option> }
+                        </select>
+                    </div>
+
+                    <div class="flex-grow-1" style="overflow-y: auto; max-height: 65vh;">
+                        @if (!GetFilteredPendingReceipts().Any())
+                        {
+                            <div class="text-center py-5" style="color: #4e4637;">
+                                <i class="bi bi-check-circle fs-1 d-block mb-2" style="color: #174577;"></i>
+                                모든 영수증이 매칭 완료되었습니다!
+                            </div>
+                        }
+                        @foreach (var receipt in GetFilteredPendingReceipts())
+                        {
+                            bool isActive = selectedMatchingReceipt?.Id == receipt.Id;
+                            <div class="hub-receipt-item mb-2 @(isActive ? "selected" : "")" @onclick="() => SelectMatchingReceipt(receipt)">
+                                <input type="checkbox" class="form-check-input" style="min-width: 1.25rem; min-height: 1.25rem;" checked="@(selectedMatchingReceiptIds.Contains(receipt.Id))" @onchange="e => ToggleMatchingReceiptSelection(receipt.Id, e)" @onclick:stopPropagation="true" />
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <span style="font-size: 0.9rem; font-weight: 700; color: #4e4637; letter-spacing: 0.05em;">@receipt.ReceiptDate.ToString("yyyy.MM.dd")</span>
+                                        <button class="hub-delete-btn" @onclick="() => DeleteReceipt(receipt.Id)" @onclick:stopPropagation="true">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-end mt-1">
+                                        <span class="fw-bold" style="color: #1b1c15;">@receipt.Description</span>
+                                        <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">원</span></span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="col-lg-7 d-flex flex-column">
+                    <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+                        <h5 class="fw-bold mb-0" style="color: #1b1c15;">장부 데이터</h5>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="position-relative">
+                                <i class="bi bi-search position-absolute" style="left: 0.75rem; top: 50%; transform: translateY(-50%); color: #4e4637; font-size: 0.8rem;"></i>
+                                <input type="text" class="form-control hub-input" style="padding-left: 2rem; font-size: 0.8rem; width: 220px;" placeholder="장부 내역 검색..." @bind="SearchKeyword" @bind:event="oninput" @onkeyup="HandleKeyUp" />
+                            </div>
+                            <button class="hub-secondary-btn px-3 py-2" style="font-size: 0.75rem;" @onclick="SearchData">
+                                <i class="bi bi-search me-1"></i>검색
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="hub-card-warm rounded-3 overflow-hidden flex-grow-1" style="box-shadow: 0 2px 8px rgba(48,49,41,0.04);">
+                        <div style="overflow-x: auto; max-height: 65vh; overflow-y: auto;">
+                            <table class="table mb-0 hub-file-table" style="border-collapse: collapse;">
+                                <thead class="hub-table-header" style="position: sticky; top: 0; z-index: 1;">
+                                    <tr>
+                                        <th style="padding: 1rem 1.5rem;">선택</th>
+                                        <th style="padding: 1rem 0.5rem;">날짜</th>
+                                        <th style="padding: 1rem 0.5rem;">카테고리</th>
+                                        <th style="padding: 1rem 0.5rem;">적요</th>
+                                        <th style="padding: 1rem 1.5rem;" class="text-end">금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in unmatchedEntries)
+                                    {
+                                        bool isSuggested = selectedMatchingReceipt != null &&
+                                            (item.Date.Date == selectedMatchingReceipt.ReceiptDate.Date || item.Expense == selectedMatchingReceipt.Amount);
+                                        <tr class="hub-table-row" style="cursor: pointer; @(isSuggested ? "background-color: rgba(120, 86, 0, 0.06);" : "") @(selectedMatchingEntryId == item.Id ? "background-color: rgba(90, 64, 0, 0.1);" : "")">
+                                            <td style="padding: 1rem 1.5rem;">
+                                                <input type="radio" name="ledger_match_select" style="width: 1rem; height: 1rem; accent-color: #5a4000; cursor: pointer;"
+                                                       checked="@(selectedMatchingEntryId == item.Id)"
+                                                       @onchange="() => selectedMatchingEntryId = item.Id" />
+                                            </td>
+                                            <td class="hub-tabular" style="padding: 1rem 0.5rem; color: #4e4637; font-size: 0.875rem;">@item.Date.ToString("yyyy.MM.dd")</td>
+                                            <td style="padding: 1rem 0.5rem;">
+                                               <span class="hub-badge hub-badge-cat">@item.Category</span>
+                                            </td>
+                                            <td style="padding: 1rem 0.5rem; font-weight: 600; color: #1b1c15; font-size: 0.875rem;">@item.Description</td>
+                                            <td class="text-end hub-tabular" style="padding: 1rem 1.5rem; font-weight: 800; color: #1b1c15; font-size: 0.875rem;">@(item.Expense > 0 ? item.Expense.ToString("N0") : item.Income.ToString("N0"))</td>
+                                        </tr>
+                                    }
+                                    @if (!unmatchedEntries.Any())
+                                    {
+                                        <tr><td colspan="5" class="text-center py-5" style="color: #4e4637;">증빙 없는 장부 내역이 없습니다.</td></tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+    </div>
+</div>
+
+@* 장부 매칭 탭 전용 하단 고정 액션 바 *@
+@if (activeTab == "matching")
+{
+    <div class="hub-bottom-bar">
+        <div class="d-flex align-items-center gap-3">
+            <span style="font-size: 0.6875rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.08em;">선택된 항목</span>
+            <span class="px-2 py-1 rounded hub-tabular" style="background-color: #5a4000; color: #ffffff; font-size: 0.625rem; font-weight: 800;">
+                @selectedMatchingReceiptIds.Count 영수증 / @(selectedMatchingEntryId > 0 ? "1" : "0") 장부
+            </span>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <button class="hub-secondary-btn" @onclick="AutoMatchReceipts">
+                자동매치
+            </button>
+            <button class="hub-gold-btn" @onclick="ManualMatchSingle" disabled="@(selectedMatchingReceipt == null || selectedMatchingEntryId == 0)">
+                건별매치
+            </button>
+        </div>
+    </div>
+}
+
+@* 이미지 크게 보기 모달 *@
+@if (showImageModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(48, 49, 41, 0.8); backdrop-filter: blur(8px);" tabindex="-1" @onclick="CloseImageModal">
+        <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation>
+            <div class="modal-content" style="background: transparent; border: none;">
+                <div class="text-end p-2">
+                    <button class="btn btn-sm" style="color: #ffffff; font-size: 1.5rem; background: none; border: none;" @onclick="CloseImageModal"><i class="bi bi-x-lg"></i></button>
+                </div>
+                <div class="text-center p-0">
+                    <img src="@currentLargeImageUrl" class="img-fluid rounded" style="max-height: 80vh; object-fit: contain;" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    // ???????????????????????????????????????????
+    // 공통 변수
+    // ???????????????????????????????????????????
+    private string activeTab = "single";
+    private bool showImageModal = false;
+    private string currentLargeImageUrl = "";
+
+    // ???????????????????????????????????????????
+    // TAB 1: 단일 영수증 업로드 (ReceiptUpload.razor)
+    // ???????????????????????????????????????????
+    private UploadedReceipt newReceipt = new() { ReceiptDate = DateTime.Now };
+    private decimal? inputAmount = null;
+    private IBrowserFile? selectedFile;
+    private string selectedFileName = "";
+    private string previewImageUrl = "";
+    private bool isUploading = false;
+    private bool isOcrProcessing = false;
+    private const long MaxFileSize = 25 * 1024 * 1024;
+    private int currentOcrUsage = 0;
+
+    // ???????????????????????????????????????????
+    // TAB 2: 일괄 영수증 업로드 (ReceiptMultiUpload.razor)
+    // ???????????????????????????????????????????
+    private enum FileStatus { Pending, Processing, Success, Failed }
+
+    private class FileUploadModel
+    {
+        public IBrowserFile File { get; set; } = default!;
+        public string FileName { get; set; } = "";
+        public FileStatus Status { get; set; } = FileStatus.Pending;
+        public DateTime? ParsedDate { get; set; }
+        public decimal ParsedAmount { get; set; }
+        public string ParsedDescription { get; set; } = "";
+    }
+
+    private List<FileUploadModel> fileStatuses = new();
+    private bool isProcessing = false;
+    private int processedCount = 0;
+    private const int MaxAllowedFiles = 20;
+    private const long MaxMultiFileSize = 10 * 1024 * 1024;
+
+    // ???????????????????????????????????????????
+    // TAB 3: 엑셀 내역 업로드 (BankImport.razor)
+    // ???????????????????????????????????????????
+    private int UserDepartmentId => CurrentUser?.DepartmentId ?? 0;
+    private string UserDepartmentName => CurrentUser?.Department?.Name ?? "";
+    private DateTime? LastTransactionDate = null;
+
+    private static List<LedgerEntry> _savedPreviewList = new();
+    private static string _savedCurrentTab = "지출";
+
+    private List<CategoryMapping> autoRules = new();
+    private bool isLoading = false;
+    private bool isSaving = false;
+    private bool isLedgerImporting = false;
+
+    private List<string> IncomeCats = new();
+    private List<string> ExpenseCats = new();
+
+    private string searchUnclassified = "";
+    private string searchPreview = "";
+    private string batchSelectedCategory = "";
+    private HashSet<LedgerEntry> selectedUnclassified = new();
+    private LedgerEntry? draggedItem;
+
+    // ???????????????????????????????????????????
+    // TAB 4: 장부 매칭 (ReceiptQuery + MonthlyLedger 병합)
+    // ???????????????????????????????????????????
+    private bool CanViewAll => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Auditor" || CurrentUser?.Department?.Name == "교육국" || CurrentUser?.Department?.Name == "관리자";
+
+    private List<UploadedReceipt> pendingReceipts = new();
+    private List<LedgerEntry> unmatchedEntries = new();
+    private Dictionary<int, int> selectedMatchDict = new();
+
+    private int SearchDeptId = 0;
+    private string SearchKeyword = "";
+    private List<Department> allDepts = new();
+    private List<LedgerEntry> searchResults = new();
+
+    // 장부 매칭 탭 전용 UI 상태
+    private int matchingFilterMonth = 0;
+    private UploadedReceipt? selectedMatchingReceipt = null;
+    private HashSet<int> selectedMatchingReceiptIds = new();
+    private int selectedMatchingEntryId = 0;
+
+    // ???????????????????????????????????????????
+    // 초기화
+    // ???????????????????????????????????????????
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+
+        // Tab 1 초기화
+        await LoadOcrUsage();
+
+        // Tab 3 초기화 (BankImport)
+        if (UserDepartmentId > 0)
+        {
+            autoRules = await Accounting.GetMappingsAsync(UserDepartmentId);
+            LastTransactionDate = await Accounting.GetLastTransactionDateAsync(UserDepartmentId);
+
+            int currentYear = DateTime.Now.Year;
+            var budgetPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == UserDepartmentId && b.Year == currentYear).ToListAsync();
+
+            IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
+            ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+
+            if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "은행이자", "회비수입", "환급금" };
+            if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "공과비", "교육활동비", "여름성경학교", "운영비", "간식비", "부서관리비", "교사회의비", "훈련비" };
+        }
+
+        // Tab 4 초기화 (ReceiptQuery)
+        allDepts = await DbContext.Departments.AsNoTracking().OrderBy(d => d.Id).ToListAsync();
+        await LoadPendingReceipts();
+    }
+
+    private async Task ActivateMatchingTab()
+    {
+        activeTab = "matching";
+        await LoadPendingReceipts();
+    }
+
+    // ???????????????????????????????????????????
+    // TAB 1 메서드: 단일 영수증 업로드 (ReceiptUpload.razor 그대로)
+    // ???????????????????????????????????????????
+    private async Task LoadOcrUsage()
+    {
+        string currentMonth = DateTime.Now.ToString("yyyy-MM");
+        var usage = await DbContext.OcrUsages.AsNoTracking().FirstOrDefaultAsync(u => u.YearMonth == currentMonth);
+        currentOcrUsage = usage?.UsageCount ?? 0;
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            selectedFile = e.File;
+            selectedFileName = selectedFile.Name;
+            previewImageUrl = "";
+
+            if (selectedFile.Size < 5 * 1024 * 1024 && !selectedFileName.ToLower().EndsWith(".heic"))
+            {
+                isOcrProcessing = true;
+                StateHasChanged();
+
+                try
+                {
+                    var previewImage = await selectedFile.RequestImageFileAsync("image/jpeg", 800, 800);
+                    using var stream = previewImage.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                    using var memoryStream = new MemoryStream();
+                    await stream.CopyToAsync(memoryStream);
+                    var imageBytes = memoryStream.ToArray();
+
+                    var base64 = Convert.ToBase64String(imageBytes);
+                    previewImageUrl = $"data:image/jpeg;base64,{base64}";
+
+                    var ocrResult = await OcrService.ProcessReceiptAsync(imageBytes);
+
+                    if (ocrResult.IsSuccess)
+                    {
+                        if (ocrResult.Date.HasValue) newReceipt.ReceiptDate = ocrResult.Date.Value;
+                        if (ocrResult.Amount.HasValue && ocrResult.Amount.Value > 0) inputAmount = ocrResult.Amount.Value;
+                        if (!string.IsNullOrEmpty(ocrResult.Description)) newReceipt.Description = ocrResult.Description;
+
+                        await JSRuntime.InvokeVoidAsync("alert", "? AI가 영수증 정보를 인식했습니다.\n입력된 금액과 날짜가 정확한지 확인해 주세요!");
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"?? OCR 알림: {ocrResult.ErrorMessage}\n\n(사진은 정상적으로 선택되었습니다. 수동으로 입력해 주세요.)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await JSRuntime.InvokeVoidAsync("console.log", "OCR 변환 실패: " + ex.Message);
+                }
+                finally
+                {
+                    isOcrProcessing = false;
+                    await LoadOcrUsage();
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"파일 선택 오류: {ex.Message}");
+        }
+    }
+
+    private async Task UploadReceipt()
+    {
+        if (CurrentUser == null) return;
+        if (selectedFile == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "영수증 사진을 첨부해 주세요."); return;
+        }
+        if (!inputAmount.HasValue || inputAmount.Value <= 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "정확한 결제 금액을 입력해 주세요."); return;
+        }
+        if (string.IsNullOrWhiteSpace(newReceipt.Description))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "적요(사용처)를 입력해 주세요."); return;
+        }
+
+        isUploading = true;
+        StateHasChanged();
+
+        try
+        {
+            var uploadsFolder = Path.Combine(Env.WebRootPath, "uploads", "receipts");
+            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+            string fileName = $"receipt_{CurrentUser.DepartmentId}_{DateTime.Now:yyyyMMddHHmmss}.jpg";
+            string filePath = Path.Combine(uploadsFolder, fileName);
+
+            using var fileStream = new FileStream(filePath, FileMode.Create);
+            await selectedFile.OpenReadStream(maxAllowedSize: MaxFileSize).CopyToAsync(fileStream);
+
+            newReceipt.Amount = inputAmount.Value;
+            newReceipt.DepartmentId = CurrentUser.DepartmentId;
+            newReceipt.ImagePath = $"/uploads/receipts/{fileName}";
+
+            DbContext.UploadedReceipts.Add(newReceipt);
+            await DbContext.SaveChangesAsync();
+
+            await JSRuntime.InvokeVoidAsync("alert", "? 영수증 업로드가 완료되었습니다!");
+
+            newReceipt = new() { ReceiptDate = DateTime.Now };
+            inputAmount = null;
+            selectedFile = null;
+            selectedFileName = "";
+            previewImageUrl = "";
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"업로드 오류: {ex.Message}");
+        }
+        finally
+        {
+            isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ???????????????????????????????????????????
+    // TAB 2 메서드: 일괄 영수증 업로드 (ReceiptMultiUpload.razor 그대로)
+    // ???????????????????????????????????????????
+    private void HandleFilesSelected(InputFileChangeEventArgs e)
+    {
+        fileStatuses.Clear();
+        var files = e.GetMultipleFiles(MaxAllowedFiles);
+
+        foreach (var file in files)
+        {
+            fileStatuses.Add(new FileUploadModel
+            {
+                File = file,
+                FileName = file.Name
+            });
+        }
+    }
+
+    private async Task ProcessAllFiles()
+    {
+        if (CurrentUser == null) return;
+        isProcessing = true;
+        processedCount = 0;
+
+        var uploadsFolder = Path.Combine(Env.WebRootPath, "uploads", "receipts");
+        if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
+
+        foreach (var fileModel in fileStatuses)
+        {
+            fileModel.Status = FileStatus.Processing;
+            StateHasChanged();
+
+            try
+            {
+                // 1. 이미지 읽기
+                using var memoryStream = new MemoryStream();
+                await fileModel.File.OpenReadStream(maxAllowedSize: MaxMultiFileSize).CopyToAsync(memoryStream);
+                var imageBytes = memoryStream.ToArray();
+
+                // 2. AI 판독 실행
+                var ocrResult = await OcrService.ProcessReceiptAsync(imageBytes);
+
+                if (ocrResult.IsSuccess)
+                {
+                    fileModel.ParsedDate = ocrResult.Date;
+                    fileModel.ParsedAmount = ocrResult.Amount ?? 0;
+                    fileModel.ParsedDescription = ocrResult.Description;
+                    fileModel.Status = FileStatus.Success;
+                }
+                else
+                {
+                    fileModel.Status = FileStatus.Failed;
+                }
+
+                // 3. 파일 물리적 저장
+                string ext = Path.GetExtension(fileModel.FileName);
+                if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+                string newFileName = $"receipt_{CurrentUser.DepartmentId}_{DateTime.Now:yyyyMMddHHmmssfff}{ext}";
+                string filePath = Path.Combine(uploadsFolder, newFileName);
+
+                await File.WriteAllBytesAsync(filePath, imageBytes);
+
+                // 4. DB에 임시 저장 (자동 매칭 대기 상태)
+                var newUploadedReceipt = new UploadedReceipt
+                {
+                    DepartmentId = CurrentUser.DepartmentId,
+                    ImagePath = $"/uploads/receipts/{newFileName}",
+                    ReceiptDate = fileModel.ParsedDate ?? DateTime.Now,
+                    Amount = fileModel.ParsedAmount,
+                    Description = fileModel.ParsedDescription ?? ""
+                };
+
+                DbContext.UploadedReceipts.Add(newUploadedReceipt);
+                await DbContext.SaveChangesAsync();
+            }
+            catch (Exception)
+            {
+                fileModel.Status = FileStatus.Failed;
+            }
+
+            processedCount++;
+            StateHasChanged();
+        }
+
+        isProcessing = false;
+        await JSRuntime.InvokeVoidAsync("alert", $"{processedCount}장의 영수증 처리가 완료되었습니다.\n월별 장부 화면에서 '자동 매치' 또는 '수동 매치'를 진행해 주세요!");
+    }
+
+    // ???????????????????????????????????????????
+    // TAB 3 메서드: 엑셀 내역 업로드 (BankImport.razor 그대로)
+    // ???????????????????????????????????????????
+    private void ClearWorkData()
+    {
+        _savedPreviewList.Clear();
+        _savedCurrentTab = "지출";
+        selectedUnclassified.Clear();
+    }
+
+    private async Task LoadBankFiles(InputFileChangeEventArgs e)
+    {
+        isLoading = true;
+        _savedPreviewList.Clear();
+        selectedUnclassified.Clear();
+
+        try
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            using var memoryStream = new MemoryStream();
+            await e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+            using (var reader = ExcelReaderFactory.CreateReader(memoryStream))
+            {
+                var result = reader.AsDataSet();
+                var table = result.Tables[0];
+                int colDate = -1, colDesc = -1, colMemo = -1, colPerson = -1, colIn = -1, colOut = -1, dataStart = 0;
+                for (int i = 0; i < Math.Min(table.Rows.Count, 15); i++)
+                {
+                    var row = table.Rows[i];
+                    for (int c = 0; c < table.Columns.Count; c++)
+                    {
+                        string h = row[c]?.ToString()?.Trim() ?? "";
+                        if (h == "거래일시" || h == "날짜") colDate = c;
+                        else if (h == "적요") colDesc = c;
+                        else if (h == "추가메모") colMemo = c;
+                        else if (h.Contains("의뢰인") || h.Contains("수취인")) colPerson = c;
+                        else if (h == "입금" || h.Contains("입금액")) colIn = c;
+                        else if (h == "출금" || h.Contains("출금액")) colOut = c;
+                    }
+                    if (colDate >= 0 && colDesc >= 0) { dataStart = i + 1; break; }
+                }
+
+                if (colDate < 0) { colDate = 0; colDesc = 1; colMemo = 2; colPerson = 3; colIn = 4; colOut = 5; dataStart = 2; }
+                string Cell(DataRow row, int idx) => idx >= 0 && idx < table.Columns.Count ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                for (int i = dataStart; i < table.Rows.Count; i++)
+                {
+                    var row = table.Rows[i];
+                    if (!DateTime.TryParse(Cell(row, colDate), out DateTime date)) continue;
+
+                    string desc = Cell(row, colDesc);
+                    string memo = Cell(row, colMemo);
+                    string person = Cell(row, colPerson);
+                    decimal income = ParseDecimal(Cell(row, colIn));
+                    decimal expense = ParseDecimal(Cell(row, colOut));
+                    if (income == 0 && expense == 0) continue;
+
+                    string type = income > 0 ? "수입" : "지출";
+                    string cat = ClassifyAuto($"{desc} {person} {memo}", type);
+
+                    _savedPreviewList.Add(new LedgerEntry
+                    {
+                        Date = date, Description = desc, Note = string.Join(" ", new[] { person, memo }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                        Income = income, Expense = expense,
+                        DepartmentId = UserDepartmentId,
+                        Category = cat, Type = type, FiscalYear = date.Year, Quarter = GetQuarter(date), IsAudited = false
+                    });
+                }
+            }
+
+            if (!_savedPreviewList.Any(x => x.Type == "지출" && x.Category == "미분류") && _savedPreviewList.Any(x => x.Type == "수입" && x.Category == "미분류")) _savedCurrentTab = "수입";
+            else _savedCurrentTab = "지출";
+        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"오류: {ex.Message}"); }
+        finally { isLoading = false; }
+    }
+
+    private async Task HandleLedgerImport(InputFileChangeEventArgs e)
+    {
+        isLedgerImporting = true;
+        StateHasChanged();
+        try
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+            using var memoryStream = new MemoryStream();
+            await e.File.OpenReadStream(maxAllowedSize: 20 * 1024 * 1024).CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            using var reader = ExcelReaderFactory.CreateReader(memoryStream);
+            var result = reader.AsDataSet();
+            var table = result.Tables[0];
+
+            int colDate=-1, colType=-1, colCat=-1, colDesc=-1, colIncome=-1, colExpense=-1, colNote=-1, dataStart=0;
+
+            for (int i = 0; i < Math.Min(table.Rows.Count, 10); i++)
+            {
+                var row = table.Rows[i];
+                for(int c=0; c<table.Columns.Count; c++)
+                {
+                    string h = row[c]?.ToString()?.Trim() ?? "";
+                    if (h == "날짜") colDate = c;
+                    else if (h == "구분") colType = c;
+                    else if (h == "세부항목" || h == "항목" || h == "카테고리") colCat = c;
+                    else if (h == "내용" || h == "적요" || h == "내역") colDesc = c;
+                    else if (h == "수입") colIncome = c;
+                    else if (h == "지출") colExpense = c;
+                    else if (h == "비고") colNote = c;
+                }
+                if (colDate >= 0 && colCat >= 0) { dataStart = i + 1; break; }
+            }
+
+            if (colDate < 0) throw new Exception("엑셀에서 '날짜', '세부항목(항목)', '수입/지출' 등의 표 머리글(헤더)을 찾을 수 없습니다.");
+
+            var importedList = new List<LedgerEntry>();
+            for (int i = dataStart; i < table.Rows.Count; i++)
+            {
+                var row = table.Rows[i];
+                string dateStr = row[colDate]?.ToString()?.Trim() ?? "";
+
+                if (string.IsNullOrEmpty(dateStr) || dateStr.Contains("계") || dateStr.Contains("총")) continue;
+
+                if (!DateTime.TryParse(dateStr, out DateTime date)) continue;
+
+                decimal inc = colIncome >= 0 ? ParseDecimal(row[colIncome]?.ToString()) : 0;
+                decimal exp = colExpense >= 0 ? ParseDecimal(row[colExpense]?.ToString()) : 0;
+                if (inc == 0 && exp == 0) continue;
+
+                string parsedType = colType >= 0 ? (row[colType]?.ToString()?.Trim() ?? "") : "";
+                if(string.IsNullOrEmpty(parsedType)) parsedType = (inc > 0 ? "수입" : "지출");
+
+                importedList.Add(new LedgerEntry {
+                    DepartmentId = UserDepartmentId,
+                    Date = date,
+                    FiscalYear = date.Year,
+                    Quarter = GetQuarter(date),
+                    Type = parsedType,
+                    Category = colCat >= 0 ? row[colCat]?.ToString()?.Trim() ?? "미분류" : "미분류",
+                    Description = colDesc >= 0 ? row[colDesc]?.ToString()?.Trim() ?? "" : "",
+                    Income = inc,
+                    Expense = exp,
+                    Note = colNote >= 0 ? row[colNote]?.ToString()?.Trim() ?? "" : "",
+                    IsAudited = false
+                });
+            }
+
+            if (!importedList.Any())
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "읽어들일 장부 데이터가 없습니다.");
+                return;
+            }
+
+            var existingTrans = await DbContext.Transactions.Where(t => t.DepartmentId == UserDepartmentId).ToListAsync();
+            var duplicates = importedList.Where(item => existingTrans.Any(t => t.Date.Date == item.Date.Date && t.Income == item.Income && t.Expense == item.Expense)).ToList();
+
+            if (duplicates.Any())
+            {
+                bool overwrite = await JSRuntime.InvokeAsync<bool>("confirm", $"?? 경고: 날짜와 금액이 일치하는 기존 장부 내역이 {duplicates.Count}건 발견되었습니다.\n\n중복되는 기존 내역을 삭제하고 지금 올리는 파일 내용으로 완전히 덮어쓰시겠습니까?");
+                if (!overwrite)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "장부 업로드가 취소되었습니다.");
+                    return;
+                }
+
+                foreach (var dup in duplicates)
+                {
+                    var toDelete = existingTrans.Where(t => t.Date.Date == dup.Date.Date && t.Income == dup.Income && t.Expense == dup.Expense).ToList();
+                    DbContext.Transactions.RemoveRange(toDelete);
+                }
+                await DbContext.SaveChangesAsync();
+            }
+
+            await DbContext.Transactions.AddRangeAsync(importedList);
+            await DbContext.SaveChangesAsync();
+
+            await JSRuntime.InvokeVoidAsync("alert", $"총 {importedList.Count}건의 장부 데이터가 성공적으로 등록(교체)되었습니다!");
+            Nav.NavigateTo("/monthly");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"장부 업로드 중 오류 발생: {ex.Message}");
+        }
+        finally
+        {
+            isLedgerImporting = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ChangeTab(string targetTab) { _savedCurrentTab = targetTab; selectedUnclassified.Clear(); batchSelectedCategory = ""; }
+    private List<LedgerEntry> GetFilteredUnclassified() { return _savedPreviewList.Where(x => x.Category == "미분류" && x.Type == _savedCurrentTab && (string.IsNullOrEmpty(searchUnclassified) || x.Description.Contains(searchUnclassified) || x.Note.Contains(searchUnclassified))).ToList(); }
+    private IEnumerable<LedgerEntry> GetFilteredPreview() { if (string.IsNullOrEmpty(searchPreview)) return _savedPreviewList; return _savedPreviewList.Where(x => x.Description.Contains(searchPreview) || x.Note.Contains(searchPreview) || x.Category.Contains(searchPreview)); }
+    private void ToggleUnclassified(LedgerEntry item, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) selectedUnclassified.Add(item); else selectedUnclassified.Remove(item); }
+    private void ToggleRowClick(LedgerEntry item) { if (selectedUnclassified.Contains(item)) selectedUnclassified.Remove(item); else selectedUnclassified.Add(item); }
+    private void SelectAllCurrentTab() { var currentList = GetFilteredUnclassified(); if (selectedUnclassified.Count == currentList.Count) selectedUnclassified.Clear(); else { foreach(var item in currentList) selectedUnclassified.Add(item); } }
+    private void ApplyBatchToUnclassified() { if (string.IsNullOrEmpty(batchSelectedCategory) || !selectedUnclassified.Any()) return; foreach (var item in selectedUnclassified) { item.Category = batchSelectedCategory; } selectedUnclassified.Clear(); batchSelectedCategory = ""; }
+    private void HandleDragStart(LedgerEntry item) { draggedItem = item; if (!selectedUnclassified.Contains(item)) { selectedUnclassified.Clear(); selectedUnclassified.Add(item); } }
+    private void HandleDrop(string targetCategory) { if (draggedItem != null && selectedUnclassified.Any()) { foreach (var item in selectedUnclassified) { item.Category = targetCategory; } selectedUnclassified.Clear(); draggedItem = null; } }
+
+    private string ClassifyAuto(string text, string type)
+    {
+        var matched = autoRules.FirstOrDefault(r => !string.IsNullOrEmpty(r.Keyword) && text.Contains(r.Keyword) && (r.Category != null && (type == "수입" ? IncomeCats.Contains(r.Category) : ExpenseCats.Contains(r.Category))));
+        if (matched != null) return matched.Category;
+        return "미분류";
+    }
+
+    private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
+    private decimal ParseDecimal(string? value) { if (string.IsNullOrWhiteSpace(value)) return 0; decimal.TryParse(value.Replace("\"", "").Replace(",", ""), out decimal r); return r; }
+
+    private async Task SaveToLedger()
+    {
+        if (!_savedPreviewList.Any()) return;
+        if (_savedPreviewList.Any(x => x.Category == "미분류")) { await JSRuntime.InvokeVoidAsync("alert", "미분류 항목을 모두 처리해주세요!"); return; }
+
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"{_savedPreviewList.Count}건을 장부에 저장하시겠습니까?"))
+        {
+            isSaving = true;
+            try
+            {
+                await Accounting.AddTransactionsAsync(_savedPreviewList);
+                ClearWorkData();
+                await JSRuntime.InvokeVoidAsync("alert", "저장 완료!");
+                Nav.NavigateTo("/monthly");
+            }
+            catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"저장 오류: {ex.Message}"); }
+            finally { isSaving = false; }
+        }
+    }
+
+    // ???????????????????????????????????????????
+    // TAB 4 메서드: 장부 매칭 (ReceiptQuery + MonthlyLedger 병합)
+    // ???????????????????????????????????????????
+    private async Task LoadPendingReceipts()
+    {
+        if (CurrentUser == null) return;
+
+        int deptId = CurrentUser.DepartmentId;
+
+        // 1. 모바일 미처리 영수증 불러오기
+        pendingReceipts = await DbContext.UploadedReceipts
+            .Where(r => r.DepartmentId == deptId && r.IsMatched == false)
+            .OrderByDescending(r => r.ReceiptDate)
+            .ToListAsync();
+
+        // 2. 현재 부서의 장부 내역 중 영수증(ReceiptUrl)이 비어있는 항목 불러오기
+        unmatchedEntries = await DbContext.Transactions.AsNoTracking()
+            .Where(t => t.DepartmentId == deptId && (t.ReceiptUrl == null || t.ReceiptUrl == ""))
+            .OrderByDescending(t => t.Date).ToListAsync();
+
+        selectedMatchDict.Clear();
+        foreach (var r in pendingReceipts)
+        {
+            selectedMatchDict[r.Id] = 0;
+        }
+
+        // 매칭 탭 UI 초기화
+        selectedMatchingReceiptIds.Clear();
+        selectedMatchingEntryId = 0;
+        if (pendingReceipts.Any())
+        {
+            selectedMatchingReceipt = pendingReceipts.First();
+        }
+        else
+        {
+            selectedMatchingReceipt = null;
+        }
+    }
+
+    private List<UploadedReceipt> GetFilteredPendingReceipts()
+    {
+        if (matchingFilterMonth == 0) return pendingReceipts;
+        return pendingReceipts.Where(r => r.ReceiptDate.Month == matchingFilterMonth).ToList();
+    }
+
+    private void SelectMatchingReceipt(UploadedReceipt r)
+    {
+        selectedMatchingReceipt = r;
+        if (!selectedMatchingReceiptIds.Contains(r.Id))
+        {
+            selectedMatchingReceiptIds.Clear();
+            selectedMatchingReceiptIds.Add(r.Id);
+        }
+    }
+
+    private void ToggleMatchingReceiptSelection(int id, ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false)) selectedMatchingReceiptIds.Add(id);
+        else selectedMatchingReceiptIds.Remove(id);
+    }
+
+    private async Task ManualMatchSingle()
+    {
+        if (selectedMatchingReceipt == null || selectedMatchingEntryId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "영수증과 장부 내역을 모두 선택해주세요.");
+            return;
+        }
+
+        var receipt = await DbContext.UploadedReceipts.FindAsync(selectedMatchingReceipt.Id);
+        if (receipt == null) return;
+
+        var entry = await DbContext.Transactions.FindAsync(selectedMatchingEntryId);
+        if (entry == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "해당 장부 내역을 찾을 수 없습니다. 삭제되었을 수 있습니다.");
+            return;
+        }
+
+        // 파일명 스마트 변경 로직 (ReceiptQuery.razor의 MatchReceiptToEntry 로직)
+        string oldRelativePath = receipt.ImagePath;
+        string oldPhysicalPath = Path.Combine(Env.WebRootPath, oldRelativePath.TrimStart('/'));
+
+        if (File.Exists(oldPhysicalPath))
+        {
+            string deptName = allDepts.FirstOrDefault(d => d.Id == entry.DepartmentId)?.Name ?? "알수없음";
+            string safeDescription = string.Concat((entry.Description ?? "내역없음").Split(Path.GetInvalidFileNameChars()));
+            safeDescription = safeDescription.Replace(" ", "");
+
+            decimal targetAmount = entry.Expense > 0 ? entry.Expense : entry.Income;
+            string newFileName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{targetAmount}원_{safeDescription}_{receipt.Id}{Path.GetExtension(oldPhysicalPath)}";
+
+            string newRelativePath = $"/uploads/receipts/{newFileName}";
+            string newPhysicalPath = Path.Combine(Env.WebRootPath, "uploads", "receipts", newFileName);
+
+            try
+            {
+                File.Move(oldPhysicalPath, newPhysicalPath);
+                entry.ReceiptUrl = newRelativePath;
+                receipt.ImagePath = newRelativePath;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"파일명 변경 실패: {ex.Message}");
+                entry.ReceiptUrl = oldRelativePath;
+            }
+        }
+        else
+        {
+            entry.ReceiptUrl = oldRelativePath;
+        }
+
+        receipt.IsMatched = true;
+
+        DbContext.Transactions.Update(entry);
+        DbContext.UploadedReceipts.Update(receipt);
+        await DbContext.SaveChangesAsync();
+
+        await JSRuntime.InvokeVoidAsync("alert", "영수증이 장부 내역과 성공적으로 연결되었습니다!");
+
+        selectedMatchingEntryId = 0;
+        selectedMatchingReceipt = null;
+        selectedMatchingReceiptIds.Clear();
+
+        await LoadPendingReceipts();
+    }
+
+    // 자동 매칭 (MonthlyLedger.razor의 AutoMatchReceipts 로직 적용)
+    private async Task AutoMatchReceipts()
+    {
+        int count = 0;
+        var receipts = GetFilteredPendingReceipts().ToList();
+        var entries = unmatchedEntries.ToList();
+
+        foreach (var r in receipts)
+        {
+            var exact = entries.Where(e => e.Date.Date == r.ReceiptDate.Date && e.Expense == r.Amount).ToList();
+            LedgerEntry? target = null;
+            if (exact.Count == 1) target = exact.First();
+            else if (exact.Count > 1 && !string.IsNullOrWhiteSpace(r.Description))
+            {
+                string rd = r.Description.Replace(" ", "");
+                target = exact.FirstOrDefault(e => e.Description != null && (e.Description.Replace(" ", "").Contains(rd) || rd.Contains(e.Description.Replace(" ", ""))));
+            }
+            if (target != null)
+            {
+                var dbReceipt = await DbContext.UploadedReceipts.FindAsync(r.Id);
+                var dbEntry = await DbContext.Transactions.FindAsync(target.Id);
+                if (dbReceipt != null && dbEntry != null)
+                {
+                    dbEntry.ReceiptUrl = r.ImagePath;
+                    dbReceipt.IsMatched = true;
+                    await DbContext.SaveChangesAsync();
+                    count++;
+                    entries.Remove(target);
+                }
+            }
+        }
+
+        await JSRuntime.InvokeVoidAsync("alert", $"자동 매칭 완료: {count}건 연결.");
+        await LoadPendingReceipts();
+    }
+
+    private async Task DeleteReceipt(int id)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "이 영수증을 삭제(반려)하시겠습니까?\n서버에서도 파일이 완전히 삭제됩니다.");
+        if (confirmed)
+        {
+            var target = await DbContext.UploadedReceipts.FindAsync(id);
+            if (target != null)
+            {
+                string filePath = Path.Combine(Env.WebRootPath, target.ImagePath.TrimStart('/'));
+                if (File.Exists(filePath)) File.Delete(filePath);
+
+                DbContext.UploadedReceipts.Remove(target);
+                await DbContext.SaveChangesAsync();
+                await LoadPendingReceipts();
+            }
+        }
+    }
+
+    private async Task SearchData()
+    {
+        var query = DbContext.Transactions.AsNoTracking().AsQueryable();
+        if (CanViewAll && SearchDeptId > 0)
+        {
+            query = query.Where(t => t.DepartmentId == SearchDeptId);
+        }
+        else if (!CanViewAll && CurrentUser != null)
+        {
+            query = query.Where(t => t.DepartmentId == CurrentUser.DepartmentId);
+        }
+
+        if (!string.IsNullOrWhiteSpace(SearchKeyword))
+        {
+            query = query.Where(t => (t.Description != null && t.Description.Contains(SearchKeyword)) || (!string.IsNullOrEmpty(t.Note) && t.Note.Contains(SearchKeyword)));
+        }
+
+        // 장부 매칭 탭에서는 미증빙 내역만 필터
+        query = query.Where(t => t.ReceiptUrl == null || t.ReceiptUrl == "");
+
+        unmatchedEntries = await query.OrderByDescending(t => t.Date).Take(100).ToListAsync();
+    }
+
+    private async Task HandleKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) { if (e.Key == "Enter") await SearchData(); }
+
+    // ???????????????????????????????????????????
+    // 공통 모달
+    // ???????????????????????????????????????????
+    private void ShowLargeImage(string url) { currentLargeImageUrl = url; showImageModal = true; }
+    private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; }
+}

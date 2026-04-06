@@ -2,16 +2,24 @@
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject ProtectedLocalStorage BrowserStorage
 @using INcheonChurchWeb.Models
+@* 🚀 추가된 두 줄: 유저 복구를 위해 DB 컨텍스트 주입 *@
+@using Microsoft.EntityFrameworkCore
+@inject INcheonChurchWeb.Data.AppDbContext DbContext
+@inject IJSRuntime JSRuntime
 
 <div class="page">
     @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 방지) *@
     @if (!isLoaded)
     {
-        <div class="d-flex justify-content-center align-items-center vh-100 w-100 bg-light" style="position: fixed; top: 0; left: 0; z-index: 9999;">
-            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
-                <span class="visually-hidden">Loading...</span>
+        <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--surface); display: flex; justify-content: center; align-items: center; z-index: 9999;">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
+                <div style="width: 2.5rem; height: 2.5rem; border: 3px solid var(--surface-high); border-top-color: var(--primary-gold); border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
+                <span style="font-family: 'Manrope', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--on-surface-muted); text-transform: uppercase; letter-spacing: 0.1em;">Loading</span>
             </div>
         </div>
+        <style>
+            @@keyframes spin { to { transform: rotate(360deg); } }
+        </style>
     }
     else if (CurrentUser == null)
     {
@@ -19,113 +27,78 @@
     }
     else
     {
-        @* 🖥️ PC용 사이드바 *@
-        <div class="sidebar d-none d-sm-block">
+        @* 🖥️ PC 전용 사이드바 *@
+        <div class="sidebar d-none d-sm-flex flex-column">
             <NavMenu CurrentUser="CurrentUser" />
         </div>
 
-        <main class="d-flex flex-column min-vh-100">
+        <div class="main-content-area">
 
-            @* ====================================================
-               📱 모바일 상단 헤더 & 넓은 터치 아이콘 메뉴 (Sticky)
-               ==================================================== *@
-            <div class="d-sm-none sticky-top bg-white" style="box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
-
-                @* 1. 사용자 정보 (부서명 파란색 굵게 ➔ 아이디 순서) *@
-                <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="fw-bold text-primary" style="font-size: 1.1rem; letter-spacing: -0.5px;">@(CurrentUser.Department?.Name ?? "소속없음")</span>
-                        <span class="fw-bold text-dark" style="font-size: 0.9rem;">👤 @CurrentUser.Username 님</span>
-                    </div>
-                    <button class="btn btn-outline-secondary btn-sm fw-bold rounded-pill px-3 py-1" @onclick="Logout" style="font-size: 0.75rem;">로그아웃</button>
-                </div>
-
-                @* 2. 손가락 터치 면적을 넉넉하게 확보한 아이콘 탭 메뉴 *@
-                <nav class="d-flex border-bottom shadow-sm">
-                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="" Match="NavLinkMatch.All">
-                        <i class="bi bi-grid-1x2-fill fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
-                        <span style="font-size: 0.75rem; font-weight: 700;">홈</span>
-                    </NavLink>
-                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="receipt-upload">
-                        <i class="bi bi-camera-fill fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
-                        <span style="font-size: 0.75rem; font-weight: 700;">영수증</span>
-                    </NavLink>
-                    <NavLink class="flex-fill text-center py-2 mobile-nav-btn text-decoration-none" href="monthly">
-                        <i class="bi bi-book-half fs-3 d-block text-secondary icon-btn" style="line-height: 1.2;"></i>
-                        <span style="font-size: 0.75rem; font-weight: 700;">장부</span>
-                    </NavLink>
-                </nav>
-            </div>
-
-            @* 🖥️ PC용 상단 바 *@
-            <div class="top-row px-4 d-none d-sm-flex align-items-center shadow-sm bg-white">
-                <span class="me-auto fw-bold text-dark fs-5">
+            @* 🖥️ PC 전용 상단 바 *@
+            <div class="pc-top-bar d-none d-sm-flex">
+                <span class="me-auto" style="font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 0.9375rem; color: var(--on-surface); letter-spacing: -0.01em;">
                     @(CurrentUser.Department?.Name ?? "소속없음") 재정관리
                 </span>
-                <span class="me-3 text-secondary">
-                    👤 <b>@CurrentUser.Username</b> 님
-                </span>
-                <button class="btn btn-sm btn-danger fw-bold rounded-pill px-3" @onclick="Logout">로그아웃</button>
+                <div class="d-flex align-items-center gap-3">
+                    <span style="font-size: 0.8125rem; font-weight: 600; color: var(--on-surface-sub);">
+                        @CurrentUser.Username 님
+                    </span>
+                    <button class="btn btn-sm fw-bold" style="background-color: var(--surface-high); color: var(--on-surface-sub); border: none; border-radius: var(--radius-lg); padding: 0.3rem 1rem; font-size: 0.75rem; transition: background-color 0.2s ease-out;" @onclick="Logout">
+                        로그아웃
+                    </button>
+                </div>
             </div>
 
+            @* 📱 모바일 전용 상단 헤더 *@
+            <div class="mobile-top-header">
+                <div>
+                    <div class="mobile-dept-name">@(CurrentUser.Department?.Name ?? "소속없음")</div>
+                    <div class="mobile-user-name">@CurrentUser.Username 님</div>
+                </div>
+                <button class="mobile-logout-btn" @onclick="Logout">로그아웃</button>
+            </div>
+
+            @* 콘텐츠 영역 *@
             <article class="content px-3 px-sm-4 mobile-content flex-grow-1">
                 <CascadingValue Value="CurrentUser">
                     @Body
                 </CascadingValue>
             </article>
-        </main>
+
+            @* 📱 모바일 전용 하단 탭 바 *@
+            <nav class="mobile-bottom-nav">
+                <NavLink class="mobile-tab-item" href="" Match="NavLinkMatch.All">
+                    <i class="bi bi-grid-1x2-fill tab-icon"></i>
+                    <span>홈</span>
+                </NavLink>
+
+                @if (CanEdit)
+                {
+                    <NavLink class="mobile-tab-item" href="expense-report-quarterly">
+                        <i class="bi bi-file-earmark-text-fill tab-icon"></i>
+                        <span>결의서</span>
+                    </NavLink>
+
+                    <NavLink class="mobile-tab-item" href="receipt-upload">
+                        <i class="bi bi-camera-fill tab-icon"></i>
+                        <span>영수증</span>
+                    </NavLink>
+
+                    <NavLink class="mobile-tab-item" href="data-collection">
+                        <i class="bi bi-receipt-cutoff tab-icon"></i>
+                        <span>수집정리</span>
+                    </NavLink>
+                }
+
+                <NavLink class="mobile-tab-item" href="monthly">
+                    <i class="bi bi-book-half tab-icon"></i>
+                    <span>장부</span>
+                </NavLink>
+            </nav>
+
+        </div>
     }
 </div>
-
-@* 🚀 모바일 탭 버튼 터치 최적화 스타일 (외부 CSS에 구애받지 않도록 컴포넌트 내부에서 확실하게 강제 적용) *@
-<style>
-    .mobile-nav-btn {
-        color: #8e95a5 !important;
-        transition: all 0.2s ease;
-        position: relative;
-        padding-top: 10px !important;
-        padding-bottom: 10px !important;
-    }
-
-        .mobile-nav-btn .icon-btn {
-            transition: color 0.2s ease, transform 0.2s ease;
-        }
-
-        /* 활성화된 탭 디자인 */
-        .mobile-nav-btn.active {
-            color: #1a56db !important;
-            background-color: rgba(26, 86, 219, 0.03);
-        }
-
-            .mobile-nav-btn.active .icon-btn {
-                color: #1a56db !important; /* 아이콘 색상 파란색으로 변경 */
-                transform: translateY(-2px); /* 터치 시 살짝 올라가는 효과 */
-            }
-
-            /* 하단 파란색 지시선 */
-            .mobile-nav-btn.active::after {
-                content: '';
-                position: absolute;
-                bottom: 0;
-                left: 20%;
-                right: 20%;
-                height: 4px;
-                background-color: #1a56db;
-                border-top-left-radius: 4px;
-                border-top-right-radius: 4px;
-            }
-
-        .mobile-nav-btn:active {
-            background-color: #f0f2f5;
-        }
-
-    /* 모바일 콘텐츠 상단 여백 (고정 헤더 가림 방지) */
-    @@media (max-width: 640px) {
-        .mobile-content {
-            padding-top: 15px;
-        }
-    }
-</style>
 
 @* 📱 SweetAlert2 경고창 세팅 *@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -164,9 +137,44 @@
     };
 </script>
 
+<script>
+    // Ensure on PC screens (>=641px) that any element with computed font-size less than 20px
+    // is bumped to 20px. This runs once after page load to avoid repaint thrash during navigation.
+    (function ensureMinFontSize() {
+        try {
+            const minPx = 20;
+            if (!window.matchMedia('(min-width: 641px)').matches) return;
+
+            // Run after a short delay to allow Blazor to render dynamic content
+            window.addEventListener('load', () => {
+                setTimeout(() => {
+                    const elems = document.querySelectorAll('body *');
+                    for (let i = 0; i < elems.length; i++) {
+                        const el = elems[i];
+                        // skip script/style/meta elements
+                        if (!(el instanceof Element)) continue;
+                        const cs = window.getComputedStyle(el);
+                        if (!cs) continue;
+                        const fs = parseFloat(cs.fontSize || '0');
+                        if (fs > 0 && fs < minPx) {
+                            // apply inline style to enforce minimum font size
+                            el.style.fontSize = minPx + 'px';
+                        }
+                    }
+                }, 120);
+            });
+        }
+        catch (e) {
+            console && console.warn && console.warn('ensureMinFontSize error', e);
+        }
+    })();
+</script>
+
 @code {
     private User? CurrentUser;
     private bool isLoaded = false;
+
+    private bool CanEdit => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -174,10 +182,16 @@
         {
             try
             {
-                var result = await BrowserStorage.GetAsync<User>("loggedInUser");
-                if (result.Success && result.Value != null)
+                // 🚀 1. 유저 객체 전체가 아닌 '아이디(Username) 문자열'만 불러옵니다.
+                var result = await BrowserStorage.GetAsync<string>("LoggedInUsername");
+
+                if (result.Success && !string.IsNullOrEmpty(result.Value))
                 {
-                    CurrentUser = result.Value;
+                    // 🚀 2. 아이디를 바탕으로 DB에서 부서 정보(Department)까지 포함하여 온전하게 복구합니다.
+                    CurrentUser = await DbContext.Users
+                        .Include(u => u.Department)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Username == result.Value);
                 }
             }
             catch { }
@@ -190,14 +204,20 @@
     private async Task HandleLoginSuccess(User user)
     {
         CurrentUser = user;
-        await BrowserStorage.SetAsync("loggedInUser", user);
+        // 🚀 로그인 성공 시 객체가 아닌 '아이디'만 저장합니다.
+        await BrowserStorage.SetAsync("LoggedInUsername", user.Username);
         StateHasChanged();
     }
 
     private async Task Logout()
     {
-        CurrentUser = null;
-        await BrowserStorage.DeleteAsync("loggedInUser");
-        StateHasChanged();
+        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "로그아웃 하시겠습니까?");
+        if (confirm)
+        {
+            CurrentUser = null;
+            // 🚀 로그아웃 시 저장된 '아이디'를 삭제합니다.
+            await BrowserStorage.DeleteAsync("LoggedInUsername");
+            StateHasChanged();
+        }
     }
 }

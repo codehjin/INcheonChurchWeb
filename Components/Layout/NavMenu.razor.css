@@ -1,32 +1,37 @@
-﻿.navbar-toggler {
+﻿/* Components/Layout/NavMenu.razor.css */
+
+.navbar-toggler {
     appearance: none;
     cursor: pointer;
     width: 3.5rem;
     height: 2.5rem;
-    color: white;
     position: absolute;
     top: 0.5rem;
     right: 1rem;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.55%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem rgba(255, 255, 255, 0.1);
+    /* 🚀 밝은 배경에 맞게 테두리와 아이콘 색상을 어두운 차콜색(var(--on-surface))으로 변경 */
+    border: 1px solid rgba(27, 28, 21, 0.15);
+    background: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%2827, 28, 21, 0.7%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") no-repeat center/1.75rem;
+    border-radius: var(--radius-md);
+    transition: background-color 0.2s ease;
 }
 
     .navbar-toggler:checked {
-        background-color: rgba(255, 255, 255, 0.5);
+        background-color: rgba(120, 86, 0, 0.1);
     }
 
 .top-row {
     height: 3.5rem;
-    background-color: rgba(0,0,0,0.4);
+    background-color: transparent !important;
+    background-image: none !important; /* 🚀 숨어있는 그라데이션 제거 */
 }
 
 .navbar-brand {
     font-size: 1.1rem;
+    color: var(--on-surface);
 }
 
 .nav-item {
     font-size: 0.95rem;
-    padding-bottom: 0.5rem;
 }
 
     .nav-item:first-of-type {
@@ -37,69 +42,74 @@
         padding-bottom: 1rem;
     }
 
+    /* 🚀 링크 기본 스타일 (No-Line 규칙 적용, 선 대신 여백과 배경색 활용) */
     .nav-item ::deep .nav-link {
-        color: #d7d7d7;
-        background: none;
+        color: var(--on-surface-sub);
+        background: transparent;
         border: none;
-        border-radius: 4px;
-        height: 3rem; /* 기본 PC 버튼 높이 */
+        border-radius: var(--radius-md);
+        height: 3.2rem;
         display: flex;
         align-items: center;
-        line-height: 3rem;
+        line-height: 3.2rem;
         width: 100%;
+        padding: 0 1.2rem;
+        margin-bottom: 4px;
+        transition: all 0.2s ease;
+        font-weight: 500;
     }
 
+        /* 🚀 마우스 호버 시 부드러운 음영 */
+        .nav-item ::deep .nav-link:hover {
+            background-color: rgba(120, 86, 0, 0.05); /* 연한 브론즈 톤 */
+            color: var(--on-surface);
+        }
+
+    /* 🚀 현재 선택된 메뉴 (활성화 상태) */
     .nav-item ::deep a.active {
-        background-color: rgba(255,255,255,0.37);
-        color: white;
+        background-color: var(--surface-lowest);
+        color: var(--primary-gold) !important;
+        font-weight: 700;
+        box-shadow: 0 4px 12px rgba(120, 86, 0, 0.05);
     }
 
-    .nav-item ::deep .nav-link:hover {
-        background-color: rgba(255,255,255,0.1);
-        color: white;
-    }
+        .nav-item ::deep a.active i {
+            color: var(--primary-gold) !important;
+        }
 
-/* 🚀 평소 모바일에서는 메뉴 숨김 */
+/* 📱 모바일 메뉴 숨김 상태 */
 .nav-scrollable {
     display: none;
-    background-color: rgba(0,0,0,0.4);
+    background-color: var(--surface-low); /* 밝은 베이지 톤 적용 */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.1);
 }
 
-/* 🚀 핵심: 체크박스(햄버거버튼)가 체크(클릭)되면, 메뉴를 짠 하고 보여줌! */
 .navbar-toggler:checked ~ .nav-scrollable {
     display: block;
 }
 
-
 /* ==========================================================
-   🚀 모바일 화면(640px 이하) 전용 설정: 메뉴 줄간격 대폭 축소
+   📱 모바일 화면 (640px 이하) 전용 설정
 ========================================================== */
 @media (max-width: 640px) {
-    .nav-item {
-        padding-bottom: 0.1rem; /* 항목 사이 위아래 여백 제거 */
+    .nav-item ::deep .nav-link {
+        height: 2.8rem;
+        line-height: 2.8rem;
+        font-size: 1rem;
     }
-
-        .nav-item:first-of-type {
-            padding-top: 0.5rem;
-        }
-
-        .nav-item ::deep .nav-link {
-            height: 2.2rem; /* 버튼 높이를 3rem -> 2.2rem 으로 대폭 축소 */
-            line-height: 2.2rem;
-        }
 }
 
-
-/* 🚀 PC 화면(641px 이상)일 때 설정 */
+/* 🖥️ PC 화면 (641px 이상) 설정 */
 @media (min-width: 641px) {
     .navbar-toggler {
-        display: none; /* PC에선 햄버거 버튼 숨김 */
+        display: none;
     }
 
     .nav-scrollable {
-        display: block; /* PC에서는 항상 보이기 */
+        display: block;
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
         background-color: transparent;
+        box-shadow: none;
     }
 }

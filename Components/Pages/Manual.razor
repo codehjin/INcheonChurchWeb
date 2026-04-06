@@ -3,189 +3,330 @@
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
-<div class="container mt-4 mb-5">
-    <div class="text-center mb-5">
-        <h2 class="fw-bold text-primary"><i class="bi bi-journal-bookmark-fill me-2"></i>쉽고 빠른 재정 시스템 사용 가이드</h2>
-        <p class="text-muted fs-5">각 단계 우측의 <strong>[창 열기]</strong> 단추를 눌러 화면을 띄워두고, 아래 순서도를 따라 작업해 보세요!</p>
-    </div>
+<style>
+    .manual-step-card {
+        background-color: var(--surface-lowest);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-ambient);
+        border: none;
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
 
-    <div class="row justify-content-center">
-        <div class="col-lg-10">
+    .manual-step-header {
+        padding: 1.25rem 1.75rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
 
-            @* 1단계: 연초 / 분기 초 세팅 *@
-            <div class="card shadow-sm border-0 mb-4 border-start border-primary border-5">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="fw-bold text-dark mb-0">
-                            <span class="badge bg-primary me-2">1단계</span> 🌱 1분기 시작일 필수 세팅
-                        </h4>
-                        <button class="btn btn-primary btn-sm fw-bold shadow-sm px-3" @onclick='() => GoToPage("/settings")'>
-                            환경설정 가기
-                        </button>
-                    </div>
-                    <p class="text-muted mb-3">1년 농사를 준비하는 가장 중요한 단계입니다. 환경설정 창을 열고 순서대로 진행하세요.</p>
+    .manual-step-body {
+        padding: 0 1.75rem 1.75rem 1.75rem;
+    }
 
-                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded">
-                        <span class="px-3 py-2 bg-white border border-primary text-primary fw-bold rounded shadow-sm"><i class="bi bi-download me-1"></i>수입 예산</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-danger text-danger fw-bold rounded shadow-sm"><i class="bi bi-upload me-1"></i>지출 예산</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-primary text-primary fw-bold rounded shadow-sm"><i class="bi bi-person-vcard me-1"></i>임원 정보</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-success text-success fw-bold rounded shadow-sm"><i class="bi bi-bank me-1"></i>계좌번호</span>
-                    </div>
-                    <ul class="mt-3 mb-0 small text-secondary">
-                        <li><b>예산 설정:</b> 올해 사용할 수입/지출 항목과 금액을 설정합니다. (직전년도 불러오기 가능)</li>
-                        <li><b>임원 정보 변경:</b> 새로운 팀장, 총무, 회계의 이름과 임기를 등록합니다. (지출결의서 결재란에 반영됨)</li>
-                        <li><b>계좌번호:</b> 부서 통장 정보를 입력해 두면 결의서 출력 시 자동으로 기입됩니다.</li>
-                    </ul>
-                </div>
-            </div>
+    .manual-flow {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.625rem;
+        background-color: var(--surface-low);
+        border-radius: var(--radius-base);
+        padding: 1rem 1.25rem;
+    }
 
-            @* 2단계: 보조금 신청 및 지출결의서 *@
-            <div class="card shadow-sm border-0 mb-4 border-start border-danger border-5">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="fw-bold text-dark mb-0">
-                            <span class="badge bg-danger me-2">2단계</span> 📄 보조금 신청 (지출결의서 작성)
-                        </h4>
-                        <div>
-                            <button class="btn btn-outline-dark btn-sm fw-bold shadow-sm px-2 me-1" @onclick='() => GoToPage("/")'>대시보드 이동</button>
-                            <button class="btn btn-danger btn-sm fw-bold shadow-sm px-2" @onclick='() => GoToPage("/expense-report-quarterly")'>결의서 작성></button>
-                        </div>
-                    </div>
-                    <p class="text-muted mb-3">예산을 사용하기 전, 잔액을 확인하고 <b>분기별 또는 행사별 지출결의서</b>를 작성하여 재정을 신청합니다.</p>
+    .manual-flow-chip {
+        padding: 0.4rem 0.875rem;
+        background-color: var(--surface-lowest);
+        border-radius: var(--radius-base);
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: var(--on-surface);
+        box-shadow: 0 1px 4px rgba(48, 49, 41, 0.06);
+    }
 
-                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded">
-                        <span class="px-3 py-2 bg-white border border-dark text-dark fw-bold rounded shadow-sm"><i class="bi bi-search me-1"></i>신청현황 잔액 검색</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-danger text-danger fw-bold rounded shadow-sm"><i class="bi bi-pencil-square me-1"></i>결의서 작성/저장</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-secondary text-secondary fw-bold rounded shadow-sm"><i class="bi bi-printer me-1"></i>인쇄 및 결재</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-success text-success fw-bold rounded shadow-sm"><i class="bi bi-check-circle-fill me-1"></i>통장 입금 확인</span>
-                    </div>
+    .manual-flow-chip.gold {
+        background: var(--gold-gradient);
+        color: #ffffff;
+    }
 
-                    <ul class="mt-3 mb-0 small text-secondary">
-                        <li><b>잔액 및 입금 확인:</b> 대시보드(홈)의 '보조금 신청현황'에서 현재 예산 잔액을 검색하고, 추후 신청한 금액이 입금되었는지 확인합니다.</li>
-                        <li><b>결의서 작성:</b> [신규 작성] 후 [명세표 추가]를 통해 내역을 입력하고 저장 및 인쇄합니다.</li>
-                    </ul>
-                </div>
-            </div>
+    .manual-flow-arrow {
+        color: var(--on-surface-muted);
+        font-size: 0.875rem;
+    }
 
-            @* 3단계: 영수증 촬영 및 AI 판독 *@
-            <div class="card shadow-sm border-0 mb-4 border-start border-success border-5">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="fw-bold text-dark mb-0">
-                            <span class="badge bg-success me-2">3단계</span> 📱 지출 및 스마트폰 영수증 촬영
-                        </h4>
-                        <button class="btn btn-success btn-sm fw-bold shadow-sm px-3" @onclick='() => GoToPage("/receipt-upload")'>
-                            업로드 화면으로 이동
-                        </button>
-                    </div>
-                    <p class="text-muted mb-3">통장에 입금된 재정을 사용하고, 종이 영수증을 즉시 촬영하여 올립니다.</p>
+    .manual-tab-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.3rem 0.75rem;
+        background-color: var(--surface-low);
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--primary-gold);
+        cursor: pointer;
+        transition: background-color 0.15s;
+    }
 
-                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded">
-                        <span class="fw-bold text-success me-2">스마트폰 접속</span>
-                        <span class="px-3 py-2 bg-white border rounded fw-bold text-dark shadow-sm"><i class="bi bi-camera-fill text-success me-1"></i>사진 찾기</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="badge bg-warning text-dark border p-2 fs-6 shadow-sm"><i class="bi bi-robot me-1"></i>AI 자동 분석</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border rounded fw-bold text-primary shadow-sm"><i class="bi bi-cloud-arrow-up-fill me-1"></i>확인 / 전송하기</span>
-                    </div>
-                    <ul class="mt-3 mb-0 small text-secondary">
-                        <li>AI가 영수증의 <b>결제 날짜</b>와 <b>금액</b>을 1초 만에 자동 판독합니다. 정확한지 눈으로 확인하신 후 전송해 주세요.</li>
-                    </ul>
-                </div>
-            </div>
+    .manual-tab-chip:hover { background-color: var(--surface-high); }
 
-            @* 4단계: 장부 기록 및 매칭 *@
-            <div class="card shadow-sm border-0 mb-4 border-start border-warning border-5">
-                <div class="card-body p-4">
-                    <h4 class="fw-bold text-dark mb-3">
-                        <span class="badge bg-warning text-dark me-2">4단계</span> 💻 엑셀 장부 등록 & 영수증 최종 마감
-                    </h4>
-                    <p class="text-muted mb-3">PC에서 은행 엑셀 내역을 장부에 등록하고, 스마트폰으로 올린 영수증을 매칭합니다.</p>
+    .manual-note {
+        font-size: 0.8125rem;
+        color: var(--on-surface-sub);
+        line-height: 1.65;
+    }
 
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded h-100 border">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-1-circle-fill text-warning me-1"></i> 엑셀 장부 등록</h6>
-                                    <button class="btn btn-outline-dark btn-sm fw-bold" @onclick='() => GoToPage("/bank-import")'>엑셀 장부 열기</button>
-                                </div>
-                                <div class="mt-3 text-center">
-                                    <span class="d-block p-2 bg-white border rounded fw-bold text-dark mb-2 shadow-sm"><i class="bi bi-file-earmark-excel text-success me-1"></i> 은행 엑셀 업로드</span>
-                                    <div class="small text-muted mb-2">▼</div>
-                                    <span class="d-block p-2 bg-white border rounded fw-bold text-primary mb-2 shadow-sm"><i class="bi bi-check2-all me-1"></i> 퀵 분류 (바구니)</span>
-                                    <div class="small text-muted mb-2">▼</div>
-                                    <span class="d-block p-2 bg-white border rounded fw-bold text-primary shadow-sm"><i class="bi bi-floppy-fill me-1"></i> 장부에 저장</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="p-3 bg-light rounded h-100 border">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h6 class="fw-bold text-dark mb-0"><i class="bi bi-2-circle-fill text-warning me-1"></i> 영수증 매칭 및 마감</h6>
-                                    <button class="btn btn-outline-dark btn-sm fw-bold" @onclick='() => GoToPage("/monthly")'>장부 매칭 열기</button>
-                                </div>
-                                <div class="mt-3 text-center">
-                                    <span class="d-block p-2 bg-white border rounded fw-bold text-dark mb-2 shadow-sm"><i class="bi bi-calendar-check me-1"></i> 매치 안된 영수증 클릭</span>
-                                    <div class="small text-muted mb-2">▼</div>
-                                    <span class="d-block p-2 bg-white border border-warning rounded fw-bold text-dark shadow-sm bg-warning bg-opacity-10"><i class="bi bi-magic text-warning me-1"></i> AI 자동 매치</span>
-                                </div>
-                            </div>
-                        </div>
+    .manual-note li { margin-bottom: 0.375rem; }
+
+    .step-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        font-size: 0.875rem;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+</style>
+
+<div style="background-color: var(--surface); min-height: 100vh; padding-bottom: 3rem;">
+    <div class="container" style="max-width: 860px; padding-top: 2rem;">
+
+        @* 헤더 *@
+        <div class="mb-5">
+            <h2 class="font-heading fw-bold mb-2" style="color: var(--on-surface); letter-spacing: -0.02em;">
+                <i class="bi bi-journal-bookmark-fill me-2" style="color: var(--primary-gold);"></i>사용 가이드
+            </h2>
+            <p style="color: var(--on-surface-sub); font-size: 0.9375rem;">
+                아래 순서대로 진행하면 1년 재정 관리를 빠짐없이 처리할 수 있습니다.
+                각 단계의 <strong style="color: var(--primary-gold);">[바로 가기]</strong> 버튼을 눌러 해당 화면으로 이동하세요.
+            </p>
+        </div>
+
+        @* ───────────────────────────────────────────────
+           1단계: 연초 세팅
+        ─────────────────────────────────────────────── *@
+        <div class="manual-step-card">
+            <div class="manual-step-header" style="background-color: var(--surface-low);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="step-badge" style="background: var(--gold-gradient); color: #fff;">1</span>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: var(--on-surface);">연초 세팅 — 예산·임원·계좌 등록</h5>
+                        <span style="color: var(--on-surface-sub); font-size: 0.8125rem;">1년 농사의 시작. 가장 먼저 해야 할 필수 작업입니다.</span>
                     </div>
                 </div>
+                <button class="btn btn-sm fw-bold" style="background: var(--gold-gradient); color: #fff; border-radius: var(--radius-sm); padding: 0.375rem 1rem; border: none;" @onclick='() => Nav.NavigateTo("/settings")'>
+                    환경설정 →
+                </button>
             </div>
-
-            @* 🚀 5단계: 회계감사용 장부 및 영수증 인쇄 (새로 추가됨) *@
-            <div class="card shadow-sm border-0 mb-4 border-start border-dark border-5">
-                <div class="card-body p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="fw-bold text-dark mb-0">
-                            <span class="badge bg-dark me-2">5단계</span> 🖨️ 회계감사용 장부 및 영수증 인쇄
-                        </h4>
-                        <button class="btn btn-dark btn-sm fw-bold shadow-sm px-3" @onclick='() => GoToPage("/monthly")'>
-                            월별장부 이동
-                        </button>
-                    </div>
-                    <p class="text-muted mb-3">모든 분기/연말 회계감사를 대비하여, 마감이 완료된 장부와 증빙 영수증을 한꺼번에 인쇄하여 철해 둡니다.</p>
-
-                    <div class="d-flex flex-wrap gap-2 align-items-center bg-light p-3 rounded">
-                        <span class="px-3 py-2 bg-white border border-dark text-dark fw-bold rounded shadow-sm"><i class="bi bi-calendar-check me-1"></i>월별장부 접속</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-primary text-primary fw-bold rounded shadow-sm"><i class="bi bi-file-earmark-text me-1"></i>월별 재정장부 인쇄</span>
-                        <span class="text-muted mx-1">+</span>
-                        <span class="px-3 py-2 bg-white border border-secondary text-secondary fw-bold rounded shadow-sm"><i class="bi bi-images me-1"></i>전체 영수증 인쇄</span>
-                        <i class="bi bi-arrow-right text-muted"></i>
-                        <span class="px-3 py-2 bg-white border border-success text-success fw-bold rounded shadow-sm"><i class="bi bi-folder-check me-1"></i>감사 자료 보관</span>
-                    </div>
-
-                    <ul class="mt-3 mb-0 small text-secondary">
-                        <li><b>장부 인쇄:</b> 해당 월의 모든 수입/지출 내역이 깔끔하게 정리된 장부를 브라우저 인쇄 기능을 통해 출력합니다.</li>
-                        <li><b>영수증 인쇄:</b> [전체 영수증 인쇄] 버튼을 누르면 A4 용지 크기에 맞게 영수증 이미지들이 자동으로 최적화되어 출력됩니다.</li>
-                    </ul>
+            <div class="manual-step-body pt-3">
+                <div class="manual-flow mb-3">
+                    <span class="manual-flow-chip"><i class="bi bi-download me-1" style="color: var(--primary-gold);"></i>수입 예산</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-upload me-1" style="color: #ba1a1a;"></i>지출 예산</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-person-vcard me-1"></i>부서 임원 정보</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-bank me-1"></i>계좌번호 입력</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-calendar-range me-1"></i>분기 날짜 설정</span>
                 </div>
-            </div>
-
-            <div class="text-center mt-5 mb-5">
-                <p class="text-primary fw-bold fs-5 mb-2">
-                    <i class="bi bi-book-half me-2"></i>"그리고 맡은 자들에게 구할 것은 충성이니라" (고린도전서 4:2)
-                </p>
-                <p class="text-muted mb-0">교회의 귀한 재정을 투명하고 지혜롭게 관리해 주시는 수고와 헌신에 감사드립니다.</p>
-                <p class="text-muted">설명서를 띄워두고, 각 단계별 <strong>[화면 이동]</strong> 단추들을 눌러가며 차근차근 진행해 보세요!</p>
+                <ul class="manual-note ps-3 mb-0">
+                    <li><b>예산 설정:</b> 올해 수입·지출 항목과 금액을 등록합니다. 직전 연도 불러오기 또는 엑셀 일괄입력으로 빠르게 완성할 수 있습니다.</li>
+                    <li><b>임원 정보:</b> 교역자·부장·총무·회계의 이름과 임기를 등록하면 지출결의서 결재란에 자동으로 반영됩니다.</li>
+                    <li><b>계좌번호:</b> 부서 통장 정보를 입력해 두면 지출결의서 출력 시 자동 기입됩니다.</li>
+                    <li><b>분기 날짜:</b> 교회 회계연도에 맞게 각 분기의 시작일·종료일을 설정합니다. '연속성 맞춤' 버튼으로 자동 계산됩니다.</li>
+                </ul>
             </div>
         </div>
+
+        @* ───────────────────────────────────────────────
+           2단계: 보조금 신청 (지출결의서)
+        ─────────────────────────────────────────────── *@
+        <div class="manual-step-card">
+            <div class="manual-step-header" style="background-color: var(--surface-low);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="step-badge" style="background-color: #174577; color: #fff;">2</span>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: var(--on-surface);">보조금 신청 — 지출결의서 작성</h5>
+                        <span style="color: var(--on-surface-sub); font-size: 0.8125rem;">예산을 사용하기 전, 분기·행사별로 먼저 결의서를 작성해 제출합니다.</span>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm fw-bold" style="background-color: var(--surface-high); color: var(--on-surface); border: none; border-radius: var(--radius-sm); padding: 0.375rem 0.875rem;" @onclick='() => Nav.NavigateTo("/")'>
+                        대시보드 →
+                    </button>
+                    <button class="btn btn-sm fw-bold" style="background-color: #174577; color: #fff; border: none; border-radius: var(--radius-sm); padding: 0.375rem 0.875rem;" @onclick='() => Nav.NavigateTo("/expense-report-quarterly")'>
+                        결의서 작성 →
+                    </button>
+                </div>
+            </div>
+            <div class="manual-step-body pt-3">
+                <div class="manual-flow mb-3">
+                    <span class="manual-flow-chip"><i class="bi bi-search me-1"></i>대시보드에서 잔액 확인</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-pencil-square me-1"></i>신규 결의서 작성·저장</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-printer me-1"></i>인쇄 후 결재·제출</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-check-circle-fill me-1"></i>통장 입금 확인</span>
+                </div>
+                <ul class="manual-note ps-3 mb-0">
+                    <li><b>잔액 확인:</b> 대시보드(홈)의 '보조금 신청현황' 테이블에서 항목별 예산 잔액을 확인합니다.</li>
+                    <li><b>결의서 작성:</b> [신규 작성] → [명세표 추가]로 행사별 상세 내역을 입력하고 저장·인쇄합니다.</li>
+                    <li><b>입금 확인:</b> 통장에 입금되면 대시보드 또는 결의서 목록에서 입금일을 기록해 두세요.</li>
+                </ul>
+            </div>
+        </div>
+
+        @* ───────────────────────────────────────────────
+           3단계: 수집 및 정리 (DataCollectionHub)
+        ─────────────────────────────────────────────── *@
+        <div class="manual-step-card">
+            <div class="manual-step-header" style="background-color: var(--surface-low);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="step-badge" style="background: var(--gold-gradient); color: #fff;">3</span>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: var(--on-surface);">수집 및 정리 — 영수증·은행 내역 등록</h5>
+                        <span style="color: var(--on-surface-sub); font-size: 0.8125rem;">지출 후 영수증 촬영과 은행 내역 등록을 한 화면에서 처리합니다.</span>
+                    </div>
+                </div>
+                <button class="btn btn-sm fw-bold" style="background: var(--gold-gradient); color: #fff; border-radius: var(--radius-sm); padding: 0.375rem 1rem; border: none;" @onclick='() => Nav.NavigateTo("/data-collection")'>
+                    수집 및 정리 →
+                </button>
+            </div>
+            <div class="manual-step-body pt-3">
+                @* 탭 안내 *@
+                <div class="d-flex flex-wrap gap-2 mb-3">
+                    <span class="manual-tab-chip"><i class="bi bi-receipt me-1"></i>영수증(단건)</span>
+                    <span class="manual-tab-chip"><i class="bi bi-images me-1"></i>영수증(일괄)</span>
+                    <span class="manual-tab-chip"><i class="bi bi-file-earmark-spreadsheet me-1"></i>엑셀 장부</span>
+                    <span class="manual-tab-chip"><i class="bi bi-link-45deg me-1"></i>영수증 매칭</span>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    @* 영수증 단건 *@
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background-color: var(--surface-low);">
+                            <div class="fw-bold mb-2" style="color: var(--on-surface); font-size: 0.875rem;">
+                                <i class="bi bi-camera-fill me-1" style="color: var(--primary-gold);"></i>영수증(단건) 탭
+                            </div>
+                            <div class="manual-flow-chip d-inline-block mb-2"><i class="bi bi-camera-fill me-1"></i>사진 선택</div>
+                            <span class="manual-flow-arrow mx-1">→</span>
+                            <span class="manual-flow-chip d-inline-block mb-2" style="background: rgba(120,86,0,0.1); color: var(--primary-gold);">AI 자동 판독</span>
+                            <span class="manual-flow-arrow mx-1">→</span>
+                            <span class="manual-flow-chip d-inline-block mb-2">확인 후 전송</span>
+                            <ul class="manual-note ps-3 mb-0 mt-2">
+                                <li>AI가 날짜·금액을 1초 안에 인식합니다. 맞는지 확인 후 전송하세요.</li>
+                                <li>월 1,000건까지 무료. 초과 시 수동 입력으로 전환됩니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    @* 영수증 일괄 *@
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background-color: var(--surface-low);">
+                            <div class="fw-bold mb-2" style="color: var(--on-surface); font-size: 0.875rem;">
+                                <i class="bi bi-images me-1" style="color: var(--primary-gold);"></i>영수증(일괄) 탭
+                            </div>
+                            <ul class="manual-note ps-3 mb-0">
+                                <li>한 번에 최대 <b>20장</b>까지 선택해 AI로 일괄 분석합니다.</li>
+                                <li>분석 결과는 서버에 임시 저장 후 <b>영수증 매칭</b> 탭에서 장부와 연결합니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                    @* 엑셀 장부 *@
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background-color: var(--surface-low);">
+                            <div class="fw-bold mb-2" style="color: var(--on-surface); font-size: 0.875rem;">
+                                <i class="bi bi-file-earmark-spreadsheet me-1" style="color: var(--primary-gold);"></i>엑셀 장부 탭
+                            </div>
+                            <p class="manual-note mb-1"><b>① 은행 거래내역 가져오기</b></p>
+                            <div class="manual-flow mb-2">
+                                <span class="manual-flow-chip"><i class="bi bi-file-earmark-excel me-1"></i>은행 엑셀 업로드</span>
+                                <span class="manual-flow-arrow">→</span>
+                                <span class="manual-flow-chip">퀵 분류 (바구니)</span>
+                                <span class="manual-flow-arrow">→</span>
+                                <span class="manual-flow-chip gold">장부에 저장</span>
+                            </div>
+                            <p class="manual-note mb-0"><b>② 월별 장부 엑셀 복원:</b> 월별 장부 화면에서 다운로드한 엑셀을 그대로 올리면 자동 분류 없이 즉시 적용됩니다.</p>
+                        </div>
+                    </div>
+                    @* 영수증 매칭 *@
+                    <div class="col-md-6">
+                        <div class="p-3 rounded" style="background-color: var(--surface-low);">
+                            <div class="fw-bold mb-2" style="color: var(--on-surface); font-size: 0.875rem;">
+                                <i class="bi bi-link-45deg me-1" style="color: var(--primary-gold);"></i>영수증 매칭 탭
+                            </div>
+                            <div class="manual-flow mb-2">
+                                <span class="manual-flow-chip">미매칭 영수증 선택</span>
+                                <span class="manual-flow-arrow">→</span>
+                                <span class="manual-flow-chip">장부 내역 선택</span>
+                                <span class="manual-flow-arrow">→</span>
+                                <span class="manual-flow-chip gold">수동 매치 or 자동 매치</span>
+                            </div>
+                            <ul class="manual-note ps-3 mb-0">
+                                <li>날짜·금액이 일치하면 <b>자동 매치</b>가 한꺼번에 처리합니다.</li>
+                                <li>일치하지 않으면 좌측(영수증)·우측(장부)을 각각 선택 후 <b>수동 매치</b>를 누릅니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ───────────────────────────────────────────────
+           4단계: 월별 장부 조회 및 인쇄
+        ─────────────────────────────────────────────── *@
+        <div class="manual-step-card">
+            <div class="manual-step-header" style="background-color: var(--surface-low);">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="step-badge" style="background-color: var(--on-surface); color: var(--surface);">4</span>
+                    <div>
+                        <h5 class="fw-bold mb-0" style="color: var(--on-surface);">월별 장부 — 조회·수정·인쇄</h5>
+                        <span style="color: var(--on-surface-sub); font-size: 0.8125rem;">등록된 내역을 검토하고 회계감사용 서류를 출력합니다.</span>
+                    </div>
+                </div>
+                <button class="btn btn-sm fw-bold" style="background-color: var(--on-surface); color: var(--surface); border: none; border-radius: var(--radius-sm); padding: 0.375rem 1rem;" @onclick='() => Nav.NavigateTo("/monthly")'>
+                    월별 장부 →
+                </button>
+            </div>
+            <div class="manual-step-body pt-3">
+                <div class="manual-flow mb-3">
+                    <span class="manual-flow-chip"><i class="bi bi-calendar-check me-1"></i>연도·월 선택</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-pencil-square me-1"></i>내역 수정·추가·삭제</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip"><i class="bi bi-journal-text me-1"></i>장부 인쇄</span>
+                    <span class="manual-flow-arrow">+</span>
+                    <span class="manual-flow-chip"><i class="bi bi-images me-1"></i>영수증 인쇄</span>
+                    <span class="manual-flow-arrow">→</span>
+                    <span class="manual-flow-chip gold"><i class="bi bi-folder-check me-1"></i>감사 자료 보관</span>
+                </div>
+                <ul class="manual-note ps-3 mb-0">
+                    <li><b>조회 필터:</b> 연도·월·분기·부서(관리자)별로 내역을 필터링합니다. 모바일에서는 좌·우 버튼으로 월을 이동합니다.</li>
+                    <li><b>내역 수정:</b> [일괄 수정/삭제] 버튼으로 여러 건을 한꺼번에 항목 변경 또는 삭제할 수 있습니다.</li>
+                    <li><b>장부 인쇄:</b> [인쇄] → [장부 인쇄]를 선택하면 A4 형식의 월별 회계 장부가 출력됩니다.</li>
+                    <li><b>영수증 인쇄:</b> [인쇄] → [영수증 인쇄]로 진입 후 인쇄할 항목을 선택하면 용지 1장에 1·2·4개 레이아웃으로 출력됩니다.</li>
+                    <li><b>엑셀 다운로드:</b> 현재 조회된 내역 전체를 엑셀로 저장합니다. 이 파일을 수정 후 '수집 및 정리 → 엑셀 장부 탭'에서 다시 올릴 수 있습니다.</li>
+                </ul>
+            </div>
+        </div>
+
+        @* 하단 말씀 *@
+        <div class="text-center mt-4 pt-2">
+            <p class="font-heading fw-bold" style="color: var(--primary-gold); font-size: 1.0625rem; margin-bottom: 0.5rem;">
+                "그리고 맡은 자들에게 구할 것은 충성이니라" (고린도전서 4:2)
+            </p>
+            <p style="color: var(--on-surface-muted); font-size: 0.875rem;">
+                교회의 귀한 재정을 투명하고 지혜롭게 관리해 주시는 헌신에 감사드립니다.
+            </p>
+        </div>
+
     </div>
 </div>
 
 @code {
-    // 🚀 새 창 열기 대신 현재 창에서 부드럽게 페이지를 이동하는 메서드로 변경
-    private void GoToPage(string url)
-    {
-        Nav.NavigateTo(url);
-    }
+    private void GoToPage(string url) => Nav.NavigateTo(url);
 }

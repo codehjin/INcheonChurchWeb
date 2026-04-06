@@ -37,6 +37,16 @@ namespace INcheonChurchWeb.Models
         // 🚀 2단계 인증(2FA/OTP) 필드
         public string? TwoFactorSecret { get; set; } // OTP용 비밀키 (QR코드 생성 시 사용)
         public bool IsTwoFactorEnabled { get; set; } = false; // 2단계 인증 활성화 여부
+
+        // ==========================================
+        // 🚀 방금 추가할 부분: 계정 역할에 따른 권한 규칙 모음
+        // ==========================================
+        public bool IsSystemAdmin => Role == "Admin";
+        public bool IsManager => Role == "Manager" || Role == "DeptAdmin" || Role == "Admin";
+        public bool IsAuditor => Role == "Auditor" || Role == "Director";
+
+        // 장부 수정/삭제 가능 여부 (최고관리자, 부서운영자만 가능)
+        public bool CanEditLedger => Role == "Admin" || Role == "Manager" || Role == "DeptAdmin";
     }
 
     // 🚀 3. 회계 장부

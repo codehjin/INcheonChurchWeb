@@ -1,1556 +1,1315 @@
-@page "/monthly"
+﻿@page "/monthly"
 @using INcheonChurchWeb.Models
 @using INcheonChurchWeb.Services
 @using INcheonChurchWeb.Data
 @using Microsoft.EntityFrameworkCore
-@using ClosedXML.Excel
 @using System.IO
-@using Microsoft.AspNetCore.Hosting
+@using Microsoft.AspNetCore.Components.Forms
+@using ClosedXML.Excel
 @inject AccountingService Accounting
 @inject AppDbContext DbContext
-@inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 @inject IWebHostEnvironment Env
 @rendermode InteractiveServer
 
+<PageTitle>월간 장부 조회</PageTitle>
+
 <style>
-    /* =========================================
-       1. 화면 전용 스타일 (웹 뷰)
-       ========================================= */
-    .table-fixed-layout { table-layout: fixed; word-break: break-all; } 
-    .table-fixed-layout th, .table-fixed-layout td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } 
-    .screen-only { display: block; } 
-    .print-only { display: none; }
-
-    /* 📱 모바일(640px 이하)에서 PC 전용 장부 테이블 숨김 */
-    @@media (max-width: 640px) {
-        .screen-only { display: none !important; }
+    /* =======================================================
+           🎨 DESIGN SYSTEM: The Tactile Ledger
+        ======================================================= */
+    .ledger-surface {
+        background-color: #fbfaee;
+        min-height: 100vh;
+        padding-bottom: 5rem;
     }
 
-    /* =========================================
-       2. 인쇄(Print) 전용 최적화 스타일
-       ========================================= */
-    @@media print {
-        .sidebar, .top-row, .btn, .no-print, .btn-group, select, .form-select, input, .form-control { display: none !important; } 
-        .screen-only { display: none !important; } 
-        .print-only { display: block !important; } 
-        body, .page, main, .content, .container, .container-fluid { margin: 0 !important; padding: 0 !important; width: 100% !important; max-width: 100% !important; background-color: white !important; overflow: visible !important; } 
-        .page-break-before { page-break-before: always !important; } 
-        .page-break { page-break-after: always !important; width: 100%; display: block; } 
-        .print-only-title { display: block !important; text-align: center !important; margin-bottom: 15px !important; font-size: 18pt !important; font-weight: bold; width: 100%; } 
-        table.table { width: 100% !important; border-collapse: collapse !important; margin-bottom: 0 !important; table-layout: fixed !important; font-size: 11pt !important; } 
-        table.table th, table.table td { padding: 3px 4px !important; line-height: 1.1 !important; height: auto !important; color: black !important; border: 1px solid #444 !important; vertical-align: middle !important; white-space: nowrap !important; } 
-        table.table thead th { background-color: #d3d3d3 !important; color: #000000 !important; font-weight: 900 !important; text-align: center !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } 
-        table.table tfoot td { background-color: #f8f9fa !important; color: black !important; font-weight: bold !important; text-align: right !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } 
-        .money-cell { text-align: right !important; overflow: visible !important; } 
-        .clip-cell { overflow: hidden !important; text-overflow: clip !important; } 
-        
-        .receipt-box { display: flex; flex-direction: column; } 
-        .receipt-img-wrapper { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; margin-top: 5px; } 
-        .receipt-img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; } 
-        .receipt-grid-1 .receipt-box { width: 100%; margin-bottom: 20mm; page-break-inside: avoid; height: 85vh; } 
-        .receipt-grid-2 { display: flex; flex-wrap: wrap; justify-content: space-between; } 
-        .receipt-grid-2 .receipt-box { width: 48%; margin-bottom: 20mm; page-break-inside: avoid; height: 85vh; } 
-        .receipt-grid-4 { display: flex; flex-wrap: wrap; justify-content: space-between; } 
-        .receipt-grid-4 .receipt-box { width: 48%; height: 43vh; margin-bottom: 15mm; page-break-inside: avoid; } 
-    }
-
-    /* 관리 화면용 썸네일 호버 효과 */
-    .receipt-thumbnail:hover { transform: translateY(-5px); transition: all 0.2s ease; box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
-
-    /* =========================================
-       📱 모바일 장부 뷰 전용 스타일
-       ========================================= */
-    .mobile-ledger-view {
-        padding-bottom: 0.5rem;
-    }
-
-    /* 요약 카드 행 */
-    .mobile-summary-row {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-
-    .mobile-summary-card {
-        flex: 1;
-        background: #fff;
-        border-radius: 12px;
-        padding: 10px 8px;
-        text-align: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        border-top: 3px solid transparent;
-    }
-
-    .mobile-summary-card.income  { border-top-color: #1565c0; }
-    .mobile-summary-card.expense { border-top-color: #c62828; }
-    .mobile-summary-card.balance { border-top-color: #2e7d32; }
-
-    .mobile-summary-card .label {
-        font-size: 0.68rem;
-        color: #888;
-        font-weight: 600;
-        margin-bottom: 3px;
-    }
-
-    .mobile-summary-card.income  .amount { color: #1565c0; }
-    .mobile-summary-card.expense .amount { color: #c62828; }
-    .mobile-summary-card.balance .amount { color: #2e7d32; }
-
-    .mobile-summary-card .amount {
-        font-size: 0.85rem;
-        font-weight: 800;
-        letter-spacing: -0.5px;
-    }
-
-    /* 탭 바 */
-    .mobile-tab-bar {
-        display: flex;
-        border-radius: 10px;
-        background: #f1f3f5;
-        padding: 4px;
-        margin-bottom: 10px;
-        gap: 4px;
-    }
-
-    .mobile-tab-btn {
-        flex: 1;
+    .ledger-card {
+        background-color: #ffffff;
+        border-radius: 0.5rem;
         border: none;
-        background: transparent;
-        border-radius: 8px;
-        padding: 8px 0;
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: #666;
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
+        box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04);
+        transition: all 0.2s ease-out;
     }
 
-    .mobile-tab-btn.active {
-        background: #fff;
-        color: #1565c0;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.12);
-    }
-
-    .mobile-tab-btn.expense-active {
-        color: #c62828;
-    }
-
-    .mobile-tab-count {
-        display: inline-block;
-        background: #e9ecef;
-        border-radius: 20px;
-        padding: 0 6px;
-        font-size: 0.7rem;
-        margin-left: 3px;
-        font-weight: 700;
-        color: #555;
-    }
-
-    /* 항목 리스트 */
-    .mobile-entry-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .mobile-empty-msg {
-        text-align: center;
-        padding: 40px 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-
-    /* 개별 카드 */
-    .mobile-entry-card {
-        display: flex;
-        align-items: center;
-        background: #fff;
-        border-radius: 10px;
-        padding: 10px 12px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-        gap: 10px;
-    }
-
-    .mobile-entry-left {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
-        min-width: 38px;
-    }
-
-    .mobile-entry-date {
-        font-size: 0.72rem;
-        color: #888;
-        font-weight: 600;
-        text-align: center;
-    }
-
-    .mobile-rcpt-btn {
-        background: #e8f0fe;
+    .ledger-card-warm {
+        background-color: #f5f4e8;
+        border-radius: 0.5rem;
         border: none;
-        border-radius: 6px;
-        color: #1565c0;
-        width: 26px;
-        height: 22px;
-        font-size: 0.75rem;
-        cursor: pointer;
+    }
+
+    .ledger-gold-btn {
+        background: linear-gradient(135deg, #785600 0%, #5a4000 100%);
+        color: #ffffff;
+        font-weight: 700;
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.875rem;
+        transition: all 0.15s ease-out;
+    }
+
+        .ledger-gold-btn:hover {
+            transform: translateY(-1px);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(120, 86, 0, 0.2);
+        }
+
+        .ledger-gold-btn:disabled {
+            opacity: 0.6;
+            transform: none;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+    .ledger-secondary-btn {
+        background-color: #eae9dd;
+        color: #5a4000;
+        font-weight: 700;
+        border: none;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.875rem;
+        transition: all 0.2s ease-out;
+    }
+
+        .ledger-secondary-btn:hover {
+            background-color: #e4e3d7;
+            color: #5a4000;
+        }
+
+        .ledger-secondary-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+    .ledger-input {
+        background-color: #ffffff;
+        border: 1px solid #e4e3d7;
+        border-radius: 0.375rem;
+        padding: 0.4rem 0.75rem;
+        font-size: 0.875rem;
+        color: #1b1c15;
+    }
+
+    select.ledger-input {
+        padding-right: 2.25rem !important;
+    }
+
+    .ledger-input:focus {
+        outline: none;
+        border-color: #785600;
+        box-shadow: 0 0 0 2px rgba(120, 86, 0, 0.1);
+    }
+
+    /* 연도/분기/월 선택기 디자인 */
+    .compact-selector {
+        display: inline-flex;
+        align-items: center;
+        background-color: #ffffff;
+        border-radius: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+        border: 1px solid #eae9dd;
+        gap: 0.25rem;
+    }
+
+    .selector-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 0;
+        width: 28px;
+        height: 28px;
+        border-radius: 0.25rem;
+        color: #785600;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 0.85rem;
     }
 
-    .mobile-entry-center {
-        flex: 1;
-        min-width: 0;
-    }
+        .selector-btn:hover {
+            background-color: #f5f4e8;
+        }
 
-    .mobile-entry-category {
-        font-size: 0.72rem;
-        color: #1565c0;
+    .selector-value {
+        font-size: 0.9rem;
         font-weight: 700;
+        color: #1b1c15;
+        min-width: 3.5rem;
+        text-align: center;
+    }
+
+    .selector-divider {
+        width: 1px;
+        height: 1.2rem;
+        background-color: #eae9dd;
+        margin: 0 0.25rem;
+    }
+
+    /* 장부 테이블 전용 디자인 (세로줄 추가 및 폰트 확대) */
+    .ledger-table-container {
+        overflow-x: auto;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04);
+        background-color: #ffffff;
+        border: 1px solid #eae9dd;
+    }
+
+    .ledger-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1100px;
+        margin-bottom: 0;
+        table-layout: fixed;
+    }
+
+        /* 🚀 수정: 표 제목 폰트 크기 증가 (0.9rem) 및 세로줄(border-right) 추가 */
+        .ledger-table th {
+            background-color: rgba(234, 233, 221, 0.6);
+            color: #4e4637;
+            font-weight: 800;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.875rem 0.5rem;
+            border-bottom: 2px solid #d2c5b2;
+            border-right: 1px solid #eae9dd;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .ledger-table td {
+            padding: 0.75rem 0.5rem;
+            vertical-align: middle;
+            font-size: 0.9rem;
+            color: #1b1c15;
+            border-bottom: 1px solid #eae9dd;
+            border-right: 1px solid #eae9dd;
+            text-align: center;
+        }
+
+            .ledger-table th:last-child, .ledger-table td:last-child {
+                border-right: none;
+            }
+
+        .ledger-table tbody tr {
+            transition: background-color 0.15s;
+        }
+
+            .ledger-table tbody tr:hover {
+                background-color: #fbfcfa;
+            }
+
+    /* 🚀 수정: 내역/비고 한 줄 고정 속성 */
+    .text-truncate-custom {
+        max-width: 100%;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        margin-bottom: 1px;
+        display: block;
+        margin: 0 auto;
+        text-align: left;
     }
 
-    .mobile-entry-desc {
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #222;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .ledger-tabular {
+        font-variant-numeric: tabular-nums;
     }
 
-    .mobile-entry-note {
-        font-size: 0.68rem;
-        color: #aaa;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .badge-income {
+        background-color: rgba(90, 64, 0, 0.1);
+        color: #5a4000;
+        font-weight: 700;
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        display: inline-block;
     }
 
-    .mobile-entry-amount {
-        font-size: 0.88rem;
-        font-weight: 800;
-        white-space: nowrap;
-        letter-spacing: -0.5px;
+    .badge-expense {
+        background-color: rgba(186, 26, 26, 0.1);
+        color: #ba1a1a;
+        font-weight: 700;
+        padding: 0.3rem 0.6rem;
+        border-radius: 0.25rem;
+        font-size: 0.75rem;
+        display: inline-block;
     }
 
-    .mobile-entry-amount.income  { color: #1565c0; }
-    .mobile-entry-amount.expense { color: #c62828; }
+    /* 아이콘 버튼 */
+    .icon-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border-radius: 0.25rem;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 0.9rem;
+    }
+
+        .icon-btn:hover {
+            background-color: #eae9dd;
+        }
+
+        .icon-btn.edit {
+            color: #198754;
+        }
+        /* 🟢 녹색 (수정) */
+        .icon-btn.delete {
+            color: #dc3545;
+        }
+        /* 🔴 빨강 (삭제) */
+        .icon-btn.receipt {
+            color: #785600;
+        }
+
+        .icon-btn.upload {
+            color: #e6a23c;
+        }
+    /* 📁 노란색/주황색 (폴더 업로드) */
+
+    /* =======================================================
+           Print Styles (인쇄 양식)
+        ======================================================= */
+    @@media print {
+        body * {
+            visibility: hidden !important;
+        }
+
+        .print-only, .print-only * {
+            visibility: visible !important;
+        }
+
+        .print-only {
+            position: absolute !important;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+
+        @@page {
+            size: A4 portrait;
+            margin: 5mm;
+        }
+
+        .page-break-before {
+            page-break-before: always !important;
+        }
+
+        .print-only-title {
+            display: block !important;
+            text-align: center !important;
+            margin-bottom: 15px !important;
+            font-size: 18pt !important;
+            font-weight: bold;
+        }
+
+        table.table {
+            width: 100% !important;
+            border-collapse: collapse !important;
+            font-size: 11pt !important;
+        }
+
+            table.table th, table.table td {
+                padding: 4px !important;
+                border: 1px solid #444 !important;
+                vertical-align: middle !important;
+            }
+
+            table.table thead th {
+                background-color: #d3d3d3 !important;
+                font-weight: bold !important;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+
+        .money-cell {
+            text-align: right !important;
+        }
+        /* 영수증 인쇄 그리드 */
+        .receipt-grid-1 .receipt-box {
+            width: 100%;
+            height: 90vh;
+            margin-bottom: 5mm;
+            page-break-inside: avoid;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .receipt-grid-2 {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+            .receipt-grid-2 .receipt-box {
+                width: 48%;
+                height: 85vh;
+                margin-bottom: 5mm;
+                page-break-inside: avoid;
+                display: flex;
+                flex-direction: column;
+            }
+
+        .receipt-grid-4 {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+
+            .receipt-grid-4 .receipt-box {
+                width: 48%;
+                height: 42vh;
+                margin-bottom: 5mm;
+                page-break-inside: avoid;
+                display: flex;
+                flex-direction: column;
+            }
+
+        .receipt-img-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px dashed #ccc;
+            padding: 2px;
+        }
+
+            .receipt-img-wrapper img {
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+            }
+
+        .receipt-empty {
+            flex: 1;
+            border: 2px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14pt;
+            color: #ccc;
+        }
+    }
 </style>
 
-<div class="container-fluid mt-3 mt-sm-4 px-3 px-sm-4">
-
-    @* ============================================================
-       🖥️ PC 전용: 제목 + 엑셀/관리 버튼
-       ============================================================ *@
-    <div class="d-none d-sm-flex justify-content-between align-items-center mb-4 no-print flex-wrap gap-2">
-        <h3 class="fw-bold text-primary mb-0"><i class="bi bi-calendar-check me-2"></i>월별 재정 장부</h3>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            @if (CanEditLedger)
-            {
-                <button class="btn btn-primary fw-bold px-4 shadow-sm" @onclick="OpenUnmatchedManager"><i class="bi bi-receipt-cutoff me-2"></i> 매치 안된 영수증 관리</button>
-            }
-            <button class="btn btn-success fw-bold px-4 shadow-sm" @onclick="DownloadExcel"><i class="bi bi-file-earmark-excel me-2"></i> 엑셀 다운로드</button>
-        </div>
-    </div>
-
-    @* ============================================================
-       📱 모바일 전용: 컴팩트 연도/월 컨트롤
-       ============================================================ *@
-    <div class="d-flex d-sm-none align-items-center justify-content-between mb-3 no-print gap-2">
-        @* 연도 선택 *@
-        <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeYear(-1)">◀</button>
-            <span class="fw-bold" style="font-size:0.9rem; white-space:nowrap;">@(CurrentYear)년</span>
-            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeYear(1)">▶</button>
-        </div>
-        @* 월 선택 *@
-        <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeMonth(-1)">◀</button>
-            <select class="form-select form-select-sm fw-bold text-center" style="font-size:0.8rem; width:auto; min-width:70px;" @onchange="OnMonthChanged" value="@CurrentMonth">
-                <option value="0">전체</option>
-                @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> }
-            </select>
-            <button class="btn btn-outline-secondary btn-sm px-2 py-1" style="font-size:0.75rem;" @onclick="() => ChangeMonth(1)">▶</button>
-        </div>
-        @* 부서(관리자만) *@
-        @if (IsAdmin)
-        {
-            <select class="form-select form-select-sm fw-bold text-primary" style="font-size:0.75rem; width:auto; max-width:90px;" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
-                <option value="0">전체</option>
-                @foreach (var dept in Departments)
-                {
-                    @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
-                    { <option value="@dept.Id">@dept.Name</option> }
-                }
-            </select>
-        }
-    </div>
-
-    @* ============================================================
-       🖥️ PC 전용: 기존 4열 필터 카드 (연도/월/분기/부서)
-       ============================================================ *@
-    <div class="card p-3 mb-4 bg-light shadow-sm border-0 no-print d-none d-sm-block">
-        <div class="row g-3 align-items-center text-center">
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">회계연도</label>
-                <div class="d-flex justify-content-center align-items-center gap-2">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(-1)">◀</button>
-                    <span class="fw-bold fs-5">@CurrentYear 년</span>
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeYear(1)">▶</button>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">월 선택</label>
-                <div class="d-flex justify-content-center align-items-center gap-2">
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(-1)">◀</button>
-                    <select class="form-select form-select-sm w-auto fw-bold text-center" @onchange="OnMonthChanged" value="@CurrentMonth">
-                        <option value="0">전체 보기</option>
-                        @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> }
-                    </select>
-                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeMonth(1)">▶</button>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">분기 선택</label>
-                <select class="form-select form-select-sm w-auto fw-bold text-center mx-auto" @onchange="OnQuarterChanged" value="@CurrentQuarter">
-                    <option value="0">전체 분기</option>
-                    <option value="1">1분기 (11~2월)</option>
-                    <option value="2">2분기 (3~5월)</option>
-                    <option value="3">3분기 (6~8월)</option>
-                    <option value="4">4분기 (9~11월)</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label fw-bold text-muted small">부서</label>
-                @if (IsAdmin)
-                {
-                    <select class="form-select fw-bold text-primary border-primary" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
-                        <option value="0">부서 전체보기</option>
-                        @foreach (var dept in Departments)
-                        {
-                            @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀")
-                            { <option value="@dept.Id">@dept.Name</option> }
-                        }
-                    </select>
-                }
-                else
-                {
-                    <div class="fw-bold text-primary fs-5">@(CurrentUser?.Department?.Name ?? "로그인 필요")</div>
-                }
-            </div>
-        </div>
-    </div>
-
-    <InputFile id="pcUploadInput" OnChange="HandlePcUpload" style="display:none;" accept="image/*,.pdf" /> 
-
-    @* 🚀 편집 도구 토글 및 일괄 기능 영역 (PC 전용) *@
-    @if (CanEditLedger)
-    {
-        <div class="d-none d-sm-flex gap-2 mb-3 no-print">
-            <button class="btn @(isAddingNew ? "btn-secondary" : "btn-outline-primary") fw-bold" @onclick="ToggleAddForm">
-                <i class="bi @(isAddingNew ? "bi-dash-lg" : "bi-plus-lg") me-1"></i>수동 건별 입력
-            </button>
-            <button class="btn @(isBatchEditMode ? "btn-secondary" : "btn-outline-success") fw-bold" @onclick="ToggleBatchEditMode">
-                <i class="bi bi-pencil-square me-1"></i>일괄 수정/삭제
-            </button>
-            <button class="btn @(isBatchPrintMode ? "btn-secondary" : "btn-outline-dark") fw-bold" @onclick="ToggleBatchPrintMode">
-                <i class="bi bi-check2-square me-1"></i>인쇄 항목 선택 (이미지 제외 기능)
-            </button>
-        </div>
-
-        @if (isBatchEditMode)
-        {
-            <div class="d-flex align-items-center gap-2 flex-wrap bg-success bg-opacity-10 p-2 rounded border border-success mb-4 no-print shadow-sm"> 
-                <span class="badge bg-success fs-6"><i class="bi bi-check-all"></i> @editSelectedIds.Count 건 일괄선택됨</span> 
-                <select class="form-select form-select-sm w-auto fw-bold" @bind="bulkCategory"> 
-                    <option value="">-- 일괄 변경할 카테고리 선택 --</option> 
-                    <optgroup label="[수입]">@foreach (var c in IncomeCats) { <option value="@c">@c</option> }</optgroup> 
-                    <optgroup label="[지출]">@foreach (var c in ExpenseCats) { <option value="@c">@c</option> }</optgroup> 
-                </select> 
-                <button class="btn btn-success btn-sm fw-bold text-nowrap" @onclick="ApplyBulkEdit" disabled="@(editSelectedIds.Count == 0 || string.IsNullOrEmpty(bulkCategory))"><i class="bi bi-check-lg"></i> 일괄수정 적용</button> 
-                <button class="btn btn-danger btn-sm fw-bold text-nowrap ms-auto" @onclick="DeleteSelected" disabled="@(editSelectedIds.Count == 0)"><i class="bi bi-trash-fill"></i> 선택 일괄삭제</button> 
-            </div> 
-        }
-
-        @* 🚀 추가된 부분: 인쇄 모드 툴바 (빈 영수증 만들기) *@
-        @if (isBatchPrintMode)
-        {
-            <div class="d-flex align-items-center gap-2 flex-wrap bg-dark bg-opacity-10 p-2 rounded border border-dark mb-4 no-print shadow-sm"> 
-                <span class="badge bg-dark fs-6"><i class="bi bi-printer-fill"></i> @printSelectedIds.Count 건 인쇄 선택됨</span> 
-                
-                <button class="btn btn-outline-dark btn-sm fw-bold ms-auto" @onclick="SetPrintWithoutImageForSelected" disabled="@(printSelectedIds.Count == 0)" title="선택한 내역은 인쇄 시 빈칸으로 나옵니다">
-                    <i class="bi bi-image-alt"></i> 선택항목 이미지 제외
-                </button>
-                <button class="btn btn-dark btn-sm fw-bold" @onclick="SetPrintWithoutImageForAll" title="화면의 모든 지출 내역을 빈칸으로 출력합니다">
-                    <i class="bi bi-images"></i> 화면 전체 이미지 제외
-                </button>
-                <button class="btn btn-outline-primary btn-sm fw-bold" @onclick="ClearPrintWithoutImage" disabled="@(printWithoutImageIds.Count == 0)">
-                    <i class="bi bi-arrow-counterclockwise"></i> 제외 취소
-                </button>
-            </div>
-        }
-    }
-
-    <datalist id="categoryList">@foreach (var cat in UniqueCategories) { <option value="@cat"></option> }</datalist> 
-    <datalist id="descriptionList">@foreach (var desc in UniqueDescriptions) { <option value="@desc"></option> }</datalist> 
-
-    @{
-        string periodLabel = CurrentMonth > 0 ? $"{CurrentMonth}월" : (CurrentQuarter > 0 ? $"{CurrentQuarter}분기" : "전체"); 
-        decimal webRunningBalance = CarryOverAmount; 
-        decimal webTotalIncome = 0; 
-        decimal webTotalExpense = 0; 
-        string currentMonthYearForSeq = ""; 
-        int seq = 1; 
-
-        @* ============================================================
-           📱 모바일 전용: 수입/지출 탭 뷰 (640px 이하, 인쇄 제외)
-           기존 PC 기능은 아래 screen-only 영역에 그대로 유지됩니다.
-           ============================================================ *@
-        <div class="d-block d-sm-none no-print mobile-ledger-view">
-            @{
-                var mobileIncome  = FilteredEntries.Where(e => e.Type == "수입").OrderByDescending(e => e.Date).ToList();
-                var mobileExpense = FilteredEntries.Where(e => e.Type == "지출").OrderByDescending(e => e.Date).ToList();
-                decimal mobileIncomeTotal  = mobileIncome.Sum(e => e.Income);
-                decimal mobileExpenseTotal = mobileExpense.Sum(e => e.Expense);
-                decimal mobileBalance      = CarryOverAmount + mobileIncomeTotal - mobileExpenseTotal;
-            }
-
-            @* 요약 카드 *@
-            <div class="mobile-summary-row">
-                <div class="mobile-summary-card income">
-                    <div class="label">수입</div>
-                    <div class="amount">@mobileIncomeTotal.ToString("N0")</div>
-                </div>
-                <div class="mobile-summary-card expense">
-                    <div class="label">지출</div>
-                    <div class="amount">@mobileExpenseTotal.ToString("N0")</div>
-                </div>
-                <div class="mobile-summary-card balance">
-                    <div class="label">잔액</div>
-                    <div class="amount">@mobileBalance.ToString("N0")</div>
-                </div>
-            </div>
-
-            @* 탭 버튼 *@
-            <div class="mobile-tab-bar">
-                <button class="mobile-tab-btn @(mobileLedgerTab == "income" ? "active" : "")"
-                        @onclick='() => mobileLedgerTab = "income"'>
-                    <i class="bi bi-arrow-down-circle-fill text-primary me-1"></i>
-                    수입 <span class="mobile-tab-count">@mobileIncome.Count</span>
-                </button>
-                <button class="mobile-tab-btn @(mobileLedgerTab == "expense" ? "active expense-active" : "")"
-                        @onclick='() => mobileLedgerTab = "expense"'>
-                    <i class="bi bi-arrow-up-circle-fill text-danger me-1"></i>
-                    지출 <span class="mobile-tab-count">@mobileExpense.Count</span>
-                </button>
-            </div>
-
-            @* 탭 콘텐츠 *@
-            <div class="mobile-entry-list">
-                @{
-                    var mobileList = mobileLedgerTab == "income" ? mobileIncome : mobileExpense;
-                }
-                @if (!mobileList.Any())
-                {
-                    <div class="mobile-empty-msg">
-                        <i class="bi bi-inbox fs-3 text-muted"></i>
-                        <div class="text-muted mt-2">내역이 없습니다</div>
-                    </div>
-                }
-                @foreach (var item in mobileList)
-                {
-                    bool hasRcpt = !string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath);
-                    string rcptUrl = hasRcpt ? (!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath!) + $"?v={DateTime.Now.Ticks}" : "";
-                    decimal amt = item.Type == "수입" ? item.Income : item.Expense;
-                    <div class="mobile-entry-card">
-                        <div class="mobile-entry-left">
-                            <div class="mobile-entry-date">@item.Date.ToString("MM/dd")</div>
-                            @if (hasRcpt)
-                            {
-                                <button class="mobile-rcpt-btn" @onclick="() => ShowReceiptImage(rcptUrl)" title="영수증 보기">
-                                    <i class="bi bi-receipt"></i>
-                                </button>
-                            }
-                        </div>
-                        <div class="mobile-entry-center">
-                            <div class="mobile-entry-category">@item.Category</div>
-                            <div class="mobile-entry-desc">@item.Description</div>
-                            @if (!string.IsNullOrEmpty(item.Note))
-                            {
-                                <div class="mobile-entry-note">@item.Note</div>
-                            }
-                        </div>
-                        <div class="mobile-entry-amount @(item.Type == "수입" ? "income" : "expense")">
-                            @amt.ToString("N0")
-                        </div>
-                    </div>
-                }
-            </div>
-        </div>
-
-        @* ============================================================
-           🖥️ PC 전용: 기존 기능 전체 유지 (641px 이상 + 인쇄)
-           ============================================================ *@
-        <div class="screen-only no-print">
-            @* 🚀 인쇄 도구 모음 (장부 표 바로 위) *@
-            <div class="d-none d-sm-flex justify-content-between align-items-end mb-2">
-                <div class="fw-bold text-primary fs-5 pt-2"><i class="bi bi-list-columns me-2"></i> @CurrentYear 년 @periodLabel 통합 장부</div>
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <button class="btn btn-secondary fw-bold btn-sm" @onclick="PrintLedger"><i class="bi bi-printer me-1"></i> 장부 인쇄</button>
-                    
-                    <div class="input-group input-group-sm bg-white border rounded shadow-sm" style="width: auto;">
-                        <span class="input-group-text fw-bold border-0 bg-light text-dark"><i class="bi bi-layout-split me-1"></i> 레이아웃</span>
-                        <select class="form-select fw-bold border-0" @bind="receiptsPerSheet" style="background-color: #f8f9fa;"> 
-                            <option value="1">영수증 1장씩</option> 
-                            <option value="2">영수증 2장 좌우</option> 
-                            <option value="4">영수증 4장 분할</option> 
-                        </select> 
-                        <button class="btn btn-outline-dark fw-bold border-top-0 border-bottom-0" @onclick="PrintAllReceipts"><i class="bi bi-images me-1"></i> 전체 영수증 인쇄</button> 
-                        <button class="btn btn-dark fw-bold border-0" @onclick="PrintSelectedReceipts" disabled="@(!isBatchPrintMode || printSelectedIds.Count == 0)"><i class="bi bi-check-square me-1"></i> 선택 영수증 인쇄</button> 
-                    </div> 
-                </div>
-            </div>
-
-            <div class="card shadow-sm border-0 mb-4"> 
-                <div class="table-responsive" style="overflow-y:visible;"> 
-                    <table class="table table-hover align-middle mb-0 table-bordered table-fixed-layout"> 
-                        <thead class="table-dark text-white text-center align-middle"> 
-                            <tr> 
-                                @if (CanEditLedger && isBatchEditMode) { <th style="width:4%" class="text-center" title="일괄 수정/삭제 선택">수정<br><input type="checkbox" class="form-check-input" @onchange="ToggleAllEdit" checked="@IsAllEditSelected" /></th> } 
-                                @if (CanEditLedger && isBatchPrintMode) { <th style="width:4%" class="text-center" title="영수증 인쇄 선택">인쇄<br><input type="checkbox" class="form-check-input" @onchange="ToggleAllPrint" checked="@IsAllPrintSelected" /></th> } 
-                                <th style="width:4%" class="text-center">순번</th> 
-                                <th style="width:6%" class="text-center">날짜</th> 
-                                <th style="width:6%" class="text-center">구분</th> 
-                                <th style="width:9%" class="text-center">분류항목</th> 
-                                <th style="width:20%" class="text-center">적요</th> 
-                                <th style="width:9%" class="text-center">비고</th> 
-                                <th style="width:8%" class="text-center">수입</th> 
-                                <th style="width:8%" class="text-center">지출</th> 
-                                <th style="width:9%" class="text-center">잔액</th> 
-                                @if (CanEditLedger) { 
-                                    <th style="width:7%" class="text-center">관리</th>  
-                                    <th style="width:11%" class="text-center">영수증 첨부</th> 
-                                } 
-                            </tr> 
-                            <tr class="table-secondary"> 
-                                @if (CanEditLedger && isBatchEditMode) { <th></th> } 
-                                @if (CanEditLedger && isBatchPrintMode) { <th></th> } 
-                                <th></th> 
-                                <th></th> 
-                                <th> 
-                                    <select class="form-select form-select-sm px-1" @bind="filterType" @bind:after="ApplyFilters"> 
-                                        <option value="">전체</option><option value="수입">수입</option><option value="지출">지출</option> 
-                                     </select> 
-                                </th> 
-                                <th><input type="text" class="form-control form-control-sm text-center px-1" list="categoryList" placeholder="검색" @bind="filterCategory" @bind:event="oninput" autocomplete="off" /></th> 
-                                <th><input type="text" class="form-control form-control-sm text-center px-1" list="descriptionList" placeholder="검색" @bind="filterDesc" @bind:event="oninput" autocomplete="off" /></th> 
-                                <th colspan="@(CanEditLedger ? 6 : 4)"></th> 
-                            </tr> 
-                        </thead> 
-                        <tbody> 
-                            @if (!FilteredEntries.Any() && !isAddingNew)
-                            {
-                                <tr><td colspan="13" class="text-center text-muted py-5 fw-bold">조건에 맞는 내역이 없습니다.</td></tr>
-                            }
-                            else
-                            {
-                                <tr class="table-warning fw-bold"> 
-                                    @if (CanEditLedger && isBatchEditMode) { <td></td> } 
-                                    @if (CanEditLedger && isBatchPrintMode) { <td></td> } 
-                                    <td></td> 
-                                    <td class="text-center">-</td> 
-                                    <td class="text-center"><span class="badge bg-warning text-dark">이월</span></td> 
-                                    <td class="text-center">@(periodLabel == "전체" ? "전년이월" : "이월금")</td> 
-                                    <td class="text-start">@if (IsAdmin && SelectedDepartmentId == 0) { <span class="badge bg-light text-dark border">통합 이월금</span> }</td> 
-                                    <td class="text-start"></td> 
-                                    <td class="text-end">@CarryOverAmount.ToString("N0")</td> 
-                                    <td class="text-end">-</td> 
-                                    <td class="text-end table-active text-primary">@CarryOverAmount.ToString("N0")</td> 
-                                    @if (CanEditLedger) { <td></td><td></td> } 
-                                </tr> 
-
-                                @if (CanEditLedger && isAddingNew)
-                                { 
-                                    <tr class="table-info border-primary"> 
-                                        @if (isBatchEditMode) { <td></td> } 
-                                        @if (isBatchPrintMode) { <td></td> } 
-                                        <td class="text-center"><span class="badge bg-primary">NEW</span></td> 
-                                        <td class="text-center"><input type="date" class="form-control form-control-sm px-1" @bind="newItem.Date" /></td> 
-                                        <td class="text-center"> 
-                                            <select class="form-select form-select-sm px-1" value="@newItem.Type" @onchange="@(e => { newItem.Type = e.Value?.ToString() ?? ""; newItem.Category = ""; })"> 
-                                                <option value="지출">지출</option><option value="수입">수입</option> 
-                                            </select> 
-                                        </td> 
-                                        <td class="text-center"> 
-                                            <select class="form-select form-select-sm px-1" @bind="newItem.Category"> 
-                                                <option value="">--선택--</option> 
-                                                @if (newItem.Type == "수입") { @foreach (var c in IncomeCats) { <option value="@c">@c</option> } }  
-                                                else { @foreach (var c in ExpenseCats) { <option value="@c">@c</option> } } 
-                                            </select> 
-                                        </td> 
-                                        <td class="text-start"> 
-                                            <input type="text" class="form-control form-control-sm px-1 border-primary" list="descriptionList" placeholder="적요 (필수)" @bind-value="newItem.Description" @bind-value:event="oninput" autocomplete="off" /> 
-                                        </td> 
-                                        <td class="text-start"><input type="text" class="form-control form-control-sm px-1" placeholder="비고" @bind-value="newItem.Note" @bind-value:event="oninput" /></td> 
-                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Income" placeholder="0" disabled="@(newItem.Type == "지출")" /></td> 
-                                        <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="newItem.Expense" placeholder="0" disabled="@(newItem.Type == "수입")" /></td> 
-                                        <td class="text-end table-active"></td> 
-                                        <td class="text-center" colspan="2"> 
-                                            <div class="d-flex gap-1 justify-content-center"> 
-                                                <button class="btn btn-success btn-sm py-0 fw-bold" @onclick="SaveNewEntry">[저장]</button> 
-                                                <button class="btn btn-secondary btn-sm py-0 fw-bold" @onclick="ToggleAddForm">[취소]</button> 
-                                            </div> 
-                                        </td> 
-                                    </tr> 
-                                } 
-
-                                @foreach (var item in FilteredEntries) 
-                                { 
-                                    string itemMonthYear = item.Date.ToString("yyyy-MM");
-                                    if (currentMonthYearForSeq != itemMonthYear) { currentMonthYearForSeq = itemMonthYear; seq = 1; } 
-
-                                    webRunningBalance += (item.Income - item.Expense);
-                                    webTotalIncome += item.Income; 
-                                    webTotalExpense += item.Expense; 
-                                    bool isEditing = editingItemId == item.Id; 
-                                    bool hasReceipt = !string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath);
-                                    string activeReceiptUrl = hasReceipt ? (!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath!) + $"?v={DateTime.Now.Ticks}" : "";
-                                    <tr class="@(editSelectedIds.Contains(item.Id) ? "table-success" : "")"> 
-                                        @if (CanEditLedger && isBatchEditMode) 
-                                        { 
-                                            <td class="text-center"><input type="checkbox" class="form-check-input border-success" checked="@editSelectedIds.Contains(item.Id)" @onchange="@(e => ToggleEditSelection(item.Id, e))" /></td> 
-                                        } 
-                                        @if (CanEditLedger && isBatchPrintMode) 
-                                        { 
-                                            <td class="text-center align-middle">
-                                                @* 🚀 수정됨: 영수증 유무와 관계없이 지출이면 무조건 인쇄 선택 가능 *@
-                                                @if (item.Type == "지출") { 
-                                                    <input type="checkbox" class="form-check-input border-dark" checked="@printSelectedIds.Contains(item.Id)" @onchange="@(e => TogglePrintSelection(item.Id, e))" /> 
-                                                    @if (printWithoutImageIds.Contains(item.Id))
-                                                    {
-                                                        <div class="badge bg-secondary mt-1 d-block mx-auto" style="font-size:0.65rem; width: fit-content;">이미지 제외</div>
-                                                    }
-                                                }
-                                            </td> 
-                                        }
-
-                                        @if (CanEditLedger && isEditing && editBuffer != null) 
-                                        { 
-                                            <td class="text-center fw-bold text-muted">@seq</td> 
-                                            <td class="text-center"><input type="date" class="form-control form-control-sm px-1" @bind="editBuffer.Date" /></td> 
-                                            <td class="text-center"> 
-                                                <select class="form-select form-select-sm px-1" value="@editBuffer.Type" @onchange="@(e => { editBuffer.Type = e.Value?.ToString() ?? ""; editBuffer.Category = ""; })"> 
-                                                    <option value="지출">지출</option><option value="수입">수입</option> 
-                                                </select> 
-                                            </td> 
-                                            <td class="text-center"> 
-                                                <select class="form-select form-select-sm px-1" @bind="editBuffer.Category"> 
-                                                    <option value="">--선택--</option> 
-                                                    @if (editBuffer.Type == "수입") { @foreach (var c in IncomeCats) { <option value="@c">@c</option> } }  
-                                                    else { @foreach (var c in ExpenseCats) { <option value="@c">@c</option> } } 
-                                                </select> 
-                                            </td> 
-                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" list="descriptionList" @bind-value="editBuffer.Description" @bind-value:event="oninput" autocomplete="off" /></td> 
-                                            <td class="text-start"><input type="text" class="form-control form-control-sm px-1" @bind-value="editBuffer.Note" @bind-value:event="oninput" /></td> 
-                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Income" disabled="@(editBuffer.Type == "지출")" /></td> 
-                                            <td class="text-end"><input type="number" class="form-control form-control-sm px-1 text-end" @bind="editBuffer.Expense" disabled="@(editBuffer.Type == "수입")" /></td> 
-                                            <td class="text-end table-active fw-bold">@webRunningBalance.ToString("N0")</td> 
-                                            <td class="text-center" colspan="2"> 
-                                                <div class="d-flex gap-1 justify-content-center"> 
-                                                    <button class="btn btn-success btn-sm py-0 fw-bold" @onclick="SaveEdit">[저장]</button> 
-                                                    <button class="btn btn-secondary btn-sm py-0 fw-bold" @onclick="CancelEdit">[취소]</button> 
-                                                </div> 
-                                            </td> 
-                                        } 
-                                        else 
-                                        { 
-                                            <td class="text-center fw-bold text-muted">@seq</td> 
-                                            <td class="text-center">@item.Date.ToString("MM-dd")</td> 
-                                            <td class="text-center"> 
-                                                @if (item.Type == "수입") { <span class="badge bg-primary bg-opacity-10 text-primary">수입</span> } 
-                                                else { <span class="badge bg-danger bg-opacity-10 text-danger">지출</span> } 
-                                            </td> 
-                                            <td class="text-center fw-bold" title="@item.Category">@item.Category</td> 
-                                            <td class="text-start" title="@item.Description"> 
-                                                @if (hasReceipt) 
-                                                { 
-                                                    <a href="javascript:void(0)" class="text-decoration-none fw-bold text-primary me-1" @onclick="() => ShowReceiptImage(activeReceiptUrl)" title="영수증 보기"><i class="bi bi-receipt"></i></a> 
-                                                } 
-                                                @item.Description 
-                                                @if (IsAdmin && SelectedDepartmentId == 0) { <span class="badge bg-light text-dark border ms-2">@(item.DepartmentInfo?.Name)</span> } 
-                                            </td> 
-                                            <td class="text-start small text-muted" title="@item.Note">@item.Note</td> 
-                                            <td class="text-end text-primary">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td> 
-                                            <td class="text-end text-danger">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td> 
-                                            <td class="text-end table-active fw-bold">@webRunningBalance.ToString("N0")</td> 
-                                            @if (CanEditLedger) 
-                                            { 
-                                                <td class="text-center"> 
-                                                    <div class="d-flex gap-1 justify-content-center"> 
-                                                        <button class="btn btn-sm btn-outline-primary py-0 px-1 fw-bold" @onclick="() => StartEdit(item)">[수정]</button> 
-                                                        <button class="btn btn-sm btn-outline-danger py-0 px-1 fw-bold" @onclick="() => DeleteSingle(item.Id)">[삭제]</button> 
-                                                    </div> 
-                                                </td> 
-                                                <td class="text-center"> 
-                                                    @if (item.Type == "지출")
-                                                    {
-                                                        @if (hasReceipt) 
-                                                        { 
-                                                            <div class="d-flex gap-1 justify-content-center"> 
-                                                                <button class="btn btn-sm btn-primary py-0 px-2 fw-bold" @onclick="() => ShowReceiptImage(activeReceiptUrl)">보기</button> 
-                                                                <button class="btn btn-sm btn-danger py-0 px-2 fw-bold" @onclick="() => RemoveReceiptOnly(item.Id)">분리</button> 
-                                                            </div> 
-                                                        } 
-                                                        else 
-                                                        { 
-                                                            <div class="d-flex gap-1 justify-content-center"> 
-                                                                <button class="btn btn-sm btn-outline-primary py-0 px-1 fw-bold" @onclick="() => AttachSingleFromUnmatched(item.Id)" title="서버 영수증 붙이기">서버영수증</button> 
-                                                                <button class="btn btn-sm btn-outline-success py-0 px-1 fw-bold" @onclick="() => TriggerPcUpload(item.Id)" title="내 PC 사진">PC업로드</button> 
-                                                            </div>
-                                                        }
-                                                    }
-                                                    else { <span class="text-muted small">-</span> }
-                                                </td> 
-                                            } 
-                                        } 
-                                    </tr> 
-                                    seq++; 
-                                } 
-                            }
-                        </tbody> 
-                        <tfoot class="table-light fw-bold border-top"> 
-                            <tr style="font-size: 1.1em;"> 
-                                @if (CanEditLedger && isBatchEditMode) { <td></td> } 
-                                @if (CanEditLedger && isBatchPrintMode) { <td></td> } 
-                                <td></td> 
-                                <td colspan="5" class="text-end">@CurrentYear 년 @periodLabel 총계 (누계 잔액)</td> 
-                                <td class="text-end text-primary">@webTotalIncome.ToString("N0")</td> 
-                                <td class="text-end text-danger">@webTotalExpense.ToString("N0")</td> 
-                                <td class="text-end text-primary">@webRunningBalance.ToString("N0")</td> 
-                                @if (CanEditLedger) { <td></td><td></td> } 
-                            </tr> 
-                        </tfoot> 
-                    </table> 
-                </div> 
-            </div> 
-        </div> 
-
-        @* =======================================================
-           🚀 인쇄 전용 영역
-           ======================================================= *@
-        <div class="print-only"> 
-            @if (printMode == "Ledger") 
-            { 
-                var groupedByMonthYear = FilteredEntries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
-                bool isFirstGroup = true; 
-
-                foreach (var monthGroup in groupedByMonthYear) 
-                { 
-                    var parts = monthGroup.Key.Split('-');
-                    int groupYear = int.Parse(parts[0]); 
-                    int groupMonth = int.Parse(parts[1]); 
-
-                    decimal previousTotalIncome = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Income);
-                    decimal previousTotalExpense = Entries.Where(x => x.Date < new DateTime(groupYear, groupMonth, 1)).Sum(x => x.Expense);
-                    decimal startingBalanceForMonth = CarryOverAmount + previousTotalIncome - previousTotalExpense; 
-
-                    decimal runningBalance = startingBalanceForMonth; 
-                    decimal currentMonthIncome = 0; 
-                    decimal currentMonthExpense = 0;
-                    string pageBreakClass = isFirstGroup ? "" : "page-break-before mt-5"; 
-                    isFirstGroup = false;
-                    <div class="@pageBreakClass"> 
-                        <div class="print-only-title"> 
-                            @{ string printDeptName = SelectedDepartmentId == 0 ? "전체 부서 통합" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? ""; } 
-                            [ @groupYear 년 @(groupMonth)월 @printDeptName 재정 장부 ] 
-                        </div> 
-
-                        <table class="table table-bordered table-fixed-layout mb-0"> 
-                            <thead> 
-                                <tr> 
-                                    <th style="width: 6%;" class="text-center">순번</th> 
-                                    <th style="width: 7%;" class="text-center">날짜</th> 
-                                    <th style="width: 6%;" class="text-center">구분</th> 
-                                    <th style="width: 12%;" class="text-center">분류항목</th> 
-                                    <th style="width: 24%;" class="text-center">적요</th> 
-                                    <th style="width: 9%;" class="text-center">비고</th> 
-                                    <th style="width: 12%;" class="text-center">수입</th> 
-                                    <th style="width: 12%;" class="text-center">지출</th> 
-                                    <th style="width: 12%;" class="text-center">잔액</th> 
-                                </tr> 
-                            </thead> 
-                            <tbody> 
-                                <tr> 
-                                    <td class="text-center"></td> 
-                                    <td class="text-center">-</td> 
-                                    <td class="text-center">이월</td> 
-                                    <td class="text-center">전월이월</td> 
-                                    <td class="text-center">@if (IsAdmin && SelectedDepartmentId == 0) { <span>통합 이월금</span> }</td> 
-                                    <td class="text-center"></td> 
-                                    <td class="text-end money-cell">@startingBalanceForMonth.ToString("N0")</td> 
-                                    <td class="text-end money-cell">-</td> 
-                                    <td class="text-end money-cell">@startingBalanceForMonth.ToString("N0")</td> 
-                                </tr> 
-
-                                @{ int printSeq = 1; } 
-                                @foreach (var item in monthGroup) 
-                                { 
-                                    runningBalance += (item.Income - item.Expense); 
-                                    currentMonthIncome += item.Income; 
-                                    currentMonthExpense += item.Expense;
-                                    <tr> 
-                                        <td class="text-center clip-cell text-muted fw-bold">@printSeq</td> 
-                                        <td class="text-center clip-cell">@item.Date.ToString("MM-dd")</td> 
-                                        <td class="text-center clip-cell">@item.Type</td> 
-                                        <td class="text-center clip-cell" style="@((item.Category ?? "").Length > 5 ? "font-size:9pt !important; letter-spacing:-0.5px !important;" : "")">@item.Category</td> 
-                                        <td class="text-center clip-cell"> 
-                                            @{ string descText = item.Description ?? ""; if (descText.Length > 10) descText = descText.Substring(0, 10); } 
-                                            @descText @if (IsAdmin && SelectedDepartmentId == 0) { <span> [@(item.DepartmentInfo?.Name)]</span> } 
-                                        </td> 
-                                        <td class="text-center clip-cell" style="@((item.Note ?? "").Length > 5 ? "font-size:8pt !important; letter-spacing:-0.5px !important;" : "")"> 
-                                            @{ string noteText = item.Note ?? ""; if (noteText.Length > 6) noteText = noteText.Substring(0, 6); } @noteText 
-                                        </td> 
-                                        <td class="text-end money-cell">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td> 
-                                        <td class="text-end money-cell">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td> 
-                                        <td class="text-end money-cell">@runningBalance.ToString("N0")</td> 
-                                    </tr> 
-                                    printSeq++;
-                                } 
-                            </tbody> 
-                            <tfoot> 
-                                <tr> 
-                                    <td colspan="6" class="text-end">@groupYear 년 @(groupMonth)월 계 (누계 잔액)</td> 
-                                    <td class="text-end money-cell">@currentMonthIncome.ToString("N0")</td> 
-                                    <td class="text-end money-cell">@currentMonthExpense.ToString("N0")</td> 
-                                    <td class="text-end money-cell">@runningBalance.ToString("N0")</td> 
-                                </tr> 
-                            </tfoot> 
-                        </table> 
-                    </div> 
-                } 
-            } 
-            else if (printMode == "Receipt") 
-            { 
-                int count = 0;
-                <div class="receipt-grid-@receiptsPerSheet"> 
-                    @foreach (var item in printTargets) 
-                    { 
-                        <div class="receipt-box"> 
-                            @{ 
-                                string itemMonthYear = item.Date.ToString("yyyy-MM");
-                                int seqInMonth = FilteredEntries.Where(x => x.Date.ToString("yyyy-MM") == itemMonthYear).ToList().IndexOf(item) + 1; 
-                                string desc = item.Description ?? "";
-                                if (desc.Length > 15) desc = desc.Substring(0, 15) + "...";
-                            } 
-                            <div class="text-start fw-bold" style="font-size: 14pt; line-height: 1.2;">No.@(item.Date.Month)월-@seqInMonth</div> 
-                            <div class="d-flex justify-content-between align-items-end fw-bold" style="font-size: 10pt; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 10px;"> 
-                                <span style="white-space: nowrap;">@item.Date.ToString("yyyy-MM-dd")</span> 
-                                <span class="text-end" style="width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@desc</span> 
-                            </div> 
-                            
-                            @* 🚀 수정됨: 사용자가 이미지 제외를 선택하지 않았고, 실제 영수증 사진이 있는 경우에만 이미지를 그립니다. *@
-                            <div class="receipt-img-wrapper">
-                                @if (!printWithoutImageIds.Contains(item.Id) && (!string.IsNullOrEmpty(item.ReceiptUrl) || !string.IsNullOrEmpty(item.ReceiptPath)))
-                                {
-                                    <img src="@(!string.IsNullOrEmpty(item.ReceiptUrl) ? item.ReceiptUrl : item.ReceiptPath)" />
-                                }
-                            </div> 
-                        </div> 
-                        count++;
-                        if (receiptsPerSheet == 1 || (receiptsPerSheet == 2 && count % 2 == 0) || (receiptsPerSheet == 4 && count % 4 == 0)) 
-                        { <div class="page-break"></div> } 
-                    } 
-                </div> 
-            } 
-        </div> 
-    } 
-</div> 
-
-@* 🚀 이미지 크게 보기 모달 *@
-@if (showImageModal) 
-{ 
-    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.8); z-index: 1050;" tabindex="-1" @onclick="CloseImageModal"> 
-        <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation> 
-            <div class="modal-content bg-transparent border-0"> 
-                <div class="modal-header border-0 justify-content-end p-2"> 
-                    <button type="button" class="btn-close btn-close-white" @onclick="CloseImageModal"></button> 
-                </div> 
-                <div class="modal-body text-center p-0"> 
-                    <img src="@currentLargeImageUrl" class="img-fluid rounded" style="max-height: 80vh;" /> 
-                </div> 
-            </div> 
-        </div> 
-    </div> 
-} 
-
-@* 🚀 [풀스크린] 매치 안된 영수증 관리 (Split View) *@
-@if (showUnmatchedManager) 
-{ 
-    <div class="modal fade show d-block" style="background-color: #f4f6f9; z-index: 1055; overflow-y: auto;" tabindex="-1"> 
-        <div class="container-fluid py-4 h-100 d-flex flex-column"> 
-            
-            <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-3"> 
-                <h3 class="fw-bold text-primary mb-0"><i class="bi bi-receipt-cutoff me-2"></i>매치 안된 영수증 관리</h3> 
-                <div class="d-flex gap-2"> 
-                    <button class="btn btn-primary fw-bold px-4" @onclick="AutoMatchReceipts"><i class="bi bi-magic me-1"></i> 금액/날짜 자동 매치 (추천)</button> 
-                    <button class="btn btn-secondary fw-bold px-4" @onclick="CloseUnmatchedManager"><i class="bi bi-arrow-return-left me-1"></i> 장부로 돌아가기</button> 
-                </div> 
-            </div> 
-
-            <div class="row flex-grow-1"> 
-                @* 1. 썸네일 스트립 (상단) *@
-                <div class="col-12 mb-4"> 
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="fw-bold text-dark mb-0"><i class="bi bi-1-circle-fill text-primary me-1"></i> 매치할 영수증 선택 (@(GetFilteredUnmatchedReceipts().Count)건 대기중)</h5> 
-                        
-                        <div class="d-flex align-items-center gap-3 bg-white p-2 rounded shadow-sm border">
-                            <div class="d-flex align-items-center gap-2 border-end pe-3">
-                                <span class="small fw-bold text-secondary">월별 보기:</span>
-                                <select class="form-select form-select-sm fw-bold border-primary" style="width: 90px;" @bind="unmatchedFilterMonth">
-                                    <option value="0">전체</option>
-                                    @for (int i = 1; i <= 12; i++) { <option value="@i">@i 월</option> }
-                                </select>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <input type="checkbox" class="form-check-input border-secondary" id="chkAll" checked="@IsAllUnmatchedSelected" @onchange="ToggleAllUnmatchedSelection" />
-                                <label class="form-check-label small fw-bold text-secondary" for="chkAll">전체선택</label>
-                                <button class="btn btn-sm btn-danger fw-bold ms-2" @onclick="DeleteSelectedUnmatchedReceipts" disabled="@(selectedUnmatchedReceiptIds.Count == 0)">
-                                    <i class="bi bi-trash-fill"></i> 선택 삭제 (@selectedUnmatchedReceiptIds.Count)
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    @if (unmatchedReceiptsList == null) 
-                    { <div class="spinner-border text-primary"></div> } 
-                    else if (!GetFilteredUnmatchedReceipts().Any()) 
-                    { <div class="p-4 bg-white rounded shadow-sm text-muted text-center fw-bold border">매칭 대기 중인 모바일 영수증이 없습니다.</div> } 
-                    else 
-                    {
-                        <div class="d-flex gap-3 overflow-auto py-2 px-1" style="white-space: nowrap;"> 
-                            @foreach (var r in GetFilteredUnmatchedReceipts()) 
-                            { 
-                                <div class="card shadow-sm receipt-thumbnail @(activeUnmatchedReceipt?.Id == r.Id ? "border-primary border-3" : "border-0")" style="width: 140px; flex: 0 0 auto; cursor:pointer; position:relative;" @onclick="() => SelectUnmatchedReceipt(r)"> 
-                                    <input type="checkbox" class="form-check-input position-absolute" style="top: 8px; left: 8px; transform: scale(1.3); z-index: 10;" checked="@selectedUnmatchedReceiptIds.Contains(r.Id)" @onclick:stopPropagation="true" @onchange="@(e => ToggleUnmatchedSelection(r.Id, e))" />
-                                    <div style="height: 140px; background-color: #fff;" class="border-bottom p-1 text-center d-flex align-items-center justify-content-center"> 
-                                        <img src="@r.ImagePath" style="max-width: 100%; max-height: 100%; object-fit: contain;" /> 
-                                    </div> 
-                                    <div class="card-body p-2 text-center bg-light"> 
-                                        <div class="small fw-bold text-dark">@r.ReceiptDate.ToString("MM-dd")</div> 
-                                        <div class="small text-danger fw-bold">@r.Amount.ToString("N0")원</div> 
-                                    </div> 
-                                </div> 
-                            } 
-                        </div> 
-                    }
-                </div> 
-
-                @* 2. Split View (선택된 영수증 vs 장부 내역) *@
-                @if (activeUnmatchedReceipt != null) 
-                { 
-                    <div class="col-lg-5 col-md-6 mb-4"> 
-                        <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-2-circle-fill text-primary me-1"></i> 영수증 크게 보기</h5> 
-                        <div class="card shadow-sm border-primary"> 
-                            <div class="card-header bg-primary text-white fw-bold d-flex justify-content-between fs-5"> 
-                                <span><i class="bi bi-calendar-event me-1"></i> @activeUnmatchedReceipt.ReceiptDate.ToString("yyyy-MM-dd")</span> 
-                                <span><i class="bi bi-cash-coin me-1"></i> @activeUnmatchedReceipt.Amount.ToString("N0")원</span> 
-                            </div> 
-                            <div class="card-body text-center bg-white p-2"> 
-                                <img src="@activeUnmatchedReceipt.ImagePath" class="img-fluid rounded" style="max-height: 50vh; object-fit: contain;" /> 
-                                <div class="mt-3 p-2 bg-light rounded border fw-bold text-dark fs-5">적요: @(activeUnmatchedReceipt.Description ?? "없음")</div> 
-                            </div> 
-                        </div> 
-                    </div> 
-
-                    <div class="col-lg-7 col-md-6"> 
-                        <h5 class="fw-bold mb-3 text-dark"><i class="bi bi-3-circle-fill text-primary me-1"></i> 매치할 장부 내역 (영수증 없는 지출)</h5> 
-                        <div class="table-responsive bg-white rounded shadow-sm border" style="max-height: 65vh;"> 
-                            <table class="table table-hover align-middle mb-0"> 
-                                <thead class="table-light sticky-top"> 
-                                    <tr> 
-                                        <th class="text-center">날짜</th> 
-                                        <th class="text-center">분류</th> 
-                                        <th>적요</th> 
-                                        <th class="text-end">지출 금액</th> 
-                                        <th class="text-center">수동 매치</th> 
-                                    </tr> 
-                                </thead> 
-                                <tbody> 
-                                    @foreach (var entry in unmatchedEntriesList) 
-                                    { 
-                                        bool isSuggested = entry.Date.Date == activeUnmatchedReceipt.ReceiptDate.Date || entry.Expense == activeUnmatchedReceipt.Amount; 
-                                        <tr class="@(isSuggested ? "table-warning" : "")"> 
-                                            <td class="text-center fw-bold">@entry.Date.ToString("MM-dd")</td> 
-                                            <td class="text-center">@entry.Category</td> 
-                                            <td>@entry.Description</td> 
-                                            <td class="text-end text-danger fw-bold fs-6">@entry.Expense.ToString("N0")</td> 
-                                            <td class="text-center"> 
-                                                <button class="btn btn-sm btn-primary fw-bold" @onclick="() => AttachServerReceiptToEntry(activeUnmatchedReceipt.ImagePath, entry.Id)">이곳에 붙이기</button> 
-                                            </td> 
-                                        </tr> 
-                                    } 
-                                    @if (!unmatchedEntriesList.Any()) 
-                                    { 
-                                        <tr><td colspan="5" class="text-center py-5 text-muted fw-bold">영수증을 첨부할 빈 지출 내역이 없습니다.<br/>먼저 월별장부에서 내역을 작성해주세요.</td></tr> 
-                                    } 
-                                </tbody> 
-                            </table> 
-                        </div> 
-                    </div> 
-                } 
-            </div> 
-        </div> 
-    </div> 
+@* 🚀 동적 데이터 리스트 (수입/지출 예산 기반 자동완성) *@
+<datalist id="incomeCatList">@foreach (var cat in IncomeCats) {
+<option value="@cat"></option>
 }
+</datalist>
+<datalist id="expenseCatList">@foreach (var cat in ExpenseCats) {
+<option value="@cat"></option>
+}
+</datalist>
 
-<script>
-    window.downloadExcelFile = (fileName, base64String) => { 
-        const link = document.createElement('a'); link.download = fileName; link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`; 
-        document.body.appendChild(link); link.click(); document.body.removeChild(link); 
-    }; 
-    window.triggerFileInput = (id) => document.getElementById(id).click();
-</script> 
+<InputFile id="pcUploadInput" OnChange="HandlePcUpload" style="display:none;" accept="image/*,.pdf" />
 
-@code {
-    [CascadingParameter] public User? CurrentUser { get; set; } 
+<div class="ledger-surface no-print" id="monthly-ledger-content">
+    <div class="container-fluid px-3 px-md-4 pt-4">
 
-    private int CurrentYear = DateTime.Now.Year; 
-    private int CurrentMonth = DateTime.Now.Month; 
-    private int CurrentQuarter = 0;
-    private int SelectedDepartmentId = 0; 
-    
-   private bool IsAdmin = false;
-    private bool IsSubAccount = false;
-    private bool IsDirectorOrAuditor = false;
-    
-    // 🚀 관리자(Admin) 계정도 수정 권한에서 제외 (오직 부서 메인회계 담당자만 수정/삭제 가능)
-    private bool CanEditLedger => !IsAdmin && !IsSubAccount && !IsDirectorOrAuditor;
-
-    private List<Department> Departments = new(); 
-    private List<LedgerEntry> Entries = new();
-    private List<LedgerEntry> FilteredEntries = new(); 
-    private decimal CarryOverAmount = 0; 
-
-    private List<string> IncomeCats = new(); 
-    private List<string> ExpenseCats = new();
-    private List<string> UniqueDescriptions = new(); 
-    private List<string> UniqueCategories = new(); 
-    
-    private string filterType = ""; 
-    private string _filterCategory = "";
-    private string filterCategory { get => _filterCategory; set { _filterCategory = value; ApplyFilters(); } } 
-    private string _filterDesc = ""; 
-    private string filterDesc { get => _filterDesc; set { _filterDesc = value; ApplyFilters(); } } 
-
-    // 💡 모드 토글 변수
-    private bool isBatchEditMode = false;
-    private bool isBatchPrintMode = false;
-
-    private HashSet<int> editSelectedIds = new(); 
-    private HashSet<int> printSelectedIds = new();
-    
-    // 🚀 수정된 부분: 인쇄시 이미지 제외할 항목을 기억하는 변수
-    private HashSet<int> printWithoutImageIds = new();
-
-    private bool IsAllEditSelected => FilteredEntries.Any() && editSelectedIds.Count == FilteredEntries.Count; 
-    private bool IsAllPrintSelected => FilteredEntries.Any(t => t.Type == "지출") &&  printSelectedIds.Count == FilteredEntries.Count(t => t.Type == "지출");
-    private string bulkCategory = ""; 
-
-    private bool isAddingNew = false;
-    private LedgerEntry newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
-    private int? editingItemId = null; 
-    private LedgerEntry? editBuffer = null;
-
-    // 📱 모바일 전용: 수입/지출 탭 상태
-    private string mobileLedgerTab = "expense";
-    
-    private bool showImageModal = false; 
-    private string currentLargeImageUrl = "";
-    private string printMode = "Ledger"; 
-    private int receiptsPerSheet = 2; 
-    private List<LedgerEntry> printTargets = new(); 
-    private int targetUploadEntryId = 0;
-    
-    // 💡 영수증 통합 관리 모달 변수
-    private bool showUnmatchedManager = false; 
-    private List<UploadedReceipt>? unmatchedReceiptsList = null;
-    private List<LedgerEntry> unmatchedEntriesList = new(); 
-    private UploadedReceipt? activeUnmatchedReceipt = null;
-    
-    private HashSet<int> selectedUnmatchedReceiptIds = new();
-    private int _unmatchedFilterMonth = 0;
-    private int unmatchedFilterMonth 
-    { 
-        get => _unmatchedFilterMonth;
-        set 
-        { 
-            _unmatchedFilterMonth = value;
-            selectedUnmatchedReceiptIds.Clear(); 
-            activeUnmatchedReceipt = GetFilteredUnmatchedReceipts().FirstOrDefault(); 
-        } 
-    }
-    private bool IsAllUnmatchedSelected => GetFilteredUnmatchedReceipts().Any() && selectedUnmatchedReceiptIds.Count == GetFilteredUnmatchedReceipts().Count;
-    
-    protected override async Task OnInitializedAsync() 
-    { 
-        Departments = await Accounting.GetDepartmentsAsync();
-        if (CurrentUser != null && CurrentUser.Department != null) 
-        { 
-            IsSubAccount = CurrentUser.Role == "SubAccount" || CurrentUser.Role == "보조회계";
-            IsDirectorOrAuditor = CurrentUser.Role == "Auditor" || CurrentUser.Role == "Director" || CurrentUser.Department.Name == "교육국";
-            if (CurrentUser.Role == "Admin" || CurrentUser.Department.Name == "관리자" || IsDirectorOrAuditor) 
-            { IsAdmin = true; SelectedDepartmentId = 0; } 
-            else 
-            { IsAdmin = false; SelectedDepartmentId = CurrentUser.DepartmentId; } 
-            await LoadData();
-        } 
-    } 
-
-    private async Task OnDeptChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int deptId)) { SelectedDepartmentId = deptId; await LoadData(); } } 
-    private async Task ChangeYear(int value) { CurrentYear += value; await LoadData(); } 
-    private async Task ChangeMonth(int value) { CurrentMonth += value; if (CurrentMonth > 12) { CurrentMonth = 1; CurrentYear++; } else if (CurrentMonth < 1) { CurrentMonth = 12; CurrentYear--; } CurrentQuarter = 0; await LoadData(); } 
-    private async Task OnMonthChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int m)) { CurrentMonth = m; CurrentQuarter = 0; await LoadData(); } } 
-    private async Task OnQuarterChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int q)) { CurrentQuarter = q; CurrentMonth = 0; await LoadData(); } } 
-
-    private async Task LoadData() 
-    { 
-        var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
-        if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId); 
-
-        var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
-        var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear); 
-        if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId);
-        var budgetPlans = await budgetQuery.ToListAsync(); 
-
-        IncomeCats = budgetPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
-        ExpenseCats = budgetPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
-        if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "찬조금", "이월금", "교회보조금", "기타수입" };
-        if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "행사비", "운영비", "부서관리비", "기타지출" }; 
-
-        decimal baseCarryOver = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-        
-        // =========================================================
-        // 🚀 수정됨: 1~4분기 날짜를 불러와 이월금과 필터링을 정확하게 연동
-        // =========================================================
-        int queryDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
-        var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 1);
-        var q2 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 2);
-        var q3 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 3);
-        var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 4);
-
-        var prevData = new List<LedgerEntry>();
-        IEnumerable<LedgerEntry> filteredQuery = allYearData;
-
-        if (CurrentMonth > 0) 
+        @if (CurrentUser == null)
         {
-            // 💡 11, 12월은 이전 연도에 귀속 (예: 2026 회계연도의 11월 = 2025년 11월)
-            int mYear = (CurrentMonth == 11 || CurrentMonth == 12) ? CurrentYear - 1 : CurrentYear;
-            DateTime monthStart = new DateTime(mYear, CurrentMonth, 1);
-            DateTime monthEnd = new DateTime(mYear, CurrentMonth, DateTime.DaysInMonth(mYear, CurrentMonth));
-            
-            // 11월의 경우 설정된 시작일(4째주 월)과 종료일(3째주 주일)을 정확히 반영
-            if (CurrentMonth == 11 && mYear == CurrentYear - 1) monthStart = q1.Start.Date;
-            if (CurrentMonth == 11 && mYear == CurrentYear) monthEnd = q4.End.Date;
-
-            filteredQuery = allYearData.Where(t => t.Date.Date >= monthStart && t.Date.Date <= monthEnd);
-            prevData = allYearData.Where(x => x.Date.Date < monthStart).ToList();
-        }
-        else if (CurrentQuarter > 0) 
-        { 
-            DateTime qStart = CurrentQuarter switch { 1 => q1.Start, 2 => q2.Start, 3 => q3.Start, 4 => q4.Start, _ => q1.Start };
-            DateTime qEnd = CurrentQuarter switch { 1 => q1.End, 2 => q2.End, 3 => q3.End, 4 => q4.End, _ => q4.End };
-
-            filteredQuery = allYearData.Where(t => t.Date.Date >= qStart.Date && t.Date.Date <= qEnd.Date);
-            prevData = allYearData.Where(x => x.Date.Date < qStart.Date).ToList();
-        } 
-        else 
-        {
-            // 전체 보기인 경우 1분기 시작 ~ 4분기 종료
-            filteredQuery = allYearData.Where(t => t.Date.Date >= q1.Start.Date && t.Date.Date <= q4.End.Date);
-        }
-
-        CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense); 
-
-        Entries = filteredQuery.ToList(); 
-        ApplyFilters();
-        editSelectedIds.Clear(); printSelectedIds.Clear(); printWithoutImageIds.Clear();
-    } 
-
-    private void ApplyFilters() 
-    { 
-        var temp = Entries.AsEnumerable();
-        if (!string.IsNullOrEmpty(filterType)) temp = temp.Where(x => x.Type == filterType); 
-        if (!string.IsNullOrEmpty(filterCategory)) temp = temp.Where(x => x.Category.Contains(filterCategory, StringComparison.OrdinalIgnoreCase));
-        if (!string.IsNullOrEmpty(filterDesc)) temp = temp.Where(x => x.Description.Contains(filterDesc, StringComparison.OrdinalIgnoreCase)); 
-
-        FilteredEntries = temp.ToList(); 
-        UniqueCategories = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
-        UniqueDescriptions = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Description)).Select(t => t.Description.Trim()).Distinct().OrderBy(d => d).ToList(); 
-    } 
-
-    // 💡 모드 토글 로직
-    private void ToggleAddForm() 
-    { 
-        isAddingNew = !isAddingNew;
-        isBatchEditMode = false; 
-        isBatchPrintMode = false; 
-        
-        if (isAddingNew)  
-        { 
-            int year = CurrentYear > 2000 ? CurrentYear : DateTime.Now.Year; 
-            int month = CurrentMonth > 0 ? CurrentMonth : DateTime.Now.Month;
-            int day = (year == DateTime.Now.Year && month == DateTime.Now.Month) ? DateTime.Now.Day : 1; 
-            
-            DateTime defaultDate;
-            try { defaultDate = new DateTime(year, month, day); } catch { defaultDate = DateTime.Now; } 
-
-            newItem = new LedgerEntry  
-            {  
-                Date = defaultDate,  
-                Type = "지출",  
-                Income = 0,  
-                Expense = 0,  
-                DepartmentId = SelectedDepartmentId,  
-                Category = "", 
-                Description = "", 
-                Note = "" 
-             }; 
-        } 
-    } 
-
-    private void ToggleBatchEditMode() { isBatchEditMode = !isBatchEditMode; isAddingNew = false; isBatchPrintMode = false; editSelectedIds.Clear(); }
-    
-    // 🚀 인쇄 선택 모드 토글시 변수 초기화
-    private void ToggleBatchPrintMode() { isBatchPrintMode = !isBatchPrintMode; isAddingNew = false; isBatchEditMode = false; printSelectedIds.Clear(); printWithoutImageIds.Clear(); }
-
-    private async Task SaveNewEntry() 
-    { 
-        if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요."); return; } 
-        if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류"; 
-        
-        newItem.DepartmentId = SelectedDepartmentId;
-        newItem.FiscalYear = CurrentYear; 
-        newItem.Quarter = GetQuarter(newItem.Date); 
-        newItem.Note ??= "";  
-        
-        if (newItem.Type == "지출") { newItem.Income = 0; } 
-        else { newItem.Expense = 0; } 
-        
-        DbContext.Transactions.Add(newItem); 
-        await DbContext.SaveChangesAsync();
-        isAddingNew = false; 
-        if (CurrentMonth > 0 && newItem.Date.Month != CurrentMonth) 
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"[{newItem.Date.Month}월] 장부로 저장되었습니다.");
-        }
-        
-        newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
-        await LoadData(); 
-    } 
-
-    private void StartEdit(LedgerEntry item) { editingItemId = item.Id; editBuffer = new LedgerEntry { Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, Description = item.Description ?? "", Note = item.Note ?? "", Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter }; } 
-    private void CancelEdit() { editingItemId = null; editBuffer = null; } 
-    private async Task SaveEdit() { 
-        if (editBuffer != null) { 
-            if (string.IsNullOrWhiteSpace(editBuffer.Description)) { await JSRuntime.InvokeVoidAsync("alert", "적요(내용)를 입력해주세요."); return; } 
-            var existing = await DbContext.Transactions.FindAsync(editBuffer.Id);
-            if (existing != null) { 
-                existing.Date = editBuffer.Date;
-                existing.Type = editBuffer.Type; existing.Category = string.IsNullOrWhiteSpace(editBuffer.Category) ? "미분류" : editBuffer.Category; existing.Description = editBuffer.Description ?? ""; existing.Note = editBuffer.Note ?? "";
-                if (existing.Type == "지출") { existing.Income = 0; existing.Expense = editBuffer.Expense; } else { existing.Expense = 0; existing.Income = editBuffer.Income; } 
-                existing.Quarter = GetQuarter(editBuffer.Date);
-                existing.FiscalYear = editBuffer.Date.Year; 
-                await DbContext.SaveChangesAsync(); 
-            } 
-            editingItemId = null;
-            await LoadData(); 
-        } 
-    } 
-
-    private void ToggleEditSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) editSelectedIds.Add(id); else editSelectedIds.Remove(id); } 
-    private void ToggleAllEdit(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries) editSelectedIds.Add(item.Id); } else editSelectedIds.Clear(); } 
-    private void TogglePrintSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) printSelectedIds.Add(id); else printSelectedIds.Remove(id); } 
-    
-    // 🚀 수정됨: 영수증 유무와 관계없이 지출이면 무조건 인쇄 선택/출력 가능
-    private void ToggleAllPrint(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) { foreach (var item in FilteredEntries.Where(t => t.Type == "지출")) printSelectedIds.Add(item.Id); } else printSelectedIds.Clear(); } 
-
-    // 🚀 빈 영수증 모드 토글 함수들
-    private void SetPrintWithoutImageForSelected() { foreach (var id in printSelectedIds) { printWithoutImageIds.Add(id); } }
-    private void SetPrintWithoutImageForAll() { foreach (var item in FilteredEntries.Where(t => t.Type == "지출")) { printWithoutImageIds.Add(item.Id); printSelectedIds.Add(item.Id); } }
-    private void ClearPrintWithoutImage() { printWithoutImageIds.Clear(); }
-
-    private async Task DeleteSingle(int id) { if (await JSRuntime.InvokeAsync<bool>("confirm", "⚠️ [경고] 정말 삭제하시겠습니까?")) { var target = await DbContext.Transactions.FindAsync(id); if (target != null) { DbContext.Transactions.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } } 
-    private async Task DeleteSelected() { int count = editSelectedIds.Count; if (await JSRuntime.InvokeAsync<bool>("confirm", $"⚠️ [경고] 선택한 {count}건을 일괄 삭제하시겠습니까?")) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); DbContext.Transactions.RemoveRange(targets); await DbContext.SaveChangesAsync(); await LoadData(); } } 
-    private async Task ApplyBulkEdit() { if (editSelectedIds.Count > 0 && !string.IsNullOrEmpty(bulkCategory)) { var targets = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync(); foreach (var t in targets) t.Category = bulkCategory; await DbContext.SaveChangesAsync(); bulkCategory = ""; await LoadData(); } } 
-
-    private int GetQuarter(DateTime d) => d.Month switch { 11 or 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
-    private void ShowReceiptImage(string url) { currentLargeImageUrl = url; showImageModal = true; } 
-    private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; } 
-    
-    private async Task RemoveReceiptOnly(int entryId) { 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "해당 내역에서 영수증을 분리하시겠습니까?\n(장부는 삭제되지 않으며 서버 영수증은 대기열로 돌아갑니다)");
-        if (confirmed) { 
-            await Accounting.RemoveReceiptAsync(entryId);
-            var entry = await DbContext.Transactions.FindAsync(entryId); 
-            if (entry != null) { entry.ReceiptUrl = ""; entry.ReceiptPath = ""; await DbContext.SaveChangesAsync(); } 
-            DbContext.ChangeTracker.Clear(); await LoadData(); StateHasChanged();
-        } 
-    } 
-
-    private async Task TriggerPcUpload(int entryId) { targetUploadEntryId = entryId; await JSRuntime.InvokeVoidAsync("triggerFileInput", "pcUploadInput"); } 
-    private async Task HandlePcUpload(InputFileChangeEventArgs e) { 
-        var file = e.File;
-        if (file == null || targetUploadEntryId == 0) return; 
-        string result = await Accounting.UploadReceiptAsync(file, targetUploadEntryId);
-        if (result == "OK") { await JSRuntime.InvokeVoidAsync("alert", "PC 영수증 업로드가 완료되었습니다!"); DbContext.ChangeTracker.Clear(); await LoadData(); StateHasChanged(); } 
-        else { await JSRuntime.InvokeVoidAsync("alert", result); } targetUploadEntryId = 0;
-    } 
-
-    // 🚀 영수증 관리 풀스크린 모달 관련 로직
-    private async Task OpenUnmatchedManager() 
-    { 
-        showUnmatchedManager = true;
-        selectedUnmatchedReceiptIds.Clear();
-        await LoadUnmatchedData();
-    } 
-
-    private async Task LoadUnmatchedData()
-    {
-        unmatchedReceiptsList = null;
-        StateHasChanged();
-
-        var usedPaths = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptPath)).Select(t => t.ReceiptPath).ToListAsync();
-        var usedUrls = await DbContext.Transactions.Where(t => t.FiscalYear == CurrentYear && t.DepartmentId == SelectedDepartmentId && !string.IsNullOrEmpty(t.ReceiptUrl)).Select(t => t.ReceiptUrl).ToListAsync();
-        var allUsed = usedPaths.Concat(usedUrls).ToHashSet();
-
-        var allUploaded = await DbContext.UploadedReceipts
-            .Where(r => r.DepartmentId == SelectedDepartmentId && r.ReceiptDate.Year == CurrentYear) 
-            .OrderBy(r => r.ReceiptDate)
-            .ToListAsync();
-        unmatchedReceiptsList = allUploaded.Where(r => !allUsed.Contains(r.ImagePath)).ToList(); 
-        
-        unmatchedEntriesList = Entries.Where(e => e.Type == "지출" && string.IsNullOrEmpty(e.ReceiptPath) && string.IsNullOrEmpty(e.ReceiptUrl)).OrderBy(e => e.Date).ToList();
-        if (GetFilteredUnmatchedReceipts().Any() && activeUnmatchedReceipt == null) 
-            activeUnmatchedReceipt = GetFilteredUnmatchedReceipts().First();
-        StateHasChanged();
-    }
-
-    private List<UploadedReceipt> GetFilteredUnmatchedReceipts()
-    {
-        if (unmatchedReceiptsList == null) return new List<UploadedReceipt>();
-        if (unmatchedFilterMonth == 0) return unmatchedReceiptsList;
-        return unmatchedReceiptsList.Where(r => r.ReceiptDate.Month == unmatchedFilterMonth).ToList();
-    }
-
-    private void SelectUnmatchedReceipt(UploadedReceipt r) { activeUnmatchedReceipt = r; }
-    private void CloseUnmatchedManager() { showUnmatchedManager = false; activeUnmatchedReceipt = null; } 
-
-    private void ToggleUnmatchedSelection(int id, ChangeEventArgs e)
-    {
-        if ((bool)(e.Value ?? false)) selectedUnmatchedReceiptIds.Add(id);
-        else selectedUnmatchedReceiptIds.Remove(id);
-    }
-
-    private void ToggleAllUnmatchedSelection(ChangeEventArgs e)
-    {
-        if ((bool)(e.Value ?? false))
-        {
-            foreach (var r in GetFilteredUnmatchedReceipts()) selectedUnmatchedReceiptIds.Add(r.Id);
+            <div class="text-center py-5">
+                <h5 style="color: #785600; font-weight: 700;">로그인이 필요합니다.</h5>
+            </div>
         }
         else
         {
-            selectedUnmatchedReceiptIds.Clear();
+            <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+                <div class="compact-selector">
+                    <button class="selector-btn" @onclick="() => ChangeYear(-1)">◀</button>
+                    <span class="selector-value">@(CurrentYear)년</span>
+                    <button class="selector-btn" @onclick="() => ChangeYear(1)">▶</button>
+
+                    <div class="selector-divider"></div>
+
+                    @* 🚀 수정: 분기 및 월 선택을 화살표에서 드롭다운으로 변경 *@
+                    <select class="settings-input fw-bold border-0 py-1" style="background: transparent; width: auto; box-shadow: none;" @onchange="OnQuarterChanged" value="@CurrentQuarter">
+                        <option value="0">전체 분기</option>
+                        <option value="1">1분기</option>
+                        <option value="2">2분기</option>
+                        <option value="3">3분기</option>
+                        <option value="4">4분기</option>
+                    </select>
+
+                    <div class="selector-divider"></div>
+
+                    <select class="settings-input fw-bold border-0 py-1" style="background: transparent; width: auto; box-shadow: none;" @onchange="OnMonthChanged" value="@CurrentMonth">
+                        <option value="0">전체 월</option>
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i">@(i)월</option>
+                        }
+                    </select>
+                </div>
+
+                @if (IsAdmin)
+                {
+                    <select class="form-select ledger-input w-auto fw-bold" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
+                        <option value="0">전체 부서</option>
+                        @foreach (var dept in Departments)
+                        {
+                            @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀" && dept.Name != "감사위원회")
+                            {
+                                <option value="@dept.Id">@dept.Name</option>
+                            }
+                        }
+                    </select>
+                }
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="ledger-card p-4 h-100 d-flex flex-column justify-content-center" style="border-left: 4px solid #d2c5b2;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">전월 이월금</span>
+                        <div class="mt-2 ledger-tabular" style="font-size: 1.5rem; font-weight: 800; color: #1b1c15;">
+                            <span style="font-size: 1rem; font-weight: 500;">₩</span> @CarryOverAmount.ToString("N0")
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ledger-card p-4 h-100 d-flex flex-column justify-content-center" style="border-left: 4px solid #eec067;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">당월 수입 / 지출</span>
+                        <div class="mt-2 d-flex align-items-baseline gap-2 ledger-tabular">
+                            <span style="font-size: 1.25rem; font-weight: 800; color: #785600;">+ ₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</span>
+                            <span style="font-size: 0.9rem; font-weight: 600; color: #ba1a1a;">- ₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="ledger-card p-4 h-100 d-flex flex-column justify-content-center" style="border-left: 4px solid #785600; background-color: #fcfbf6;">
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #785600; text-transform: uppercase; letter-spacing: 0.05em;">현재 잔액</span>
+                        <div class="mt-2 ledger-tabular" style="font-size: 1.75rem; font-weight: 900; color: #5a4000;">
+                            <span style="font-size: 1.1rem; font-weight: 500;">₩</span> @CurrentBalance.ToString("N0")
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
+                <h4 class="fw-bold mb-0" style="color: #1b1c15;">
+                    @(CurrentYear)년 @(CurrentMonth > 0 ? $"{CurrentMonth}월" : CurrentQuarter > 0 ? $"{CurrentQuarter}분기" : "전체") 내역
+                </h4>
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @* 🚀 검색창 삭제됨 *@
+
+                    @if (CanEditLedger)
+                    {
+                        <button class="ledger-gold-btn" @onclick="ToggleBatchEditMode">
+                            <i class="bi bi-pencil-square me-1"></i> @(isBatchEditMode ? "수정 취소" : "일괄 수정")
+                        </button>
+                    }
+                    <button class="ledger-secondary-btn" @onclick="OpenPrintModal" disabled="@(!FilteredEntries.Any())">
+                        <i class="bi bi-printer me-1"></i> 인쇄
+                    </button>
+                    <button class="ledger-secondary-btn" @onclick="DownloadExcel" disabled="@(!FilteredEntries.Any())">
+                        <i class="bi bi-file-earmark-excel me-1"></i> 엑셀
+                    </button>
+                    @if (CanEditLedger)
+                    {
+                        <button class="ledger-gold-btn" @onclick="ToggleAddForm">
+                            <i class="bi @(isAddingNew ? "bi-dash-lg" : "bi-plus-lg") me-1"></i> @(isAddingNew ? "입력 취소" : "새 항목 입력")
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (isBatchEditMode && CanEditLedger)
+            {
+                <div class="ledger-card-warm p-2 mb-3 d-flex flex-wrap align-items-center gap-2" style="background-color:rgba(23, 69, 119, 0.05); border: 1px solid rgba(23, 69, 119, 0.1);">
+                    <span class="fw-bold ms-2" style="color: #174577; font-size: 0.9rem;"><i class="bi bi-check-all me-1"></i> @editSelectedIds.Count 건 선택됨</span>
+                    <select class="form-select ledger-input w-auto ms-3" @bind="bulkCategory" style="padding: 0.2rem 2rem 0.2rem 0.75rem; font-size: 0.875rem;">
+                        <option value="">-- 일괄 변경 분류 --</option>
+                        <optgroup label="[수입]">@foreach (var c in IncomeCats) {
+                        <option value="@c">@c</option>
+                    }
+    </optgroup>
+                    <optgroup label="[지출]">@foreach (var c in ExpenseCats) {
+                    <option value="@c">@c</option>
+                }
+</optgroup>
+            </select>
+            <button class="btn btn-sm btn-primary fw-bold px-3" @onclick="ApplyBulkEdit" disabled="@(editSelectedIds.Count == 0 || string.IsNullOrEmpty(bulkCategory))">일괄적용</button>
+            <button class="btn btn-sm btn-outline-danger fw-bold ms-auto px-3" @onclick="DeleteSelected" disabled="@(editSelectedIds.Count == 0)"><i class="bi bi-trash-fill me-1"></i> 선택 삭제</button>
+        </div>
+                }
+
+        <div class="ledger-table-container">
+            @if (isLoading)
+            {
+                <div class="text-center py-5"><div class="spinner-border" style="color: #785600;"></div></div>
+            }
+            else
+            {
+                <table class="ledger-table">
+                    @* 🚀 비율로 칸 넓이 완벽 조정 *@
+                    <colgroup>
+                        @if (isBatchEditMode)
+                        {
+                            <col style="width: 3%;" />
+                        }
+                        <col style="width: 4%;" />
+                        <col style="width: 8%;" />
+                        <col style="width: 5%;" />
+                        <col style="width: 10%;" />
+                        <col style="width: 20%;" />
+                        <col style="width: 10%;" />
+                        <col style="width: 9%;" />
+                        <col style="width: 9%;" />
+                        <col style="width: 10%;" /> @if (IsAdmin) {
+                        <col style="width: 6%;" />
+                    }
+ @if (CanEditLedger)
+{
+                        <col style="width: 6%;" />
+                    }
+                    <col style="width: 6%;" />
+                </colgroup>
+                <thead>
+                    <tr>
+                        @if (isBatchEditMode)
+                        {
+                            <th><input type="checkbox" class="form-check-input" @onchange="ToggleAllEdit" checked="@IsAllEditSelected" /></th>
+                        }
+                        <th>#</th>
+                        <th>날짜</th>
+                        <th>구분</th>
+                        <th>분류항목</th>
+                        <th>내역</th>
+                        <th>비고</th>
+                        <th>수입</th>
+                        <th>지출</th>
+                        <th>잔액</th>
+                        @if (IsAdmin)
+                        {
+                            <th>부서</th>
+                        }
+                        @if (CanEditLedger)
+                        {
+                            <th>관리</th>
+                        }
+                        <th>증빙</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        int rowNum = 0;
+                    }
+                    @foreach (var t in FilteredEntries)
+                    {
+                        rowNum++;
+                        bool isEditingThis = editingItemId == t.Id;
+
+                        <tr>
+                            @if (isBatchEditMode)
+                            {
+                                <td><input type="checkbox" class="form-check-input" checked="@editSelectedIds.Contains(t.Id)" @onchange="e => ToggleEditSelection(t.Id, e)" /></td>
+                            }
+
+                            @if (isEditingThis && editBuffer != null)
+                            {
+                                <td class="fw-bold" style="color: #174577; font-size: 0.75rem;">EDIT</td>
+                                <td><input type="date" class="form-control form-control-sm px-1" @bind="editBuffer.Date" /></td>
+                                <td><select class="form-select form-select-sm px-1" @bind="editBuffer.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
+                                @* 🚀 수정: 수입/지출 선택에 따라 동적 Datalist 적용 *@
+                                <td><input class="form-control form-control-sm px-1 fw-bold" list="@(editBuffer.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="editBuffer.Category" /></td>
+                                <td><input class="form-control form-control-sm px-1" @bind="editBuffer.Description" /></td>
+                                <td><input class="form-control form-control-sm px-1" @bind="editBuffer.Note" /></td>
+                                <td>@if (editBuffer.Type == "수입") {
+                                <input type="number" class="form-control form-control-sm text-end px-1" @bind="editBuffer.Income" />
+                            }
+                            else
+                            {
+
+                                <span class="text-muted">-</span>
+                            }
+    </td>
+                            <td>@if (editBuffer.Type == "지출") {
+                            <input type="number" class="form-control form-control-sm text-end px-1" @bind="editBuffer.Expense" />
+                        } else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+</td>
+                        <td></td>
+                        @if (IsAdmin)
+                        {
+                            <td></td>
+                        }
+                        @if (CanEditLedger)
+                        {
+                            <td>
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <button class="icon-btn edit" @onclick="SaveEdit" title="저장"><i class="bi bi-check-lg fs-5"></i></button>
+                                    <button class="icon-btn text-muted" @onclick="CancelEdit" title="취소"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                            </td>
+                        }
+                        <td></td>
+                                                }
+                                                else
+                        {
+                            <td class="ledger-tabular text-muted" style="font-size: 0.8rem;">@rowNum</td>
+                            <td class="ledger-tabular fw-bold" style="color: #4e4637;">@t.Date.ToString("MM.dd")</td>
+                            <td>
+                                @if (t.Type == "수입" || t.Type == "Income")
+                                {
+                                    <span class="badge-income">수입</span>
+                                }
+                                else
+                                {
+
+                                    <span class="badge-expense">지출</span>
+                                }
+                            </td>
+                            <td class="fw-bold" style="color: #4e4637;">
+                                <div class="text-truncate-custom" title="@t.Category">@t.Category</div>
+                            </td>
+                            <td>
+                                <div class="fw-bold text-truncate-custom" title="@t.Description" style="color: #1b1c15;">@t.Description</div>
+                            </td>
+                            <td>
+                                <div class="text-truncate-custom text-muted" title="@t.Note" style="font-size: 0.8rem;">@t.Note</div>
+                            </td>
+                            <td class="text-end ledger-tabular fw-bold" style="color: #785600;">@(t.Income > 0 ? t.Income.ToString("N0") : "")</td>
+                            <td class="text-end ledger-tabular fw-bold" style="color: #ba1a1a;">@(t.Expense > 0 ? t.Expense.ToString("N0") : "")</td>
+                            <td class="text-end ledger-tabular fw-bold" style="color: #1b1c15;">@(entryBalances.TryGetValue(t.Id, out var b) ? b.ToString("N0") : "-")</td>
+                            @if (IsAdmin)
+                            {
+                                <td style="font-size: 0.8rem; color: #807666;">@Departments.FirstOrDefault(d => d.Id == t.DepartmentId)?.Name</td>
+                            }
+                                    @if (CanEditLedger)
+                                    {
+                                        <td>
+                                            <div class="d-flex justify-content-center gap-1">
+                                                <button class="icon-btn edit" @onclick="() => StartEdit(t)" title="수정"><i class="bi bi-pencil-fill"></i></button>
+                                                <button class="icon-btn delete" @onclick="() => DeleteSingle(t.Id)" title="삭제"><i class="bi bi-trash-fill"></i></button>
+                                            </div>
+                                        </td>
+                                    }
+                                    <td>
+                                        <div class="d-flex justify-content-center gap-1">
+                                            @if (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))
+                                            {
+                                                <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath! : t.ReceiptUrl!)"><i class="bi bi-receipt-cutoff"></i></button>
+                                                @if (CanEditLedger)
+                                                {
+                                                    <button class="icon-btn delete" style="width:24px; height:24px; font-size:0.75rem;" title="영수증 분리" @onclick="() => RemoveReceiptOnly(t.Id)"><i class="bi bi-x-circle-fill"></i></button>
+                                                }
+                                            }
+                                            else if (CanEditLedger)
+                                            {
+                                                <button class="icon-btn upload" title="업로드" @onclick="() => TriggerPcUpload(t.Id)"><i class="bi bi-folder-plus fs-5"></i></button>
+                                            }
+                                            else
+                                            {
+
+                                                <span class="text-muted" style="font-size: 0.75rem;">-</span>
+                                            }
+                                        </div>
+                                    </td>
+                        }
+                    </tr>
+                                        }
+
+                    @if (CanEditLedger && isAddingNew)
+                    {
+                        <tr style="background-color: #fbfcfa; border-top: 2px solid #785600;">
+                            @if (isBatchEditMode)
+                            {
+                                <td></td>
+                            }
+                            <td class="ledger-tabular fw-bold" style="color: #785600; font-size: 0.75rem;">NEW</td>
+                            <td><input type="date" class="form-control form-control-sm ledger-tabular px-1" @bind="newItem.Date" /></td>
+                            <td><select class="form-select form-select-sm fw-bold px-1" @bind="newItem.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
+                            @* 🚀 신규 입력 시에도 자동완성 지원 *@
+                            <td><input class="form-control form-control-sm fw-bold px-1" list="@(newItem.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="newItem.Category" placeholder="분류입력" /></td>
+                            <td><input class="form-control form-control-sm fw-bold px-1" @bind="newItem.Description" placeholder="내역(필수)" /></td>
+                            <td><input class="form-control form-control-sm px-1" @bind="newItem.Note" placeholder="비고(선택)" /></td>
+                            <td>@if (newItem.Type == "수입") {
+                            <input type="number" class="form-control form-control-sm text-end ledger-tabular fw-bold px-1" style="color: #785600;" @bind="newItem.Income" placeholder="0" />
+                        }
+                        else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+</td>
+                        <td>@if (newItem.Type == "지출") {
+                        <input type="number" class="form-control form-control-sm text-end ledger-tabular fw-bold px-1" style="color: #ba1a1a;" @bind="newItem.Expense" placeholder="0" />
+                                                } else
+                        {
+
+                            <span class="text-muted">-</span>
+                        }
+</td>
+                        <td class="text-end ledger-tabular fw-bold" style="color: #807666; font-size: 0.75rem;">자동계산</td>
+                        @if (IsAdmin)
+                        {
+                            <td></td>
+                        }
+                        @if (CanEditLedger)
+                        {
+                            <td>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <button class="icon-btn" style="background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: white;" @onclick="SaveNewEntry" title="저장"><i class="bi bi-check-lg"></i></button>
+                                    <button class="icon-btn text-muted" style="background-color: #eae9dd;" @onclick="ToggleAddForm" title="취소"><i class="bi bi-x-lg"></i></button>
+                                </div>
+                            </td>
+                        }
+                        <td><span class="text-muted" style="font-size: 0.7rem;">저장 후</span></td>
+                    </tr>
+                                        }
+                </tbody>
+                <tfoot>
+                    <tr style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
+                        @{
+                            int tfColspan = 6; if (isBatchEditMode) tfColspan++;
+                        }
+                        <td colspan="@tfColspan" class="text-end fw-bold" style="color: #4e4637; padding: 1rem 0.75rem;">합계</td>
+                        <td class="text-end ledger-tabular fw-bold" style="color: #785600; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</td>
+                        <td class="text-end ledger-tabular fw-bold" style="color: #ba1a1a; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</td>
+                        <td class="text-end ledger-tabular fw-bold" style="color: #1b1c15; padding: 1rem 0.5rem;">₩@CurrentBalance.ToString("N0")</td>
+                        @if (IsAdmin)
+                        {
+                            <td></td>
+                        }
+                        @if (CanEditLedger)
+                        {
+                            <td></td>
+                        }
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+                        }
+        </div>
+                }
+    </div>
+</div>
+
+@* ==========================================
+   Modals (인쇄 및 영수증 팝업)
+========================================== *@
+@if (showReceiptModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6);" @onclick="CloseReceiptModalHandler">
+        <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation="true">
+            <div class="modal-content ledger-card border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold mb-0" style="color: #1b1c15;">증빙 자료</h5>
+                    <button type="button" class="btn-close" @onclick="CloseReceiptModalHandler"></button>
+                </div>
+                <div class="modal-body text-center p-3">
+                    <img src="@currentReceiptUrl" class="img-fluid rounded" style="max-height: 75vh; object-fit: contain;" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (showPrintModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.6);" @onclick="ClosePrintModal">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content ledger-card border-0">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="fw-bold mb-0" style="color: #1b1c15;"><i class="bi bi-printer me-2" style="color: #785600;"></i>인쇄 옵션 선택</h5>
+                    <button type="button" class="btn-close" @onclick="ClosePrintModal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="d-flex gap-3 mb-4">
+                        <div class="flex-fill p-3 rounded text-center border"
+                             style="cursor: pointer; transition: all 0.2s; @(selectedPrintType == "Ledger" ? "border-color: #785600; background-color: rgba(120,86,0,0.05);" : "border-color: #eae9dd;")"
+                             @onclick='() => selectedPrintType = "Ledger"'>
+                            <i class="bi bi-journal-text fs-2 d-block mb-2" style="color: @(selectedPrintType == "Ledger" ? "#785600" : "#807666");"></i>
+                            <strong style="color: @(selectedPrintType == "Ledger" ? "#5a4000" : "#4e4637");">장부 인쇄</strong>
+                        </div>
+                        <div class="flex-fill p-3 rounded text-center border"
+                             style="cursor: pointer; transition: all 0.2s; @(selectedPrintType == "Receipt" ? "border-color: #785600; background-color: rgba(120,86,0,0.05);" : "border-color: #eae9dd;")"
+                             @onclick='() => selectedPrintType = "Receipt"'>
+                            <i class="bi bi-receipt fs-2 d-block mb-2" style="color: @(selectedPrintType == "Receipt" ? "#785600" : "#807666");"></i>
+                            <strong style="color: @(selectedPrintType == "Receipt" ? "#5a4000" : "#4e4637");">영수증 인쇄</strong>
+                        </div>
+                    </div>
+
+                    @if (selectedPrintType == "Receipt")
+                    {
+                        <div class="p-3 rounded" style="background-color: #f5f4e8;">
+                            <label class="fw-bold small d-block text-muted mb-2">A4 1장당 영수증 개수</label>
+                            <select class="form-select ledger-input fw-bold mb-4" @bind="receiptsPerSheet">
+                                <option value="1">1장에 1개 (크게)</option>
+                                <option value="2">1장에 2개 (중간)</option>
+                                <option value="4">1장에 4개 (작게)</option>
+                            </select>
+
+                            <label class="fw-bold small d-block text-muted mb-2">이미지 포함 여부</label>
+                            <div class="form-check form-switch d-flex align-items-center gap-2">
+                                <input class="form-check-input" type="checkbox" id="includeImageSwitch" style="width: 2.5rem; height: 1.25rem;" @bind="includeReceiptImage">
+                                <label class="form-check-label fw-bold ms-2" for="includeImageSwitch" style="color: #1b1c15; margin-top: 0.15rem;">증빙 이미지 함께 인쇄</label>
+                            </div>
+                            <p class="small text-muted mt-2 mb-0 ms-1">※ 끄면 이미지 없이 빈 양식 칸만 인쇄됩니다.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="p-3 rounded text-center" style="background-color: #f5f4e8;">
+                            <span class="fw-bold" style="color: #4e4637;">현재 화면에 조회된 내역을 인쇄합니다.</span>
+                        </div>
+                    }
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button class="ledger-secondary-btn flex-fill" @onclick="ClosePrintModal">취소</button>
+                    <button class="ledger-gold-btn flex-fill" @onclick="ExecutePrintAction"><i class="bi bi-printer me-1"></i> 인쇄 실행</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@* ==========================================
+   인쇄 전용 출력 영역 (Print Only Area)
+========================================== *@
+<div class="print-only">
+    @if (printMode == "Ledger")
+    {
+        var grouped = FilteredEntries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
+        bool first = true;
+        foreach (var mg in grouped)
+        {
+            var pts = mg.Key.Split('-');
+            int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
+            decimal pI = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Income);
+            decimal pE = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Expense);
+            decimal sb = CarryOverAmount + pI - pE;
+            decimal rb = sb; decimal mI = 0; decimal mEx = 0;
+            string pb = first ? "" : "page-break-before mt-5"; first = false;
+
+            <div class="@pb">
+                <div class="print-only-title">
+                    @{
+                        string pd = SelectedDepartmentId == 0 ? "전체 부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "";
+                    }
+                    [ @gy 년 @gm 월 @pd 재정 장부 ]
+                </div>
+                <table class="table table-bordered mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width:7%" class="text-center">No</th>
+                            <th style="width:10%" class="text-center">날짜</th>
+                            <th style="width:6%" class="text-center">구분</th>
+                            <th style="width:10%" class="text-center">분류항목</th>
+                            <th style="width:23%" class="text-center">내역</th>
+                            <th style="width:13%" class="text-center">비고</th>
+                            <th style="width:10%" class="text-center">수입</th>
+                            <th style="width:10%" class="text-center">지출</th>
+                            <th style="width:11%" class="text-center">잔액</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td></td><td class="text-center">-</td><td class="text-center">이월</td><td class="text-center">전월이월</td><td></td><td></td><td class="text-end money-cell">@sb.ToString("N0")</td><td class="text-end money-cell">-</td><td class="text-end money-cell">@sb.ToString("N0")</td></tr>
+                        @{
+                            int seq = 1;
+                        }
+                        @foreach (var item in mg.OrderBy(x => x.Date))
+                        {
+                            rb += item.Income - item.Expense;
+                            mI += item.Income; mEx += item.Expense;
+                            <tr>
+                                <td class="text-center">@seq</td>
+                                <td class="text-center">@item.Date.ToString("MM-dd")</td>
+                                <td class="text-center">@item.Type</td>
+                                <td class="text-center clip-cell">@item.Category</td>
+                                <td class="clip-cell">@item.Description @(IsAdmin && SelectedDepartmentId == 0 ? $"[{Departments.FirstOrDefault(d => d.Id == item.DepartmentId)?.Name}]" : "")</td>
+                                <td class="clip-cell">@item.Note</td>
+                                <td class="text-end money-cell">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
+                                <td class="text-end money-cell">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
+                                <td class="text-end money-cell">@rb.ToString("N0")</td>
+                            </tr>
+                            seq++;
+                        }
+                    </tbody>
+                    <tfoot><tr><td colspan="6" class="text-end fw-bold">@gy 년 @gm 월 계</td><td class="text-end money-cell fw-bold">@mI.ToString("N0")</td><td class="text-end money-cell fw-bold">@mEx.ToString("N0")</td><td class="text-end money-cell fw-bold">@rb.ToString("N0")</td></tr></tfoot>
+                </table>
+            </div>
+        }
+    }
+    else if (printMode == "Receipt")
+    {
+        <div class="receipt-grid-@receiptsPerSheet">
+            @foreach (var t in printTargets)
+            {
+                <div class="receipt-box">
+                    <div class="text-center" style="border-bottom:1px solid #999; padding:4px 0; margin-bottom:8px; font-size:11pt; font-weight:bold;">
+                        @t.Date.ToString("MM-dd") | @(t.Description?.Length > 10 ? t.Description.Substring(0, 10) : t.Description) | @t.Expense.ToString("N0")원
+                    </div>
+                    @if (includeReceiptImage && (!string.IsNullOrEmpty(t.ReceiptPath) || !string.IsNullOrEmpty(t.ReceiptUrl)))
+                    {
+                        <div class="receipt-img-wrapper">
+                            <img src="@(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath : t.ReceiptUrl)" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="receipt-empty">증빙물 부착란</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int CurrentYear = DateTime.Now.Year;
+    private int CurrentMonth = DateTime.Now.Month;
+    private int CurrentQuarter = 0;
+    private int SelectedDepartmentId = 0;
+    private bool IsAdmin => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Auditor";
+    private bool CanEditLedger => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Manager";
+    private List<Department> Departments = new();
+    private List<LedgerEntry> Entries = new();
+    private List<LedgerEntry> FilteredEntries = new();
+    private decimal CarryOverAmount = 0;
+    private decimal CurrentBalance => CarryOverAmount + FilteredEntries.Sum(t => t.Income) - FilteredEntries.Sum(t => t.Expense);
+    private Dictionary<int, decimal> entryBalances = new();
+
+    private List<string> IncomeCats = new();
+    private List<string> ExpenseCats = new();
+    private List<string> UniqueCategories = new();
+
+    private string filterType = "";
+    private string filterCategory = "";
+
+    private bool isBatchEditMode = false;
+    private bool isBatchPrintMode = false;
+    private HashSet<int> editSelectedIds = new();
+    private HashSet<int> printSelectedIds = new();
+    private bool IsAllEditSelected => FilteredEntries.Any() && editSelectedIds.Count == FilteredEntries.Count;
+    private bool IsAllPrintSelected => FilteredEntries.Any(t => t.Type == "지출") && printSelectedIds.Count == FilteredEntries.Count(t => t.Type == "지출");
+    private string bulkCategory = "";
+
+    private bool isAddingNew = false;
+    private LedgerEntry newItem = new() { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
+    private int? editingItemId = null;
+    private LedgerEntry? editBuffer = null;
+
+    private bool showReceiptModal = false;
+    private string currentReceiptUrl = "";
+    private bool isLoading = false;
+
+    // 🚀 인쇄 관련 속성
+    private bool showPrintModal = false;
+    private string selectedPrintType = "Ledger";
+    private string printMode = "Ledger";
+    private int receiptsPerSheet = 2;
+    private bool includeReceiptImage = true;
+    private List<LedgerEntry> printTargets = new();
+
+    private int targetUploadEntryId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Departments = await Accounting.GetDepartmentsAsync();
+        if (CurrentUser?.Department != null)
+        {
+            SelectedDepartmentId = IsAdmin ? 0 : CurrentUser.DepartmentId;
+            await LoadData();
         }
     }
 
-    private async Task DeleteSelectedUnmatchedReceipts()
-    {
-        if (selectedUnmatchedReceiptIds.Count == 0) return;
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"선택한 {selectedUnmatchedReceiptIds.Count}건의 영수증을 완전히 삭제하시겠습니까?\n(서버 드라이브에서도 사진 파일이 영구 삭제되며 복구할 수 없습니다.)");
-        if (!confirmed) return;
+    private async Task OnDeptChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int d)) { SelectedDepartmentId = d; await LoadData(); } }
+    private async Task ChangeYear(int v) { CurrentYear += v; await LoadData(); }
+    private async Task OnMonthChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int m)) { CurrentMonth = m; CurrentQuarter = 0; await LoadData(); } }
+    private async Task OnQuarterChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int q)) { CurrentQuarter = q; CurrentMonth = 0; await LoadData(); } }
 
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
         try
         {
-            var targets = await DbContext.UploadedReceipts.Where(r => selectedUnmatchedReceiptIds.Contains(r.Id)).ToListAsync();
-            var webRoot = Env.WebRootPath;
-            
-            foreach(var target in targets)
+            var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
+            if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
+            var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
+
+            var bq = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
+            if (SelectedDepartmentId != 0) bq = bq.Where(b => b.DepartmentId == SelectedDepartmentId);
+            var bp = await bq.ToListAsync();
+
+            IncomeCats = bp.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
+            ExpenseCats = bp.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "십일조", "감사헌금", "절기특별헌금", "기타수입" };
+            if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "예배", "교육비", "부서운영비", "기타지출" };
+
+            decimal baseCarryOver = bp.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
+            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+            var q1 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 1);
+            var q2 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 2);
+            var q3 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 3);
+            var q4 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 4);
+
+            var prevData = new List<LedgerEntry>();
+            IEnumerable<LedgerEntry> fq = allYearData;
+
+            if (CurrentMonth > 0)
             {
-                if (!string.IsNullOrEmpty(target.ImagePath))
-                {
-                    var filePath = Path.Combine(webRoot, target.ImagePath.TrimStart('/'));
-                    if (System.IO.File.Exists(filePath)) System.IO.File.Delete(filePath);
-                }
+                int mYear = (CurrentMonth == 11 || CurrentMonth == 12) ? CurrentYear - 1 : CurrentYear;
+                DateTime ms = new DateTime(mYear, CurrentMonth, 1);
+                DateTime me = new DateTime(mYear, CurrentMonth, DateTime.DaysInMonth(mYear, CurrentMonth));
+                if (CurrentMonth == 11 && mYear == CurrentYear - 1) ms = q1.Start.Date;
+                if (CurrentMonth == 11 && mYear == CurrentYear) me = q4.End.Date;
+                fq = allYearData.Where(t => t.Date.Date >= ms && t.Date.Date <= me);
+                prevData = allYearData.Where(x => x.Date.Date < ms).ToList();
+            }
+            else if (CurrentQuarter > 0)
+            {
+                DateTime qS = CurrentQuarter switch { 1 => q1.Start, 2 => q2.Start, 3 => q3.Start, 4 => q4.Start, _ => q1.Start };
+                DateTime qE = CurrentQuarter switch { 1 => q1.End, 2 => q2.End, 3 => q3.End, 4 => q4.End, _ => q4.End };
+                fq = allYearData.Where(t => t.Date.Date >= qS.Date && t.Date.Date <= qE.Date);
+                prevData = allYearData.Where(x => x.Date.Date < qS.Date).ToList();
+            }
+            else
+            {
+                fq = allYearData.Where(t => t.Date.Date >= q1.Start.Date && t.Date.Date <= q4.End.Date);
             }
 
-            DbContext.UploadedReceipts.RemoveRange(targets);
-            await DbContext.SaveChangesAsync();
-
-            selectedUnmatchedReceiptIds.Clear();
-            activeUnmatchedReceipt = null;
-            await LoadUnmatchedData();
-            await JSRuntime.InvokeVoidAsync("alert", "선택한 영수증 파일이 서버에서 완전히 삭제되었습니다.");
+            CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense);
+            Entries = fq.ToList();
+            ApplyFilters();
+            editSelectedIds.Clear(); printSelectedIds.Clear();
         }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"삭제 중 오류가 발생했습니다: {ex.Message}");
-        }
+        finally { isLoading = false; }
     }
 
-    private async Task AttachSingleFromUnmatched(int targetEntryId)
+    private void ApplyFilters()
     {
-        await OpenUnmatchedManager();
-        await JSRuntime.InvokeVoidAsync("alert", "상단에서 영수증을 선택한 후, 목록에서 '이곳에 붙이기'를 눌러주세요.");
+        var temp = Entries.AsEnumerable();
+        if (!string.IsNullOrEmpty(filterType)) temp = temp.Where(x => x.Type == filterType);
+        if (!string.IsNullOrEmpty(filterCategory)) temp = temp.Where(x => x.Category.Contains(filterCategory, StringComparison.OrdinalIgnoreCase));
+        FilteredEntries = temp.ToList();
+
+        entryBalances.Clear();
+        decimal bal = CarryOverAmount;
+        foreach (var e in FilteredEntries) { bal += e.Income - e.Expense; entryBalances[e.Id] = bal; }
+
+        UniqueCategories = FilteredEntries.Where(t => !string.IsNullOrWhiteSpace(t.Category)).Select(t => t.Category.Trim()).Distinct().OrderBy(c => c).ToList();
     }
 
-    private async Task AttachServerReceiptToEntry(string imagePath, int entryId) 
-    { 
-        // 🚀 부서명을 가져오기 위해 Include 추가
-        var entry = await DbContext.Transactions.Include(t => t.DepartmentInfo)
-                                                .FirstOrDefaultAsync(t => t.Id == entryId);
-                                                
-        if (entry != null) 
-        { 
-            // 🚀 모바일 영수증을 장부에 붙일 때, 물리적 파일명도 새 규칙으로 자동 변경 (부서명_날짜_구분_적요)
-            string webRoot = Env.WebRootPath;
-            string oldFullPath = Path.Combine(webRoot, imagePath.TrimStart('/'));
-            string newImagePath = imagePath; 
-            
-            if (System.IO.File.Exists(oldFullPath))
-            {
-                string extension = Path.GetExtension(oldFullPath);
-                string safeDesc = entry.Description ?? "내용없음";
-                
-                // 파일명에 쓸 수 없는 특수문자 제거
-                foreach (var c in System.IO.Path.GetInvalidFileNameChars())
-                {
-                    safeDesc = safeDesc.Replace(c, '_');
-                }
-                
-                string deptName = entry.DepartmentInfo?.Name ?? "부서미정";
-                string newFileName = $"{deptName}_{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}{extension}";
-                string newFullPath = Path.Combine(webRoot, "uploads", newFileName);
-                
-                try 
-                {
-                    // 서버 내 파일 이름 실제 변경
-                    System.IO.File.Move(oldFullPath, newFullPath, true);
-                    newImagePath = $"/uploads/{newFileName}";
-                } 
-                catch { /* 오류 시 기존 이름 유지 */ }
-            }
-
-            entry.ReceiptPath = newImagePath;
-            await DbContext.SaveChangesAsync(); 
-            DbContext.ChangeTracker.Clear(); 
-            
-            await LoadData(); 
-            await LoadUnmatchedData(); 
-        } 
+    private void ToggleAddForm()
+    {
+        isAddingNew = !isAddingNew;
+        isBatchEditMode = false; isBatchPrintMode = false;
+        if (isAddingNew)
+        {
+            int y = CurrentYear > 2000 ? CurrentYear : DateTime.Now.Year;
+            int m = CurrentMonth > 0 ? CurrentMonth : DateTime.Now.Month;
+            int d = (y == DateTime.Now.Year && m == DateTime.Now.Month) ? DateTime.Now.Day : 1;
+            DateTime def;
+            try { def = new DateTime(y, m, d); } catch { def = DateTime.Now; }
+            newItem = new LedgerEntry { Date = def, Type = "지출", Income = 0, Expense = 0, DepartmentId = SelectedDepartmentId, Category = "", Description = "", Note = "" };
+        }
     }
 
-    private async Task AutoMatchReceipts() 
-    { 
-        int matchCount = 0;
-        var availableReceipts = GetFilteredUnmatchedReceipts().ToList();
-        var availableEntries = unmatchedEntriesList.ToList();
+    private void ToggleBatchEditMode() { isBatchEditMode = !isBatchEditMode; isAddingNew = false; isBatchPrintMode = false; editSelectedIds.Clear(); }
 
-        foreach (var r in availableReceipts) 
-        { 
-            var exactMatches = availableEntries.Where(e => e.Date.Date == r.ReceiptDate.Date && e.Expense == r.Amount).ToList();
-            LedgerEntry? targetEntry = null;
+    // 🚀 인쇄 팝업 및 실행 로직
+    private void OpenPrintModal() { showPrintModal = true; selectedPrintType = "Ledger"; }
+    private void ClosePrintModal() { showPrintModal = false; }
 
-            if (exactMatches.Count == 1) 
-            { 
-                targetEntry = exactMatches.First();
-            } 
-            else if (exactMatches.Count > 1 && !string.IsNullOrWhiteSpace(r.Description)) 
-            { 
-                string rDesc = r.Description.Replace(" ", "");
-                targetEntry = exactMatches.FirstOrDefault(e => 
-                    e.Description != null && 
-                    (e.Description.Replace(" ", "").Contains(rDesc) || rDesc.Contains(e.Description.Replace(" ", ""))));
-            } 
-
-            if (targetEntry != null)
+    private async Task ExecutePrintAction()
+    {
+        showPrintModal = false;
+        if (selectedPrintType == "Ledger")
+        {
+            printMode = "Ledger";
+            StateHasChanged();
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+        else
+        {
+            printTargets = FilteredEntries.Where(t => t.Type == "지출" || t.Type == "Expense").ToList();
+            if (!printTargets.Any())
             {
-                var dbEntry = await DbContext.Transactions.FindAsync(targetEntry.Id);
-                if (dbEntry != null) {
-                    dbEntry.ReceiptPath = r.ImagePath;
-                    await DbContext.SaveChangesAsync();
-                    matchCount++;
-                    availableEntries.Remove(targetEntry); 
-                }
+                await JSRuntime.InvokeVoidAsync("alert", "인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.");
+                return;
             }
-        } 
+            printMode = "Receipt";
+            StateHasChanged();
+            await Task.Delay(100);
+            await JSRuntime.InvokeVoidAsync("window.print");
+        }
+    }
 
-        await JSRuntime.InvokeVoidAsync("alert", $"자동 매칭 완료: 총 {matchCount}건의 영수증이 장부와 연결되었습니다.");
-        DbContext.ChangeTracker.Clear();
-        await LoadData(); 
-        await LoadUnmatchedData(); 
-    } 
+    private async Task SaveNewEntry()
+    {
+        if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "내역을 입력해주세요."); return; }
+        if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
+        newItem.DepartmentId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+        newItem.FiscalYear = CurrentYear;
+        newItem.Quarter = GetQuarter(newItem.Date);
+        newItem.Note ??= "";
+        if (newItem.Type == "수입") newItem.Expense = 0; else newItem.Income = 0;
 
-    // 🚀 인쇄 관련 (수정됨)
-    private async Task PrintLedger() { printMode = "Ledger"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); } 
-    private async Task PrintAllReceipts() { 
-        printTargets = FilteredEntries.Where(t => t.Type == "지출").ToList(); 
-        if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "출력할 지출 내역이 없습니다."); return; } 
-        printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); 
-    } 
-    private async Task PrintSelectedReceipts() { 
-        printTargets = FilteredEntries.Where(t => printSelectedIds.Contains(t.Id) && t.Type == "지출").ToList(); 
-        if (!printTargets.Any()) { await JSRuntime.InvokeVoidAsync("alert", "선택된 항목이 없습니다."); return; } 
-        printMode = "Receipt"; StateHasChanged(); await Task.Delay(100); await JSRuntime.InvokeVoidAsync("window.print"); 
-    } 
+        DbContext.Transactions.Add(newItem);
+        await DbContext.SaveChangesAsync();
+        isAddingNew = false;
+        newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
+        await LoadData();
+    }
 
-    // 🚀 엑셀 다운로드
-    private async Task DownloadExcel() { 
-        try { 
+    private void StartEdit(LedgerEntry item)
+    {
+        editingItemId = item.Id;
+        editBuffer = new LedgerEntry { Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, Description = item.Description ?? "", Note = item.Note ?? "", Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter };
+    }
+
+    private void CancelEdit() { editingItemId = null; editBuffer = null; }
+
+    private async Task SaveEdit()
+    {
+        if (editBuffer == null) return;
+        if (string.IsNullOrWhiteSpace(editBuffer.Description)) { await JSRuntime.InvokeVoidAsync("alert", "내역을 입력해주세요."); return; }
+        var ex = await DbContext.Transactions.FindAsync(editBuffer.Id);
+        if (ex != null)
+        {
+            ex.Date = editBuffer.Date;
+            ex.Type = editBuffer.Type;
+            ex.Category = string.IsNullOrWhiteSpace(editBuffer.Category) ? "미분류" : editBuffer.Category;
+            ex.Description = editBuffer.Description ?? "";
+            ex.Note = editBuffer.Note ?? "";
+            if (ex.Type == "수입") { ex.Expense = 0; ex.Income = editBuffer.Income; } else { ex.Income = 0; ex.Expense = editBuffer.Expense; }
+            ex.Quarter = GetQuarter(editBuffer.Date);
+            ex.FiscalYear = editBuffer.Date.Year;
+            await DbContext.SaveChangesAsync();
+        }
+        editingItemId = null; await LoadData();
+    }
+
+    private void ToggleEditSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) editSelectedIds.Add(id); else editSelectedIds.Remove(id); }
+    private void ToggleAllEdit(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) foreach (var i in FilteredEntries) editSelectedIds.Add(i.Id); else editSelectedIds.Clear(); }
+    private void TogglePrintSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) printSelectedIds.Add(id); else printSelectedIds.Remove(id); }
+    private void ToggleAllPrint(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) foreach (var i in FilteredEntries.Where(t => t.Type == "지출")) printSelectedIds.Add(i.Id); else printSelectedIds.Clear(); }
+
+    private async Task DeleteSingle(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "이 항목을 삭제하시겠습니까?"))
+        {
+            var t = await DbContext.Transactions.FindAsync(id);
+            if (t != null) { DbContext.Transactions.Remove(t); await DbContext.SaveChangesAsync(); await LoadData(); }
+        }
+    }
+
+    private async Task DeleteSelected()
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"선택한 {editSelectedIds.Count}항목을 삭제하시겠습니까?"))
+        {
+            var ts = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync();
+            DbContext.Transactions.RemoveRange(ts); await DbContext.SaveChangesAsync(); await LoadData();
+        }
+    }
+
+    private async Task ApplyBulkEdit()
+    {
+        if (editSelectedIds.Count > 0 && !string.IsNullOrEmpty(bulkCategory))
+        {
+            var ts = await DbContext.Transactions.Where(t => editSelectedIds.Contains(t.Id)).ToListAsync();
+            foreach (var t in ts) t.Category = bulkCategory; await DbContext.SaveChangesAsync(); bulkCategory = ""; await LoadData();
+        }
+    }
+
+    private void ShowReceiptModal(string url) { currentReceiptUrl = url; showReceiptModal = true; }
+    private void CloseReceiptModalHandler() { showReceiptModal = false; currentReceiptUrl = string.Empty; }
+
+    private async Task RemoveReceiptOnly(int entryId)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "해당 영수증을 장부에서 분리하시겠습니까?"))
+        {
+            await Accounting.RemoveReceiptAsync(entryId);
+            var entry = await DbContext.Transactions.FindAsync(entryId);
+            if (entry != null) { entry.ReceiptUrl = ""; entry.ReceiptPath = ""; await DbContext.SaveChangesAsync(); }
+            DbContext.ChangeTracker.Clear(); await LoadData();
+        }
+    }
+
+    private async Task TriggerPcUpload(int entryId) { targetUploadEntryId = entryId; await JSRuntime.InvokeVoidAsync("triggerFileInput", "pcUploadInput"); }
+
+    private async Task HandlePcUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file == null || targetUploadEntryId == 0) return;
+        string result = await Accounting.UploadReceiptAsync(file, targetUploadEntryId);
+        if (result == "OK") { await JSRuntime.InvokeVoidAsync("alert", "영수증 업로드 완료!"); DbContext.ChangeTracker.Clear(); await LoadData(); }
+        else { await JSRuntime.InvokeVoidAsync("alert", result); }
+        targetUploadEntryId = 0;
+    }
+
+    private async Task DownloadExcel()
+    {
+        try
+        {
             using var workbook = new XLWorkbook();
-            var allYearData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId)).OrderBy(t => t.Date).ToListAsync();
-            var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear); 
-            if (SelectedDepartmentId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == SelectedDepartmentId);
-            var budgetPlans = await budgetQuery.ToListAsync(); 
-            decimal runningBal = budgetPlans.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-            var groupedForExcel = allYearData.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList(); 
-            foreach (var monthGroup in groupedForExcel) { 
-                var parts = monthGroup.Key.Split('-');
-                int gYear = int.Parse(parts[0]); int gMonth = int.Parse(parts[1]); 
-                if (CurrentMonth > 0 && gMonth != CurrentMonth) continue;
-                var ws = workbook.Worksheets.Add($"{gYear}-{gMonth:D2}"); 
-                var headers = new[] { "날짜", "구분", "분류항목", "적요", "비고", "수입", "지출", "잔액" };
-                for (int c = 0; c < headers.Length; c++) { ws.Cell(1, c + 1).Value = headers[c];
-                ws.Cell(1, c + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws.Cell(1, c + 1).Style.Font.Bold = true; ws.Cell(1, c + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                } 
+            var allData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
+                .Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId))
+                .OrderBy(t => t.Date).ToListAsync();
+            var bq2 = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
+            if (SelectedDepartmentId != 0) bq2 = bq2.Where(b => b.DepartmentId == SelectedDepartmentId);
+            var bp2 = await bq2.ToListAsync();
+            decimal runBal = bp2.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
+            foreach (var mg in allData.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key))
+            {
+                var pts = mg.Key.Split('-');
+                int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
+                if (CurrentMonth > 0 && gm != CurrentMonth) continue;
+                var ws = workbook.Worksheets.Add($"{gy}-{gm:D2}");
+                var hdrs = new[] { "날짜", "구분", "분류항목", "내역", "비고", "수입", "지출", "잔액" };
+                for (int c = 0; c < hdrs.Length; c++)
+                {
+                    ws.Cell(1, c + 1).Value = hdrs[c];
+                    ws.Cell(1, c + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws.Cell(1, c + 1).Style.Font.Bold = true; ws.Cell(1, c + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                }
                 ws.Cell(2, 1).Value = "-";
-                ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 6).Value = runningBal; ws.Cell(2, 8).Value = runningBal; ws.Column(6).Style.NumberFormat.Format = "#,##0";
-                ws.Column(7).Style.NumberFormat.Format = "#,##0"; ws.Column(8).Style.NumberFormat.Format = "#,##0"; 
-                int row = 3; decimal mIncome = 0; decimal mExpense = 0;
-                decimal currentSheetBal = runningBal; 
-                foreach (var item in monthGroup) { currentSheetBal += (item.Income - item.Expense); mIncome += item.Income;
-                mExpense += item.Expense; runningBal += (item.Income - item.Expense); ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type; ws.Cell(row, 3).Value = item.Category;
-                string excelDesc = item.Description; if (IsAdmin && SelectedDepartmentId == 0) excelDesc += $" [{item.DepartmentInfo?.Name}]"; ws.Cell(row, 4).Value = excelDesc;
-                ws.Cell(row, 5).Value = item.Note; ws.Cell(row, 6).Value = item.Income == 0 ? "" : item.Income;
-                ws.Cell(row, 7).Value = item.Expense == 0 ? "" : item.Expense; ws.Cell(row, 8).Value = currentSheetBal; row++;
-                } 
-                ws.Cell(row, 1).Value = $"{gYear}년 {gMonth}월 계";
-                ws.Range(row, 1, row, 5).Merge(); ws.Cell(row, 6).Value = mIncome; ws.Cell(row, 7).Value = mExpense; ws.Cell(row, 8).Value = currentSheetBal; ws.Column(1).Width = 12;
-                ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 35; ws.Column(5).Width = 15; ws.Column(6).Width = 12; ws.Column(7).Width = 12;
-                ws.Column(8).Width = 12; 
-            } 
+                ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 6).Value = runBal; ws.Cell(2, 8).Value = runBal;
+                ws.Column(6).Style.NumberFormat.Format = "#,##0";
+                ws.Column(7).Style.NumberFormat.Format = "#,##0"; ws.Column(8).Style.NumberFormat.Format = "#,##0";
+                int row = 3; decimal mI = 0; decimal mE = 0;
+                decimal sb = runBal;
+                foreach (var item in mg)
+                {
+                    sb += item.Income - item.Expense;
+                    mI += item.Income; mE += item.Expense; runBal += item.Income - item.Expense;
+                    ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type;
+                    ws.Cell(row, 3).Value = item.Category;
+                    string desc = item.Description; if (IsAdmin && SelectedDepartmentId == 0) desc += $" [{item.DepartmentInfo?.Name}]";
+                    ws.Cell(row, 4).Value = desc; ws.Cell(row, 5).Value = item.Note;
+                    ws.Cell(row, 6).Value = item.Income == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Income;
+                    ws.Cell(row, 7).Value = item.Expense == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Expense;
+                    ws.Cell(row, 8).Value = sb; row++;
+                }
+                ws.Cell(row, 1).Value = $"{gy}년 {gm}월 계";
+                ws.Range(row, 1, row, 5).Merge();
+                ws.Cell(row, 6).Value = mI; ws.Cell(row, 7).Value = mE; ws.Cell(row, 8).Value = sb;
+                ws.Column(1).Width = 12; ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 35; ws.Column(5).Width = 15;
+                ws.Column(6).Width = 12; ws.Column(7).Width = 12; ws.Column(8).Width = 12;
+            }
             using var stream = new MemoryStream();
-            workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray()); string today = DateTime.Now.ToString("yyyyMMdd"); string deptName = SelectedDepartmentId == 0 ?
-            "전체부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "장부"; string fileName = $"{deptName}-{CurrentYear}년-장부-{today}.xlsx"; 
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", fileName, base64);
-        } catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 생성 오류: {ex.Message}"); } 
-    } 
+            workbook.SaveAs(stream);
+            string deptName = SelectedDepartmentId == 0 ? "전체부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "장부";
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"{deptName}-{CurrentYear}년-장부-{DateTime.Now:yyyyMMdd}.xlsx", Convert.ToBase64String(stream.ToArray()));
+        }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 다운로드 오류: {ex.Message}"); }
+    }
+
+    private int GetQuarter(DateTime d) => d.Month switch { 11 or 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
 }

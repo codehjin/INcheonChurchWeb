@@ -2,6 +2,7 @@
 <html lang="ko">
 
 <head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
@@ -18,6 +19,22 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <script>
+        // 엑셀 파일 다운로드
+        window.downloadExcelFile = function (fileName, base64) {
+            const link = document.createElement('a');
+            link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        };
+
+        // 숨겨진 파일 input 트리거
+        window.triggerFileInput = function (elementId) {
+            const el = document.getElementById(elementId);
+            if (el) el.click();
+        };
+
         // 메시지 내의 줄바꿈(\n) 처리 및 글자 크기(+2px)를 위한 포맷팅 함수
         function formatMessage(msg) {
             if (typeof msg !== 'string') msg = String(msg);

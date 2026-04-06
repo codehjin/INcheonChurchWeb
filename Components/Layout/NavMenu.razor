@@ -1,122 +1,61 @@
 ﻿@using INcheonChurchWeb.Models
 
-<div class="top-row ps-3 navbar navbar-dark bg-transparent border-0 mt-2 mb-3">
-    <div class="container-fluid justify-content-center">
-        <a class="navbar-brand fw-bold fs-5" href="">
-            <i class="bi bi-building me-2 text-warning"></i>인천중앙교회 교육국
-        </a>
+@* ── 브랜드 헤더 ── *@
+<div class="stitch-nav-brand">
+    <div class="stitch-nav-brand-icon">
+        <i class="bi bi-building"></i>
+    </div>
+    <div>
+        <h1>인천중앙교회 교육국</h1>
+        <p>회계 관리 시스템</p>
     </div>
 </div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+@* ── 네비게이션 메뉴 ── *@
+<nav class="stitch-nav">
+    <NavLink class="stitch-nav-item" href="" Match="NavLinkMatch.All">
+        <span class="nav-icon-wrap"><i class="bi bi-grid-1x2-fill"></i></span>
+        <span class="nav-label">대시보드</span>
+    </NavLink>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="flex-column pb-4 px-2">
+    @if (CanEdit)
+    {
+        <NavLink class="stitch-nav-item" href="expense-report-quarterly">
+            <span class="nav-icon-wrap"><i class="bi bi-file-earmark-text-fill"></i></span>
+            <span class="nav-label">지출결의서</span>
+        </NavLink>
 
-        <div class="nav-item menu-line mt-1">
-            <NavLink class="nav-link text-white-50" href="" Match="NavLinkMatch.All">
-                <i class="bi bi-grid-1x2-fill fs-5 me-3"></i> 대시보드
-            </NavLink>
-        </div>
-
-        @if (IsMainAccount)
-        {
-            <div class="nav-item menu-line d-none d-sm-block">
-                <NavLink class="nav-link text-white-50" href="expense-report-quarterly">
-                    <i class="bi bi-file-earmark-text-fill fs-5 me-3"></i> 지출결의서
-                </NavLink>
-            </div>
-        }
-
-        @if (IsMainAccount || IsSubAccount)
-        {
-            <div class="nav-item menu-line">
-                <NavLink class="nav-link text-white-50" href="receipt-upload">
-                    <i class="bi bi-camera-fill fs-5 me-3 text-warning"></i> 모바일 영수증
-                </NavLink>
-            </div>
-            <div class="nav-item menu-line d-none d-sm-block">
-                <NavLink class="nav-link text-white-50" href="receipt-multi-upload">
-                    <i class="bi bi-images fs-5 me-3"></i> PC 다중업로드
-                </NavLink>
-            </div>
-        }
-
-        <div class="d-none d-sm-block">
-            @if (IsMainAccount)
-            {
-                <div class="nav-item menu-line">
-                    <NavLink class="nav-link text-white-50" href="bank-import">
-                        <i class="bi bi-bank2 fs-5 me-3"></i> 엑셀 내역 가져오기
-                    </NavLink>
-                </div>
-            }
-
-            <div class="nav-item menu-line">
-                <NavLink class="nav-link text-white-50" href="monthly">
-                    <i class="bi bi-book-half fs-5 me-3"></i> 월별 장부
-                </NavLink>
-            </div>
-        </div>
-
-        <div class="nav-item menu-line">
-            <NavLink class="nav-link text-white-50" href="settings">
-                <i class="bi bi-gear-fill fs-5 me-3"></i> 환경설정
-            </NavLink>
-        </div>
-
-        @if (IsMainAccount || IsSubAccount)
-        {
-            <div class="nav-item menu-line border-0">
-                <NavLink class="nav-link text-white-50" href="manual">
-                    <i class="bi bi-question-circle-fill fs-5 me-3"></i> 도움말
-                </NavLink>
-            </div>
-        }
-    </nav>
-</div>
-
-@* 🚀 호버 스타일 및 메뉴 하단 라인(구분선) 처리 *@
-<style>
-    .menu-line {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08); /* 얇은 화이트 구분선 */
-        padding-top: 0.1rem;
-        padding-bottom: 0.1rem;
+        <NavLink class="stitch-nav-item" href="data-collection">
+            <span class="nav-icon-wrap"><i class="bi bi-receipt-cutoff"></i></span>
+            <span class="nav-label">수집 및 정리</span>
+        </NavLink>
     }
 
-    .nav-link {
-        border-radius: 8px;
-        padding: 0.6rem 1rem;
-        transition: all 0.2s ease;
-        margin-bottom: 2px;
+    <NavLink class="stitch-nav-item" href="monthly">
+        <span class="nav-icon-wrap"><i class="bi bi-book-half"></i></span>
+        <span class="nav-label">월별 장부</span>
+    </NavLink>
+
+    <NavLink class="stitch-nav-item" href="settings">
+        <span class="nav-icon-wrap"><i class="bi bi-gear-fill"></i></span>
+        <span class="nav-label">환경설정</span>
+    </NavLink>
+
+    @if (CanEdit)
+    {
+        <NavLink class="stitch-nav-item" href="manual">
+            <span class="nav-icon-wrap"><i class="bi bi-info-circle-fill"></i></span>
+            <span class="nav-label">도움말</span>
+        </NavLink>
     }
-
-        .nav-link:hover {
-            background-color: rgba(255,255,255,0.1);
-            color: #fff !important;
-        }
-
-        .nav-link.active {
-            background-color: rgba(255,255,255,0.15);
-            color: #fff !important;
-            font-weight: bold;
-        }
-
-            .nav-link.active i {
-                color: #ffc107 !important;
-            }
-</style>
+</nav>
 
 @code {
     [Parameter] public User? CurrentUser { get; set; }
 
-    private bool IsViewerOrAdmin => CurrentUser?.Role == "Admin" ||
-                                    CurrentUser?.Role == "Auditor" ||
-                                    CurrentUser?.Department?.Name == "교육국" ||
-                                    CurrentUser?.Department?.Name == "관리자";
+    private bool IsAdmin => CurrentUser?.Role == "Admin";
+    private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
 
-    private bool IsSubAccount => CurrentUser?.Role == "SubAccount" ||
-                                 CurrentUser?.Role == "보조회계";
-
-    private bool IsMainAccount => !IsViewerOrAdmin && !IsSubAccount;
+    // 작성 및 편집 권한이 있는 경우에만 영수증/결의서 메뉴 표시
+    private bool CanEdit => IsManager;
 }

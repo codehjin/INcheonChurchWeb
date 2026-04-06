@@ -9,103 +9,48 @@
 @inject TwoFactorAuthService TotpService
 @rendermode InteractiveServer
 
-<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: #f0f2f5; display: flex; justify-content: center; align-items: center;">
-    <div class="card shadow-lg p-4 border-0" style="width: 100%; max-width: 400px; border-radius: 15px;">
+<div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; background-color: var(--surface); display: flex; justify-content: center; align-items: center;">
 
-        @* 🚀 로고가 추가된 헤더 부분 *@
-        <div class="text-center mb-4">
-            <img src="/images/church-logo.png" alt="인천중앙교회 로고" class="img-fluid mb-3" style="max-height: 90px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);" />
-            <h4 class="fw-bold text-primary">교회학교 회계 시스템</h4>
-            <p class="text-muted small mb-0">서비스 이용을 위해 로그인해주세요</p>
+<div class="ledger-card p-5" style="width: 100%; max-width: 420px; background-color: #ffffff;">
+        <div class="text-center mb-5">
+            <img src="/images/church-logo.png" alt="로고" class="img-fluid mb-4" style="max-height: 80px;" />
+            <h3 class="font-heading" style="color: var(--on-surface);">교육국 재정 관리 시스템</h3>
+            <p style="color: var(--on-surface-sub); font-size: 0.9rem;">등록된 계정으로 로그인하십시오</p>
         </div>
 
-        @* 🚀 수정됨: 2FA 여부에 따른 화면 분기 *@
         @if (!isOtpStep)
         {
-            @* Step 1: 아이디/비밀번호 입력 *@
-            <div class="mb-3">
-                <label class="form-label fw-bold">아이디</label>
-                <input type="text" class="form-control form-control-lg" @bind="Username" @onkeyup="EnterKey" placeholder="ID 입력" />
-            </div>
             <div class="mb-4">
-                <label class="form-label fw-bold">비밀번호</label>
-                <input type="password" class="form-control form-control-lg" @bind="Password" @onkeyup="EnterKey" placeholder="Password 입력" />
+                <label class="form-label fw-bold" style="color: var(--on-surface-sub); font-size: 0.85rem;">사용자 아이디</label>
+                <input type="text" class="form-control form-control-lg ledger-input px-3" @bind="Username" placeholder="ID" />
+            </div>
+            <div class="mb-5">
+                <label class="form-label fw-bold" style="color: var(--on-surface-sub); font-size: 0.85rem;">비밀번호</label>
+                <input type="password" class="form-control form-control-lg ledger-input px-3" @bind="Password" placeholder="Password" />
             </div>
 
-            @if (!string.IsNullOrEmpty(ErrorMessage))
-            {
-                <div class="alert alert-danger p-2 text-center small mb-3">
-                    <i class="bi bi-exclamation-circle me-1"></i>@ErrorMessage
-                </div>
-            }
-
-            <button type="button" class="btn btn-primary w-100 btn-lg fw-bold" @onclick="TryLogin" disabled="@isLoading">
-                @if (isLoading)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    <span>확인 중...</span>
-                }
-                else
-                {
-                    <span>로그인</span>
-                }
+            <button type="button" class="btn btn-ledger-primary w-100 btn-lg" @onclick="TryLogin" disabled="@isLoading">
+                <span>로그인</span>
             </button>
         }
         else
         {
-            @* Step 2: OTP 인증 입력 *@
-            <div class="alert alert-info border-info d-flex align-items-center gap-2 mb-4">
-                <i class="bi bi-shield-lock" style="font-size: 1.5rem;"></i>
-                <div>
-                    <strong>보안 확인</strong><br />
-                    <small>스마트폰 앱의 6자리 번호를 입력하세요</small>
+            <div class="mb-4 text-center p-3" style="background-color: var(--surface-low); border-radius: var(--radius-base);">
+                <div style="color: var(--on-surface-sub);">
+                    <strong>2단계 보안 인증</strong><br />
+                    <small>등록된 OTP 코드를 입력하십시오</small>
                 </div>
             </div>
 
-            <div class="mb-3 text-center">
-                <p class="text-muted small mb-2">
-                    <strong>@(targetUser?.FullName ?? targetUser?.Username)</strong> 님의 OTP 코드
-                </p>
-                <div class="input-group">
-                    <input 
-                        type="text" 
-                        class="form-control form-control-lg text-center fw-bold" 
-                        @bind="inputOtpCode" 
-                        @onkeyup="OtpEnterKey" 
-                        maxlength="6" 
-                        placeholder="000000"
-                        style="font-size: 1.5rem; letter-spacing: 8px;" />
-                </div>
-                <small class="text-muted mt-2 d-block">시간이 지나면 코드가 변경됩니다</small>
+            <div class="mb-4 text-center">
+                <input type="text" class="form-control form-control-lg text-center fw-bold ledger-input"
+                       @bind="inputOtpCode" maxlength="6" placeholder="000000"
+                       style="font-size: 1.8rem; letter-spacing: 10px;" />
             </div>
 
-            @if (!string.IsNullOrEmpty(OtpErrorMessage))
-            {
-                <div class="alert alert-danger p-2 text-center small mb-3">
-                    <i class="bi bi-exclamation-circle me-1"></i>@OtpErrorMessage
-                </div>
-            }
-
-            <button type="button" class="btn btn-success w-100 btn-lg fw-bold mb-2" @onclick="VerifyOtp" disabled="@isOtpLoading">
-                @if (isOtpLoading)
-                {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
-                    <span>검증 중...</span>
-                }
-                else
-                {
-                    <span>인증하기</span>
-                }
-            </button>
-
-            <button type="button" class="btn btn-outline-secondary w-100 fw-bold" @onclick="CancelOtp">
-                <i class="bi bi-arrow-left me-1"></i>뒤로 가기
-            </button>
+            <button type="button" class="btn btn-ledger-primary w-100 btn-lg mb-3" @onclick="VerifyOtp" disabled="@isOtpLoading">인증 확인</button>
+            <button type="button" class="btn w-100 fw-bold" style="color: var(--on-surface-sub);" @onclick="CancelOtp">취소</button>
         }
-
-        <div class="text-center mt-4">
-            <small class="text-muted fw-bold">인천중앙성결교회 교육국</small>
-        </div>
     </div>
 </div>
 

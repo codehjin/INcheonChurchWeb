@@ -29,6 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Design_dreft\" />
     <Folder Include="wwwroot\uploads\" />
     <Folder Include="wwwroot\uploads\receipts\" />
   </ItemGroup>
