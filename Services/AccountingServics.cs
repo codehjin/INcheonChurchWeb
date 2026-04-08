@@ -45,12 +45,12 @@ namespace INcheonChurchWeb.Services
         // [1-1] 보조금 현황 계산 로직
         // =========================================================
         // 🚀 11월 3째주 주일을 구하는 헬퍼 메서드 추가
-        public static DateTime GetThirdSundayOfNovember(int year)
+        public static DateTime GetFourthSundayOfNovember(int year)
         {
             DateTime nov1 = new DateTime(year, 11, 1);
             int daysToSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
             DateTime firstSunday = nov1.AddDays(daysToSunday);
-            return firstSunday.AddDays(14); // 첫째 주일 + 14일 = 셋째 주일
+            return firstSunday.AddDays(21); // 첫째 주일 + 21일 = 넷째 주일 🚀 수정됨
         }
 
         // 🚀 분기 날짜 로직 업데이트
@@ -70,18 +70,19 @@ namespace INcheonChurchWeb.Services
             }
 
             // 2. 설정이 없을 경우 새로운 기준(11월~11월)에 따른 기본값 계산
-            DateTime prevNovThirdSun = GetThirdSundayOfNovember(year - 1);
-            DateTime q1Start = prevNovThirdSun.AddDays(1); // 전년도 11월 4째주 월요일 시작
-            DateTime currentNovThirdSun = GetThirdSundayOfNovember(year); // 당해년도 11월 3째주 주일 마감
+            DateTime prevNovFourthSun = GetFourthSundayOfNovember(year - 1);
+            DateTime q1Start = prevNovFourthSun.AddDays(1); // 전년도 11월 4째주 월요일 시작
+            DateTime currentNovFourthSun = GetFourthSundayOfNovember(year); // 당해년도 11월 4째주 주일 마감
 
             return quarter switch
             {
                 1 => (q1Start, new DateTime(year, 2, DateTime.DaysInMonth(year, 2))),
                 2 => (new DateTime(year, 3, 1), new DateTime(year, 5, 31)),
                 3 => (new DateTime(year, 6, 1), new DateTime(year, 8, 31)),
-                4 => (new DateTime(year, 9, 1), currentNovThirdSun),
-                _ => (q1Start, currentNovThirdSun) // 전체 (회계연도 전체)
+                4 => (new DateTime(year, 9, 1), currentNovFourthSun), // 🚀 수정됨
+                _ => (q1Start, currentNovFourthSun) // 전체 (회계연도 전체) 🚀 수정됨
             };
+                        
         }
         // =========================================================
         // [1-2] 분기 설정: 날짜 범위 저장 및 조회
