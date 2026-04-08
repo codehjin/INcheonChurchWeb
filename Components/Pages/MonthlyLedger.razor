@@ -165,7 +165,6 @@
         table-layout: fixed;
     }
 
-        /* 🚀 수정: 표 제목 폰트 크기 증가 (0.9rem) 및 세로줄(border-right) 추가 */
         .ledger-table th {
             background-color: rgba(234, 233, 221, 0.6);
             color: #4e4637;
@@ -202,7 +201,6 @@
                 background-color: #fbfcfa;
             }
 
-    /* 🚀 수정: 내역/비고 한 줄 고정 속성 */
     .text-truncate-custom {
         max-width: 100%;
         white-space: nowrap;
@@ -237,7 +235,7 @@
         display: inline-block;
     }
 
-    /* 아이콘 버튼 */
+    /* 아이콘 버튼 (색상 수정 완료) */
     .icon-btn {
         display: inline-flex;
         align-items: center;
@@ -259,11 +257,11 @@
         .icon-btn.edit {
             color: #198754;
         }
-        /* 🟢 녹색 (수정) */
+        /* 녹색 (수정) */
         .icon-btn.delete {
             color: #dc3545;
         }
-        /* 🔴 빨강 (삭제) */
+        /* 빨강 (삭제) */
         .icon-btn.receipt {
             color: #785600;
         }
@@ -271,7 +269,14 @@
         .icon-btn.upload {
             color: #e6a23c;
         }
-    /* 📁 노란색/주황색 (폴더 업로드) */
+    /* 주황/노랑 (업로드 폴더) */
+
+    /* 🚀 추가: 웹(화면)에서는 아래쪽에 배치된 인쇄 양식을 완벽히 숨깁니다. */
+    @@media screen {
+        .print-only {
+            display: none !important;
+        }
+    }
 
     /* =======================================================
            Print Styles (인쇄 양식)
@@ -294,7 +299,8 @@
 
         @@page {
             size: A4 portrait;
-            margin: 5mm;
+            /* 🚀 상단 책철을 위한 여백 40mm, 좌우 10mm로 넓힘 */
+            margin: 40mm 10mm 5mm 10mm;
         }
 
         .page-break-before {
@@ -399,7 +405,6 @@
     }
 </style>
 
-@* 🚀 동적 데이터 리스트 (수입/지출 예산 기반 자동완성) *@
 <datalist id="incomeCatList">@foreach (var cat in IncomeCats) {
 <option value="@cat"></option>
 }
@@ -430,7 +435,6 @@
 
                     <div class="selector-divider"></div>
 
-                    @* 🚀 수정: 분기 및 월 선택을 화살표에서 드롭다운으로 변경 *@
                     <select class="settings-input fw-bold border-0 py-1" style="background: transparent; width: auto; box-shadow: none;" @onchange="OnQuarterChanged" value="@CurrentQuarter">
                         <option value="0">전체 분기</option>
                         <option value="1">1분기</option>
@@ -468,7 +472,7 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <div class="ledger-card p-4 h-100 d-flex flex-column justify-content-center" style="border-left: 4px solid #d2c5b2;">
-                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">전월 이월금</span>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">전월 이월금 (회계연도 기준)</span>
                         <div class="mt-2 ledger-tabular" style="font-size: 1.5rem; font-weight: 800; color: #1b1c15;">
                             <span style="font-size: 1rem; font-weight: 500;">₩</span> @CarryOverAmount.ToString("N0")
                         </div>
@@ -476,7 +480,7 @@
                 </div>
                 <div class="col-md-4">
                     <div class="ledger-card p-4 h-100 d-flex flex-column justify-content-center" style="border-left: 4px solid #eec067;">
-                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">당월 수입 / 지출</span>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">조회 기간 수입 / 지출</span>
                         <div class="mt-2 d-flex align-items-baseline gap-2 ledger-tabular">
                             <span style="font-size: 1.25rem; font-weight: 800; color: #785600;">+ ₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</span>
                             <span style="font-size: 0.9rem; font-weight: 600; color: #ba1a1a;">- ₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</span>
@@ -495,12 +499,10 @@
 
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
                 <h4 class="fw-bold mb-0" style="color: #1b1c15;">
-                    @(CurrentYear)년 @(CurrentMonth > 0 ? $"{CurrentMonth}월" : CurrentQuarter > 0 ? $"{CurrentQuarter}분기" : "전체") 내역
+                    @(CurrentYear) 회계연도 @(CurrentMonth > 0 ? $"{CurrentMonth}월" : CurrentQuarter > 0 ? $"{CurrentQuarter}분기" : "전체") 내역
                 </h4>
 
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    @* 🚀 검색창 삭제됨 *@
-
                     @if (CanEditLedger)
                     {
                         <button class="ledger-gold-btn" @onclick="ToggleBatchEditMode">
@@ -550,7 +552,6 @@
             else
             {
                 <table class="ledger-table">
-                    @* 🚀 비율로 칸 넓이 완벽 조정 *@
                     <colgroup>
                         @if (isBatchEditMode)
                         {
@@ -619,7 +620,6 @@
                                 <td class="fw-bold" style="color: #174577; font-size: 0.75rem;">EDIT</td>
                                 <td><input type="date" class="form-control form-control-sm px-1" @bind="editBuffer.Date" /></td>
                                 <td><select class="form-select form-select-sm px-1" @bind="editBuffer.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
-                                @* 🚀 수정: 수입/지출 선택에 따라 동적 Datalist 적용 *@
                                 <td><input class="form-control form-control-sm px-1 fw-bold" list="@(editBuffer.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="editBuffer.Category" /></td>
                                 <td><input class="form-control form-control-sm px-1" @bind="editBuffer.Description" /></td>
                                 <td><input class="form-control form-control-sm px-1" @bind="editBuffer.Note" /></td>
@@ -687,36 +687,36 @@
                             {
                                 <td style="font-size: 0.8rem; color: #807666;">@Departments.FirstOrDefault(d => d.Id == t.DepartmentId)?.Name</td>
                             }
-                                    @if (CanEditLedger)
+                            @if (CanEditLedger)
+                            {
+                                <td>
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <button class="icon-btn edit" @onclick="() => StartEdit(t)" title="수정"><i class="bi bi-pencil-fill"></i></button>
+                                        <button class="icon-btn delete" @onclick="() => DeleteSingle(t.Id)" title="삭제"><i class="bi bi-trash-fill"></i></button>
+                                    </div>
+                                </td>
+                            }
+                            <td>
+                                <div class="d-flex justify-content-center gap-1">
+                                    @if (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))
                                     {
-                                        <td>
-                                            <div class="d-flex justify-content-center gap-1">
-                                                <button class="icon-btn edit" @onclick="() => StartEdit(t)" title="수정"><i class="bi bi-pencil-fill"></i></button>
-                                                <button class="icon-btn delete" @onclick="() => DeleteSingle(t.Id)" title="삭제"><i class="bi bi-trash-fill"></i></button>
-                                            </div>
-                                        </td>
+                                        <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath! : t.ReceiptUrl!)"><i class="bi bi-receipt-cutoff"></i></button>
+                                        @if (CanEditLedger)
+                                        {
+                                            <button class="icon-btn delete" style="width:24px; height:24px; font-size:0.75rem;" title="영수증 분리" @onclick="() => RemoveReceiptOnly(t.Id)"><i class="bi bi-x-circle-fill"></i></button>
+                                        }
                                     }
-                                    <td>
-                                        <div class="d-flex justify-content-center gap-1">
-                                            @if (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))
-                                            {
-                                                <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath! : t.ReceiptUrl!)"><i class="bi bi-receipt-cutoff"></i></button>
-                                                @if (CanEditLedger)
-                                                {
-                                                    <button class="icon-btn delete" style="width:24px; height:24px; font-size:0.75rem;" title="영수증 분리" @onclick="() => RemoveReceiptOnly(t.Id)"><i class="bi bi-x-circle-fill"></i></button>
-                                                }
-                                            }
-                                            else if (CanEditLedger)
-                                            {
-                                                <button class="icon-btn upload" title="업로드" @onclick="() => TriggerPcUpload(t.Id)"><i class="bi bi-folder-plus fs-5"></i></button>
-                                            }
-                                            else
-                                            {
+                                    else if (CanEditLedger)
+                                    {
+                                        <button class="icon-btn upload" title="업로드" @onclick="() => TriggerPcUpload(t.Id)"><i class="bi bi-folder-plus fs-5"></i></button>
+                                    }
+                                    else
+                                    {
 
-                                                <span class="text-muted" style="font-size: 0.75rem;">-</span>
-                                            }
-                                        </div>
-                                    </td>
+                                        <span class="text-muted" style="font-size: 0.75rem;">-</span>
+                                    }
+                                </div>
+                            </td>
                         }
                     </tr>
                                         }
@@ -731,7 +731,6 @@
                             <td class="ledger-tabular fw-bold" style="color: #785600; font-size: 0.75rem;">NEW</td>
                             <td><input type="date" class="form-control form-control-sm ledger-tabular px-1" @bind="newItem.Date" /></td>
                             <td><select class="form-select form-select-sm fw-bold px-1" @bind="newItem.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
-                            @* 🚀 신규 입력 시에도 자동완성 지원 *@
                             <td><input class="form-control form-control-sm fw-bold px-1" list="@(newItem.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="newItem.Category" placeholder="분류입력" /></td>
                             <td><input class="form-control form-control-sm fw-bold px-1" @bind="newItem.Description" placeholder="내역(필수)" /></td>
                             <td><input class="form-control form-control-sm px-1" @bind="newItem.Note" placeholder="비고(선택)" /></td>
@@ -775,7 +774,7 @@
                         @{
                             int tfColspan = 6; if (isBatchEditMode) tfColspan++;
                         }
-                        <td colspan="@tfColspan" class="text-end fw-bold" style="color: #4e4637; padding: 1rem 0.75rem;">합계</td>
+                        <td colspan="@tfColspan" class="text-end fw-bold" style="color: #4e4637; padding: 1rem 0.75rem;">조회 기간 합계</td>
                         <td class="text-end ledger-tabular fw-bold" style="color: #785600; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</td>
                         <td class="text-end ledger-tabular fw-bold" style="color: #ba1a1a; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</td>
                         <td class="text-end ledger-tabular fw-bold" style="color: #1b1c15; padding: 1rem 0.5rem;">₩@CurrentBalance.ToString("N0")</td>
@@ -888,6 +887,8 @@
         {
             var pts = mg.Key.Split('-');
             int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
+
+            // 🚀 인쇄용 이월금 계산 보정 (선택된 월 이전의 데이터만 필터링)
             decimal pI = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Income);
             decimal pE = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Expense);
             decimal sb = CarryOverAmount + pI - pE;
@@ -904,11 +905,11 @@
                 <table class="table table-bordered mb-0">
                     <thead>
                         <tr>
-                            <th style="width:7%" class="text-center">No</th>
-                            <th style="width:10%" class="text-center">날짜</th>
+                            <th style="width:5%" class="text-center">No</th>
+                            <th style="width:8%" class="text-center">날짜</th>
                             <th style="width:6%" class="text-center">구분</th>
-                            <th style="width:10%" class="text-center">분류항목</th>
-                            <th style="width:23%" class="text-center">내역</th>
+                            <th style="width:12%" class="text-center">분류항목</th>
+                            <th style="width:25%" class="text-center">내역</th>
                             <th style="width:13%" class="text-center">비고</th>
                             <th style="width:10%" class="text-center">수입</th>
                             <th style="width:10%" class="text-center">지출</th>
@@ -948,9 +949,15 @@
         <div class="receipt-grid-@receiptsPerSheet">
             @foreach (var t in printTargets)
             {
+                int seq = FilteredEntries.IndexOf(t) + 1;
+                string fontSize = receiptsPerSheet == 1 ? "18pt" : (receiptsPerSheet == 2 ? "14pt" : "11pt");
+
                 <div class="receipt-box">
-                    <div class="text-center" style="border-bottom:1px solid #999; padding:4px 0; margin-bottom:8px; font-size:11pt; font-weight:bold;">
-                        @t.Date.ToString("MM-dd") | @(t.Description?.Length > 10 ? t.Description.Substring(0, 10) : t.Description) | @t.Expense.ToString("N0")원
+                    <div style="display: flex; align-items: center; border-bottom: 2px solid #555; padding: 4px 5px; margin-bottom: 8px; font-weight: bold; font-size: @fontSize;">
+                        <div style="width: 10%; text-align: left;">@seq</div>
+                        <div style="width: 20%; text-align: left;">@t.Date.ToString("M월 d일")</div>
+                        <div style="width: 45%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@t.Description</div>
+                        <div style="width: 25%; text-align: right; color: #ba1a1a;">@t.Expense.ToString("N0")</div>
                     </div>
                     @if (includeReceiptImage && (!string.IsNullOrEmpty(t.ReceiptPath) || !string.IsNullOrEmpty(t.ReceiptUrl)))
                     {
@@ -992,11 +999,10 @@
     private string filterCategory = "";
 
     private bool isBatchEditMode = false;
-    private bool isBatchPrintMode = false;
+    // 🚀 수정: 사용하지 않는 isBatchPrintMode 변수 삭제 완료
     private HashSet<int> editSelectedIds = new();
     private HashSet<int> printSelectedIds = new();
     private bool IsAllEditSelected => FilteredEntries.Any() && editSelectedIds.Count == FilteredEntries.Count;
-    private bool IsAllPrintSelected => FilteredEntries.Any(t => t.Type == "지출") && printSelectedIds.Count == FilteredEntries.Count(t => t.Type == "지출");
     private string bulkCategory = "";
 
     private bool isAddingNew = false;
@@ -1008,7 +1014,6 @@
     private string currentReceiptUrl = "";
     private bool isLoading = false;
 
-    // 🚀 인쇄 관련 속성
     private bool showPrintModal = false;
     private string selectedPrintType = "Ledger";
     private string printMode = "Ledger";
@@ -1017,6 +1022,24 @@
     private List<LedgerEntry> printTargets = new();
 
     private int targetUploadEntryId = 0;
+
+    // 🚀 추가: 특정 연도의 11월 4째주 주일(회계 마감일) 계산 로직
+    private DateTime GetFiscalYearEndDate(int year)
+    {
+        DateTime nov1 = new DateTime(year, 11, 1);
+        int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
+        return nov1.AddDays(daysUntilSunday + 21);
+    }
+
+    // 🚀 추가: 주어진 날짜가 속한 '회계연도'를 반환하는 함수 (새 항목 입력 시 사용)
+    private int CalculateFiscalYear(DateTime date)
+    {
+        int calendarYear = date.Year;
+        DateTime currentYearEnd = GetFiscalYearEndDate(calendarYear);
+        if (date > currentYearEnd) return calendarYear + 1;
+        DateTime lastYearEnd = GetFiscalYearEndDate(calendarYear - 1);
+        return date > lastYearEnd ? calendarYear : calendarYear - 1;
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -1039,6 +1062,7 @@
         StateHasChanged();
         try
         {
+            // 🚀 1. DB의 'FiscalYear(회계연도)' 필드를 기준으로 전체 데이터 로드
             var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
             if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
             var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
@@ -1052,39 +1076,49 @@
             if (!IncomeCats.Any()) IncomeCats = new List<string> { "주일헌금", "십일조", "감사헌금", "절기특별헌금", "기타수입" };
             if (!ExpenseCats.Any()) ExpenseCats = new List<string> { "예배", "교육비", "부서운영비", "기타지출" };
 
+            // 🚀 2. 이월금 완벽 계산: 이번 회계연도 시작일 이전의 모든 내역 합산
             decimal baseCarryOver = bp.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
-            var q1 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 1);
-            var q2 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 2);
-            var q3 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 3);
-            var q4 = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 4);
+            DateTime fiscalYearStart = GetFiscalYearEndDate(CurrentYear - 1).AddDays(1); // 작년 11월 4주 월요일
+            DateTime fiscalYearEnd = GetFiscalYearEndDate(CurrentYear); // 올해 11월 4주 주일
 
-            var prevData = new List<LedgerEntry>();
+            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+            var totalPrevData = await DbContext.Transactions.AsNoTracking()
+                .Where(t => t.DepartmentId == qDeptId && t.Date < fiscalYearStart)
+                .ToListAsync();
+
+            CarryOverAmount = baseCarryOver + totalPrevData.Sum(x => x.Income) - totalPrevData.Sum(x => x.Expense);
+
+            // 🚀 3. 분기/월 필터링 (회계 마감 기준일 적용)
             IEnumerable<LedgerEntry> fq = allYearData;
+            var prevDataInCurrentYear = new List<LedgerEntry>();
 
             if (CurrentMonth > 0)
             {
-                int mYear = (CurrentMonth == 11 || CurrentMonth == 12) ? CurrentYear - 1 : CurrentYear;
-                DateTime ms = new DateTime(mYear, CurrentMonth, 1);
-                DateTime me = new DateTime(mYear, CurrentMonth, DateTime.DaysInMonth(mYear, CurrentMonth));
-                if (CurrentMonth == 11 && mYear == CurrentYear - 1) ms = q1.Start.Date;
-                if (CurrentMonth == 11 && mYear == CurrentYear) me = q4.End.Date;
+                // 11월과 12월은 실제 달력으로 작년 연도에 속함 (예: 2026 회계의 11/12월 -> 2025년)
+                int calendarYear = (CurrentMonth == 11 || CurrentMonth == 12) ? CurrentYear - 1 : CurrentYear;
+                DateTime ms = new DateTime(calendarYear, CurrentMonth, 1);
+                DateTime me = new DateTime(calendarYear, CurrentMonth, DateTime.DaysInMonth(calendarYear, CurrentMonth));
+
+                if (CurrentMonth == 11)
+                {
+                    // 회계연도 시작일 이전 날짜 필터링 제외 (11월 4주부터 시작)
+                    if (ms < fiscalYearStart && calendarYear == CurrentYear - 1) ms = fiscalYearStart;
+                    // 올해 11월 마감일 필터링 (회계연도 종료일까지만 포함)
+                    if (me > fiscalYearEnd && calendarYear == CurrentYear) me = fiscalYearEnd;
+                }
+
                 fq = allYearData.Where(t => t.Date.Date >= ms && t.Date.Date <= me);
-                prevData = allYearData.Where(x => x.Date.Date < ms).ToList();
+                prevDataInCurrentYear = allYearData.Where(x => x.Date.Date < ms).ToList();
             }
             else if (CurrentQuarter > 0)
             {
-                DateTime qS = CurrentQuarter switch { 1 => q1.Start, 2 => q2.Start, 3 => q3.Start, 4 => q4.Start, _ => q1.Start };
-                DateTime qE = CurrentQuarter switch { 1 => q1.End, 2 => q2.End, 3 => q3.End, 4 => q4.End, _ => q4.End };
-                fq = allYearData.Where(t => t.Date.Date >= qS.Date && t.Date.Date <= qE.Date);
-                prevData = allYearData.Where(x => x.Date.Date < qS.Date).ToList();
-            }
-            else
-            {
-                fq = allYearData.Where(t => t.Date.Date >= q1.Start.Date && t.Date.Date <= q4.End.Date);
+                fq = allYearData.Where(t => t.Quarter == CurrentQuarter);
+                prevDataInCurrentYear = allYearData.Where(x => x.Quarter < CurrentQuarter).ToList();
             }
 
-            CarryOverAmount = baseCarryOver + prevData.Sum(x => x.Income) - prevData.Sum(x => x.Expense);
+            // 조회 월/분기 이전의 누적 금액을 최종 이월금에 더해줍니다.
+            CarryOverAmount += prevDataInCurrentYear.Sum(x => x.Income) - prevDataInCurrentYear.Sum(x => x.Expense);
+
             Entries = fq.ToList();
             ApplyFilters();
             editSelectedIds.Clear(); printSelectedIds.Clear();
@@ -1109,7 +1143,7 @@
     private void ToggleAddForm()
     {
         isAddingNew = !isAddingNew;
-        isBatchEditMode = false; isBatchPrintMode = false;
+        isBatchEditMode = false;
         if (isAddingNew)
         {
             int y = CurrentYear > 2000 ? CurrentYear : DateTime.Now.Year;
@@ -1121,9 +1155,8 @@
         }
     }
 
-    private void ToggleBatchEditMode() { isBatchEditMode = !isBatchEditMode; isAddingNew = false; isBatchPrintMode = false; editSelectedIds.Clear(); }
+    private void ToggleBatchEditMode() { isBatchEditMode = !isBatchEditMode; isAddingNew = false; editSelectedIds.Clear(); }
 
-    // 🚀 인쇄 팝업 및 실행 로직
     private void OpenPrintModal() { showPrintModal = true; selectedPrintType = "Ledger"; }
     private void ClosePrintModal() { showPrintModal = false; }
 
@@ -1157,7 +1190,9 @@
         if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "내역을 입력해주세요."); return; }
         if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
         newItem.DepartmentId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
-        newItem.FiscalYear = CurrentYear;
+
+        // 🚀 수정: 직접 입력 시 날짜에 맞춰 회계연도를 스마트하게 계산
+        newItem.FiscalYear = CalculateFiscalYear(newItem.Date);
         newItem.Quarter = GetQuarter(newItem.Date);
         newItem.Note ??= "";
         if (newItem.Type == "수입") newItem.Expense = 0; else newItem.Income = 0;
@@ -1191,7 +1226,10 @@
             ex.Note = editBuffer.Note ?? "";
             if (ex.Type == "수입") { ex.Expense = 0; ex.Income = editBuffer.Income; } else { ex.Income = 0; ex.Expense = editBuffer.Expense; }
             ex.Quarter = GetQuarter(editBuffer.Date);
-            ex.FiscalYear = editBuffer.Date.Year;
+
+            // 🚀 수정: 수정 시에도 날짜에 맞춰 회계연도 재계산
+            ex.FiscalYear = CalculateFiscalYear(editBuffer.Date);
+
             await DbContext.SaveChangesAsync();
         }
         editingItemId = null; await LoadData();
@@ -1199,8 +1237,6 @@
 
     private void ToggleEditSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) editSelectedIds.Add(id); else editSelectedIds.Remove(id); }
     private void ToggleAllEdit(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) foreach (var i in FilteredEntries) editSelectedIds.Add(i.Id); else editSelectedIds.Clear(); }
-    private void TogglePrintSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) printSelectedIds.Add(id); else printSelectedIds.Remove(id); }
-    private void ToggleAllPrint(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) foreach (var i in FilteredEntries.Where(t => t.Type == "지출")) printSelectedIds.Add(i.Id); else printSelectedIds.Clear(); }
 
     private async Task DeleteSingle(int id)
     {
@@ -1263,10 +1299,20 @@
             var allData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
                 .Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId))
                 .OrderBy(t => t.Date).ToListAsync();
+
             var bq2 = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
             if (SelectedDepartmentId != 0) bq2 = bq2.Where(b => b.DepartmentId == SelectedDepartmentId);
             var bp2 = await bq2.ToListAsync();
-            decimal runBal = bp2.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
+
+            // 엑셀 다운로드 시에도 이월금 보정 (회계 마감일 기준)
+            decimal baseCarryOver = bp2.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
+            DateTime fiscalYearStart = GetFiscalYearEndDate(CurrentYear - 1).AddDays(1);
+            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+            var totalPrevData = await DbContext.Transactions.AsNoTracking()
+                .Where(t => t.DepartmentId == qDeptId && t.Date < fiscalYearStart).ToListAsync();
+
+            decimal runBal = baseCarryOver + totalPrevData.Sum(x => x.Income) - totalPrevData.Sum(x => x.Expense);
+
             foreach (var mg in allData.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key))
             {
                 var pts = mg.Key.Split('-');
@@ -1306,7 +1352,7 @@
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
             string deptName = SelectedDepartmentId == 0 ? "전체부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "장부";
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"{deptName}-{CurrentYear}년-장부-{DateTime.Now:yyyyMMdd}.xlsx", Convert.ToBase64String(stream.ToArray()));
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"{deptName}-{CurrentYear}년-회계장부-{DateTime.Now:yyyyMMdd}.xlsx", Convert.ToBase64String(stream.ToArray()));
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 다운로드 오류: {ex.Message}"); }
     }

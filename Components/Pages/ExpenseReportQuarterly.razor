@@ -333,7 +333,7 @@
 
         </div>
     </div> @* ── 하단 고정 액션 바 (Bottom Action Bar) ── *@
-    <div class="no-print" style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(251, 250, 238, 0.9); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 1.25rem 2rem; z-index: 1040; box-shadow: 0 -20px 40px rgba(48, 49, 41, 0.06); display: flex; align-items: center; justify-content: space-between;">
+    <div class="no-print er-bottom-bar">
         <div class="d-none d-md-block">
             <span class="d-block" style="font-size: 0.625rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">총 결의 금액</span>
             <span class="fw-bold" style="font-size: 1.5rem; font-variant-numeric: tabular-nums; color: #5a4000; letter-spacing: -0.02em;">
@@ -458,6 +458,33 @@
 </div>
 
 <style>
+    /* 🚀 하단 고정 바 (모바일 메뉴 겹침 방지) */
+    .er-bottom-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(251, 250, 238, 0.9);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 1.25rem 2rem;
+        z-index: 1040;
+        box-shadow: 0 -20px 40px rgba(48, 49, 41, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    /* 스마트폰 화면(640px 이하)에서는 모바일 메뉴바(64px) 위로 띄움 */
+    @@media (max-width: 640px) {
+        .er-bottom-bar
+
+    {
+        bottom: 64px; /* 앱 하단 네비게이션 높이만큼 올림 */
+        padding: 1rem 1.25rem; /* 모바일에 맞게 좌우 여백 축소 */
+    }
+
+    }
 /* 🚀 No-Line Input (Editorial Tonalism) */
 .er-noline-input {
     border: none !important;

@@ -70,10 +70,12 @@ html, body {
     color: var(--on-surface);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    font-size: 1rem;              /* 16px 기준 */
+    font-size: 1rem;
     line-height: 1.6;
+    /* 🚀 핵심: 화면 전체가 좌우로 스와이프 되는 현상 완벽 차단 */
+    overflow-x: hidden !important;
+    width: 100%;
 }
-
 /* 헤드라인 — 동일 서체, 굵기와 자간으로 위계 표현 */
 .font-heading, h1, h2, h3, h4, h5, h6 {
     font-weight: 700;
@@ -597,3 +599,15 @@ a, .btn-link {
         display: none !important;
     }
 }
+/* 🚀 표(Table) 모바일 가로 스크롤 최적화 */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    margin-bottom: 1rem;
+}
+    /* 모바일에서 표 칸이 찌그러져서 두 줄로 깨지는 것 방지 */
+    .table-responsive .table th,
+    .table-responsive .table td {
+        white-space: nowrap;
+    }

@@ -8,6 +8,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.AspNetCore.Hosting
 @using Microsoft.AspNetCore.Components.Forms
+@using ClosedXML.Excel
 @inject AppDbContext DbContext
 @inject IWebHostEnvironment Env
 @inject IJSRuntime JSRuntime
@@ -22,8 +23,9 @@
     .hub-surface { background-color: #fbfaee; }
     .hub-card { background-color: #ffffff; border-radius: 0.375rem; border: none; box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04); transition: all 0.2s ease-out; }
     .hub-card-warm { background-color: #f5f4e8; border-radius: 0.375rem; border: none; }
-    .hub-tab-bar { background-color: #f5f4e8; border-radius: 0.75rem; padding: 0.375rem; display: inline-flex; gap: 0.25rem; }
-    .hub-tab { padding: 0.625rem 1.5rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out; white-space: nowrap; }
+    .hub-tab-bar { background-color: #f5f4e8; border-radius: 0.75rem; padding: 0.375rem; /* 🚀 탭 메뉴 가로 스크롤 및 스크롤바 숨김 처리 */display: flex; gap: 0.25rem; overflow-x: auto; max-width: 100%;-webkit-overflow-scrolling: touch; /* 스마트폰 부드러운 스크롤 */scrollbar-width: none; /* 파이어폭스 스크롤바 숨김 */}
+    .hub-tab-bar::-webkit-scrollbar { display: none; } /* 크롬/사파리 스크롤바 숨김 */
+    .hub-tab { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out;/* 🚀 글씨 줄바꿈 방지 및 탭 크기 찌그러짐 방지 */white-space: nowrap; flex-shrink: 0; }
     .hub-tab:hover { background-color: #eae9dd; }
     .hub-tab.active { background-color: #ffffff; color: #5a4000; box-shadow: 0 2px 6px rgba(48, 49, 41, 0.06); font-weight: 700; }
     .hub-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.25rem; padding: 0.75rem 2.5rem; font-size: 0.875rem; transition: all 0.15s ease-out; }
@@ -49,7 +51,7 @@
     .hub-dashed-upload { border: 2px dashed #d2c5b2; border-radius: 0.75rem; padding: 3rem 2rem; text-align: center; cursor: pointer; transition: all 0.2s ease-out; background-color: #ffffff; }
     .hub-dashed-upload:hover { border-color: #785600; background-color: #f5f4e8; }
     .hub-file-table td, .hub-file-table th { border: none !important; padding: 0.875rem 1rem; vertical-align: middle; }
-    ..hub-file-table thead th { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4e4637; }
+    .hub-file-table thead th { font-size: 0.875rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4e4637; }
     .hub-delete-btn { opacity: 0; transition: opacity 0.15s ease-out; color: #ba1a1a; background: none; border: none; padding: 0.25rem; cursor: pointer; font-size: 1rem; }
     .hub-receipt-item:hover .hub-delete-btn { opacity: 1; }
     .hub-amount { color: #5a4000; font-weight: 800; font-size: 1.1rem !important; }
@@ -112,7 +114,7 @@
                         <label for="hubSingleFileInput" class="hub-dashed-upload w-100 mb-4 d-flex align-items-center justify-content-center" style="@(currentOcrUsage >= 1000 ? "border-color: #ba1a1a; opacity: 0.6;" : "")">
                             @if (isOcrProcessing)
                             {
-                                <div class="spinner-border me-3" style="color: #785600;" role="status"></div>
+                                <sapn class="spinner-border me-3" style="color: #785600;" role="status"></sapn>
                                 <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI가 영수증 읽는 중...</span>
                             }
                             else
@@ -461,8 +463,14 @@
             <div class="hub-card p-4 p-md-5 mt-4">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <i class="bi bi-journal-arrow-up fs-4" style="color: #174577;"></i>
-                    <div>
-                        <h5 class="fw-bold mb-0" style="color: #1b1c15;">월별 장부 엑셀 복원 (그대로 올리기)</h5>
+                    <div class="flex-grow-1">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <h5 class="fw-bold mb-0" style="color: #1b1c15;">월별 장부 엑셀 복원 (그대로 올리기)</h5>
+                            @* 🚀 빈 양식 다운로드 버튼 추가 *@
+                            <button class="btn btn-sm btn-outline-secondary py-1" style="font-size: 0.75rem;" @onclick="DownloadLedgerTemplate">
+                                <i class="bi bi-download me-1"></i>빈 양식 다운로드
+                            </button>
+                        </div>
                         <p class="mb-0" style="color: #4e4637; font-size: 0.8125rem;">월별 장부 화면에서 다운로드했던 엑셀 파일을 올려주세요. 자동 분류 없이 그대로 즉시 반영됩니다.</p>
                     </div>
                 </div>
@@ -473,9 +481,9 @@
                     <InputFile OnChange="HandleLedgerImport" class="form-control hub-input" style="max-width: 50%;" accept=".xls,.xlsx,.csv" />
                     @if (isLedgerImporting)
                     {
-                        <span style="color: #174577; font-weight: 700; font-size: 0.875rem;">
+                        <div style="color: #174577; font-weight: 700; font-size: 0.875rem;">
                             <div class="spinner-border spinner-border-sm me-2"></div>장부에 바로 적용 중...
-                        </span>
+                        </div>
                     }
                 </div>
             </div>
@@ -635,6 +643,17 @@
     </div>
 }
 
+<script>
+    if (typeof window.downloadExcelFile !== 'function') {
+        window.downloadExcelFile = (fileName, base64String) => {
+            const link = document.createElement('a');
+            link.download = fileName;
+            link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        };
+    }
+</script>
+
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
@@ -645,6 +664,16 @@
     private bool showImageModal = false;
     private string currentLargeImageUrl = "";
 
+    // 🚀 추가: 특정 연도의 11월 4째주 주일(마감일)을 계산하는 로직
+    private DateTime GetFiscalYearEndDate(int year)
+    {
+    // 11월 1일 시작
+    DateTime nov1 = new DateTime(year, 11, 1);
+    // 첫 번째 주일(Sunday)까지의 일수 계산
+    int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
+    // 4번째 주일은 첫 번째 주일로부터 21일(3주) 뒤
+    return nov1.AddDays(daysUntilSunday + 21);
+    }
     // ???????????????????????????????????????????
     // TAB 1: 단일 영수증 업로드 (ReceiptUpload.razor)
     // ???????????????????????????????????????????
@@ -758,6 +787,54 @@
     {
         activeTab = "matching";
         await LoadPendingReceipts();
+    }
+
+// 🚀 빈 장부 복원 양식 다운로드 기능
+    private async Task DownloadLedgerTemplate()
+    {
+        try
+        {
+            using var workbook = new XLWorkbook();
+            var ws = workbook.Worksheets.Add("장부양식");
+            
+            // 필수 헤더 작성
+            var headers = new[] { "날짜", "구분", "항목", "내역", "수입", "지출", "비고" };
+            for (int i = 0; i < headers.Length; i++)
+            {
+                ws.Cell(1, i + 1).Value = headers[i];
+                ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray;
+                ws.Cell(1, i + 1).Style.Font.Bold = true;
+                ws.Cell(1, i + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            }
+
+            // 가이드라인/예시 데이터 작성
+            ws.Cell(2, 1).Value = "2026-04-10";
+            ws.Cell(2, 2).Value = "지출";
+            ws.Cell(2, 3).Value = "행사비";
+            ws.Cell(2, 4).Value = "어린이날 행사 물품 (※ 이 예시 줄은 지우고 작성하세요)";
+            ws.Cell(2, 5).Value = 0;
+            ws.Cell(2, 6).Value = 50000;
+            ws.Cell(2, 4).Style.Font.FontColor = XLColor.Red;
+
+            // 칸 너비 비율 맞춤
+            ws.Column(1).Width = 15;
+            ws.Column(2).Width = 10;
+            ws.Column(3).Width = 15;
+            ws.Column(4).Width = 40;
+            ws.Column(5).Width = 12;
+            ws.Column(6).Width = 12;
+            ws.Column(7).Width = 20;
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var base64 = Convert.ToBase64String(stream.ToArray());
+            
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "월별장부_빈양식.xlsx", base64);
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"양식 다운로드 오류: {ex.Message}");
+        }
     }
 
     // ???????????????????????????????????????????
@@ -1032,12 +1109,25 @@
                     string type = income > 0 ? "수입" : "지출";
                     string cat = ClassifyAuto($"{desc} {person} {memo}", type);
 
+                    // 🚀 회계연도 계산 로직 추가
+                    int calendarYear = date.Year;
+                    DateTime currentYearEnd = GetFiscalYearEndDate(calendarYear);
+                    int calcFiscalYear;
+                    if (date > currentYearEnd) {
+                        calcFiscalYear = calendarYear + 1;
+                    } else {
+                        DateTime lastYearEnd = GetFiscalYearEndDate(calendarYear - 1);
+                        calcFiscalYear = date > lastYearEnd ? calendarYear : calendarYear - 1;
+                    }
+
                     _savedPreviewList.Add(new LedgerEntry
                     {
                         Date = date, Description = desc, Note = string.Join(" ", new[] { person, memo }.Where(s => !string.IsNullOrWhiteSpace(s))),
                         Income = income, Expense = expense,
                         DepartmentId = UserDepartmentId,
-                        Category = cat, Type = type, FiscalYear = date.Year, Quarter = GetQuarter(date), IsAudited = false
+                        Category = cat, Type = type, 
+                        FiscalYear = calcFiscalYear, // 🚀 계산된 회계연도 적용
+                        Quarter = GetQuarter(date), IsAudited = false
                     });
                 }
             }
@@ -1102,10 +1192,21 @@
                 string parsedType = colType >= 0 ? (row[colType]?.ToString()?.Trim() ?? "") : "";
                 if(string.IsNullOrEmpty(parsedType)) parsedType = (inc > 0 ? "수입" : "지출");
 
+                // 🚀 회계연도 계산 로직 추가
+                int calendarYear = date.Year;
+                DateTime currentYearEnd = GetFiscalYearEndDate(calendarYear);
+                int calcFiscalYear;
+                if (date > currentYearEnd) {
+                    calcFiscalYear = calendarYear + 1;
+                } else {
+                    DateTime lastYearEnd = GetFiscalYearEndDate(calendarYear - 1);
+                    calcFiscalYear = date > lastYearEnd ? calendarYear : calendarYear - 1;
+                }
+
                 importedList.Add(new LedgerEntry {
                     DepartmentId = UserDepartmentId,
                     Date = date,
-                    FiscalYear = date.Year,
+                    FiscalYear = calcFiscalYear, // 🚀 계산된 회계연도 적용
                     Quarter = GetQuarter(date),
                     Type = parsedType,
                     Category = colCat >= 0 ? row[colCat]?.ToString()?.Trim() ?? "미분류" : "미분류",
@@ -1177,7 +1278,19 @@
         return "미분류";
     }
 
-    private int GetQuarter(DateTime d) => d.Month switch { 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
+    // 🚀 수정: 11월 4째주 주일을 기준으로 분기를 완벽하게 판정하는 로직
+    private int GetQuarter(DateTime d)
+    {
+        if (d.Month >= 3 && d.Month <= 5) return 2;  // 3~5월은 2분기
+        if (d.Month >= 6 && d.Month <= 8) return 3;  // 6~8월은 3분기
+        if (d.Month == 9 || d.Month == 10) return 4; // 9~10월은 4분기
+        if (d.Month == 12 || d.Month == 1 || d.Month == 2) return 1; // 12, 1, 2월은 1분기
+        
+        // 11월인 경우: 4째주 주일(마감일)을 기준으로 쪼갬
+        DateTime nov4thSunday = GetFiscalYearEndDate(d.Year);
+        if (d > nov4thSunday) return 1; // 마감일 다음날(월요일)부터는 내년도 1분기로 편입
+        return 4; // 마감일 당일까지는 올해 4분기
+    }
     private decimal ParseDecimal(string? value) { if (string.IsNullOrWhiteSpace(value)) return 0; decimal.TryParse(value.Replace("\"", "").Replace(",", ""), out decimal r); return r; }
 
     private async Task SaveToLedger()
@@ -1411,4 +1524,5 @@
     // ???????????????????????????????????????????
     private void ShowLargeImage(string url) { currentLargeImageUrl = url; showImageModal = true; }
     private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; }
+   
 }

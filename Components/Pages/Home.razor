@@ -10,7 +10,7 @@
 <PageTitle>인천중앙교회 재정 시스템</PageTitle>
 
 <style>
-    /* ── Tactile Ledger Design Tokens (mapped from app.css variables) ── */
+    /* ── Tactile Ledger Design Tokens ── */
     .dash-hero-card {
         background-color: var(--surface-lowest);
         border-radius: 0.75rem;
@@ -32,12 +32,12 @@
     }
 
     .dash-label {
-        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-size: 0.8125rem;
         font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.04em;         /* 0.2em → 0.04em 완화 */
+        letter-spacing: 0.04em;
         color: var(--primary-gold);
-        opacity: 0.85;                  /* 약간 부드럽게 */
+        opacity: 0.85;
         margin-bottom: 0.5rem;
     }
 
@@ -54,7 +54,7 @@
         background-color: var(--surface-low);
         border-radius: 9999px;
         padding: 0.25rem 0.875rem;
-        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-size: 0.8125rem;
         font-weight: 700;
         color: var(--primary-gold);
         text-transform: uppercase;
@@ -77,7 +77,7 @@
     }
 
     .dash-meta-label {
-        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-size: 0.8125rem;
         font-weight: 600;
         letter-spacing: -0.01em;
         color: var(--on-surface-muted);
@@ -96,7 +96,7 @@
     }
 
     .dash-filter-chip-label {
-        font-size: 0.8125rem;           /* 10px → 13px ↑ */
+        font-size: 0.8125rem;
         font-weight: 600;
         letter-spacing: -0.01em;
         color: var(--on-surface-muted);
@@ -108,7 +108,6 @@
         color: var(--on-surface);
     }
 
-    /* 상세 항목 진행 바 */
     .dash-stat-row {
         display: flex;
         flex-direction: column;
@@ -123,7 +122,6 @@
         color: var(--on-surface);
     }
 
-    /* 지출결의서 테이블 — No-Line */
     .dash-list-wrap {
         overflow: hidden;
         border-radius: 0.75rem;
@@ -132,7 +130,7 @@
 
     .dash-list-head th {
         padding: 1rem 2rem;
-        font-size: 0.875rem;            /* 10px → 14px ↑ */
+        font-size: 0.875rem;
         font-weight: 700;
         letter-spacing: -0.01em;
         color: var(--primary-gold);
@@ -146,13 +144,13 @@
         transition: background-color 0.15s ease-out;
     }
 
-    .dash-list-body tr:hover {
-        background-color: rgba(255,255,255,0.8);
-    }
+        .dash-list-body tr:hover {
+            background-color: rgba(255,255,255,0.8);
+        }
 
-    .dash-list-body tr:nth-child(even) {
-        background-color: rgba(255,255,255,0.35);
-    }
+        .dash-list-body tr:nth-child(even) {
+            background-color: rgba(255,255,255,0.35);
+        }
 
     .dash-list-body td {
         padding: 1.25rem 2rem;
@@ -162,7 +160,7 @@
     }
 
     .dash-status-waiting {
-        font-size: 0.875rem;            /* 12px → 14px ↑ */
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--primary-gold);
         background-color: var(--surface-low);
@@ -171,7 +169,7 @@
     }
 
     .dash-status-done {
-        font-size: 0.875rem;            /* 12px → 14px ↑ */
+        font-size: 0.875rem;
         font-weight: 600;
         color: var(--on-surface-muted);
         font-variant-numeric: tabular-nums;
@@ -206,8 +204,7 @@
                     {
                         <div class="dash-filter-chip">
                             <span class="dash-filter-chip-label">부서</span>
-                            <select style="background: none; border: none; font-size: 0.875rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;"
-                                    @onchange="OnDeptChanged" value="@DashboardDeptId">
+                            <select style="background: none; border: none; font-size: 0.875rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;" @onchange="OnDeptChanged" value="@DashboardDeptId">
                                 <option value="0">전체 부서</option>
                                 @foreach (var dept in Departments)
                                 {
@@ -225,7 +222,6 @@
 
         @* ── Hero Metrics (지출 / 수입) ── *@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-
             @* 지출 실적 카드 *@
             <article class="dash-hero-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -275,27 +271,32 @@
             @* 지출 항목별 상세 *@
             <div class="dash-detail-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 항목별 상세</h5>
+                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 예산 집행률</h5>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                     @if (ExpenseStats.Any())
                     {
-                        @foreach (var stat in ExpenseStats.Take(5))
+                        @foreach (var stat in ExpenseStats)
                         {
+                            bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
+                            string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
+
                             <div class="dash-stat-row">
                                 <div class="dash-stat-meta">
-                                    <span>@stat.Category</span>
-                                    <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0") (@stat.Percentage%)</span>
+                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 0.7rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                    <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
+                                        ₩@stat.Amount.ToString("N0") (@displayPct)
+                                    </span>
                                 </div>
                                 <div class="dash-progress-bg">
-                                    <div class="dash-progress-fill" style="width: @stat.Percentage%; opacity: 0.75;"></div>
+                                    <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
                                 </div>
                             </div>
                         }
                     }
                     else
                     {
-                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">집행 내역이 없습니다.</p>
+                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">예산 및 집행 내역이 없습니다.</p>
                     }
                 </div>
             </div>
@@ -303,27 +304,32 @@
             @* 수입 항목별 상세 *@
             <div class="dash-detail-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 항목별 상세</h5>
+                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 예산 달성률</h5>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                     @if (IncomeStats.Any())
                     {
-                        @foreach (var stat in IncomeStats.Take(5))
+                        @foreach (var stat in IncomeStats)
                         {
+                            bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
+                            string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
+
                             <div class="dash-stat-row">
                                 <div class="dash-stat-meta">
-                                    <span>@stat.Category</span>
-                                    <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0") (@stat.Percentage%)</span>
+                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 0.7rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                    <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
+                                        ₩@stat.Amount.ToString("N0") (@displayPct)
+                                    </span>
                                 </div>
                                 <div class="dash-progress-bg">
-                                    <div class="dash-progress-fill" style="width: @stat.Percentage%; opacity: 0.75;"></div>
+                                    <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
                                 </div>
                             </div>
                         }
                     }
                     else
                     {
-                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">수입 내역이 없습니다.</p>
+                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">예산 및 수입 내역이 없습니다.</p>
                     }
                 </div>
             </div>
@@ -404,54 +410,60 @@
 
     private int CurrentYear = DateTime.Now.Year;
     private bool IsAdmin = false;
-
-    // 🚀 DashboardDept (string) -> DashboardDeptId (int) 로 교체
-    // 0 이면 "전체"를 의미합니다.
     private int DashboardDeptId = 0;
-
-   // 🚀 문자열 배열 대신 실제 DB의 Department 목록을 가져옵니다.
     private List<Department> Departments = new();
 
     private decimal TotalBudget = 0;
     private decimal TotalExpense = 0;
     private decimal RemainingBudget => TotalBudget - TotalExpense;
     private double ProgressPercentage = 0;
- 
+
     private decimal TotalIncomeBudget = 0;
     private int IncomeRate = 0;
     private decimal SubsidyBudget = 0;
     private decimal SubsidyReceived = 0;
 
-    public class CategoryStat { public string Category { get; set; } = ""; public decimal Amount { get; set; } public int Percentage { get; set; } }
+    public class CategoryStat
+    {
+        public string Category { get; set; } = "";
+        public decimal Amount { get; set; }
+        // 🚀 추가: 예산액을 담을 변수
+        public decimal BudgetAmount { get; set; }
+        public int Percentage { get; set; }
+    }
+
     private decimal TotalIncome = 0;
     private List<CategoryStat> IncomeStats = new();
     private List<CategoryStat> ExpenseStats = new();
 
-    public class SubsidyRequestItem { public DateTime RequestDate { get; set; } public string Title { get; set; } = ""; public decimal Amount { get; set; } public DateTime? DepositDate { get; set; } }
+    public class SubsidyRequestItem
+    {
+        public DateTime RequestDate { get; set; }
+        public string Title { get; set; } = "";
+        public decimal Amount { get; set; }
+        public DateTime? DepositDate { get; set; }
+    }
     private List<SubsidyRequestItem> SubsidyRequests = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // 🚀 부서 목록을 DB에서 가져옵니다.
         Departments = await Accounting.GetDepartmentsAsync();
 
         if (CurrentUser != null && CurrentUser.Department != null)
         {
-            // 🚀 수정됨: 최고관리자와 감사/국장은 전체 부서 드롭다운 활성화
             if (CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
             {
                 IsAdmin = true;
-                DashboardDeptId = 0; // 0 = 전체보기 기본값
+                DashboardDeptId = 0;
             }
             else
             {
                 IsAdmin = false;
-                DashboardDeptId = CurrentUser.DepartmentId; // 자기 부서로 고정 (조회, 부서운영자 모두 해당)
+                DashboardDeptId = CurrentUser.DepartmentId;
             }
-           
+
             try
             {
-                // 🚀 문자열이 아닌 Id 기반으로 필터링
                 var latestBudgetYear = await DbContext.BudgetPlans
                     .Where(b => DashboardDeptId == 0 || b.DepartmentId == DashboardDeptId)
                     .OrderByDescending(b => b.Year)
@@ -466,7 +478,7 @@
             catch { /* ignore */ }
 
             await LoadDashboardData();
-        }       
+        }
     }
 
     private async Task ChangeYear(int offset)
@@ -477,7 +489,6 @@
 
     private async Task OnDeptChanged(ChangeEventArgs e)
     {
-        // 🚀 선택된 옵션의 value를 int로 변환
         if (int.TryParse(e.Value?.ToString(), out int deptId))
         {
             DashboardDeptId = deptId;
@@ -491,42 +502,32 @@
     private async Task LoadDashboardData()
     {
         StateHasChanged();
-
         try
         {
             var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
-            // 🚀 문자열 필터 대신 Id 필터 적용 (0이면 조건 무시)
             if (DashboardDeptId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == DashboardDeptId);
             var budgetList = await budgetQuery.ToListAsync();
 
             TotalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
-            TotalIncomeBudget = budgetList.Where(b => IsIncomeType(b.Type)).Sum(b => b.Amount);
-
+            TotalIncomeBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category != "은행이자" && b.Category != "환급금").Sum(b => b.Amount);
             SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
 
-            // ========================================================
-            // 🚀 수정된 해당 연도 장부 데이터 로드 (분기 설정 날짜 연동)
-            // ========================================================
             int queryDeptId = DashboardDeptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : DashboardDeptId;
 
-            // 1분기 시작일과 4분기 종료일 조회 (Accounting 서비스 활용)
             var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 1);
             var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 4);
 
             DateTime dashboardStartDate = q1.Start.Date;
-            DateTime dashboardEndDate = q4.End.Date.AddDays(1); // 💡 종료일 누락 방지를 위한 +1일 처리
+            DateTime dashboardEndDate = q4.End.Date.AddDays(1);
 
-            // 분기 설정 범위에 맞춰 날짜 조건(>=, <) 추가
             var transQuery = DbContext.Transactions.AsNoTracking()
                 .Where(t => t.FiscalYear == CurrentYear && t.Date >= dashboardStartDate && t.Date < dashboardEndDate);
-
             if (DashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == DashboardDeptId);
 
             var transactions = await transQuery.ToListAsync();
 
-            // 합계 계산 (기존 로직 동일)
             TotalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
-            TotalIncome = transactions.Where(t => IsIncomeType(t.Type)).Sum(t => t.Income);
+            TotalIncome = transactions.Where(t => IsIncomeType(t.Type) && t.Category != "은행이자" && t.Category != "환급금").Sum(t => t.Income);
             SubsidyReceived = transactions.Where(t => IsIncomeType(t.Type) && t.Category == "교회보조금").Sum(t => t.Income);
 
             if (TotalBudget > 0)
@@ -534,26 +535,48 @@
                 ProgressPercentage = (double)(TotalExpense / TotalBudget) * 100;
                 if (ProgressPercentage > 100) ProgressPercentage = 100;
             }
-            
+            else { ProgressPercentage = 0; }
+
             IncomeRate = TotalIncomeBudget > 0 ? (int)Math.Round((TotalIncome / TotalIncomeBudget) * 100) : 0;
             if (IncomeRate > 100) IncomeRate = 100;
 
-            IncomeStats = transactions.Where(t => IsIncomeType(t.Type) && t.Income > 0)
-                .GroupBy(t => t.Category)
-                .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Income), Percentage = TotalIncome > 0 ? (int)Math.Round((g.Sum(x => x.Income) / TotalIncome) * 100) : 0 })
-                .OrderByDescending(x => x.Amount).ToList();
+            // 🚀 수입: 예산에 등록된 항목 + 실제 발생한 항목을 모두 합쳐서 계산
+            var allIncomeCats = budgetList.Where(b => IsIncomeType(b.Type)).Select(b => b.Category)
+            .Union(transactions.Where(t => IsIncomeType(t.Type) && t.Income > 0).Select(t => t.Category))
+            .Where(c => !string.IsNullOrWhiteSpace(c) && c != "은행이자" && c != "환급금").Distinct();
 
-            ExpenseStats = transactions.Where(t => IsExpenseType(t.Type) && t.Expense > 0)
-                .GroupBy(t => t.Category)
-                .Select(g => new CategoryStat { Category = g.Key, Amount = g.Sum(x => x.Expense), Percentage = TotalExpense > 0 ? (int)Math.Round((g.Sum(x => x.Expense) / TotalExpense) * 100) : 0 })
-                .OrderByDescending(x => x.Amount).ToList();
+            IncomeStats = allIncomeCats.Select(cat =>
+            {
+                decimal bAmt = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == cat).Sum(b => b.Amount);
+                decimal tAmt = transactions.Where(t => IsIncomeType(t.Type) && t.Category == cat).Sum(t => t.Income);
+                return new CategoryStat
+                {
+                    Category = cat,
+                    Amount = tAmt,
+                    BudgetAmount = bAmt,
+                    Percentage = bAmt > 0 ? (int)Math.Round((tAmt / bAmt) * 100) : (tAmt > 0 ? 100 : 0)
+                };
+            }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
 
-            // ========================================================
-            // 🚀 지출결의서-장부 매칭 로직 수정 부분
-            // ========================================================
+            // 🚀 지출: 예산에 등록된 항목 + 실제 발생한 항목을 모두 합쳐서 계산
+            var allExpenseCats = budgetList.Where(b => IsExpenseType(b.Type)).Select(b => b.Category)
+                .Union(transactions.Where(t => IsExpenseType(t.Type) && t.Expense > 0).Select(t => t.Category))
+                .Where(c => !string.IsNullOrWhiteSpace(c)).Distinct();
+
+            ExpenseStats = allExpenseCats.Select(cat =>
+            {
+                decimal bAmt = budgetList.Where(b => IsExpenseType(b.Type) && b.Category == cat).Sum(b => b.Amount);
+                decimal tAmt = transactions.Where(t => IsExpenseType(t.Type) && t.Category == cat).Sum(t => t.Expense);
+                return new CategoryStat
+                {
+                    Category = cat,
+                    Amount = tAmt,
+                    BudgetAmount = bAmt,
+                    Percentage = bAmt > 0 ? (int)Math.Round((tAmt / bAmt) * 100) : (tAmt > 0 ? 100 : 0)
+                };
+            }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
+
             var reportsQuery = DbContext.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == CurrentYear);
-
-            // 373줄: .Department를 .DepartmentId로 수정
             if (DashboardDeptId != 0) reportsQuery = reportsQuery.Where(r => r.DepartmentId == DashboardDeptId);
             var reports = await reportsQuery.OrderByDescending(r => r.Date).ToListAsync();
 
@@ -562,16 +585,13 @@
             var incomeListForMatching = await allIncomeQuery.OrderBy(t => t.Date).ToListAsync();
 
             SubsidyRequests.Clear();
-
             foreach (var rep in reports)
             {
-                // 384줄: t.Department == rep.Department 를 t.DepartmentId == rep.DepartmentId 로 수정
                 var matchedIncome = incomeListForMatching.FirstOrDefault(t =>
                     t.Date.Date >= rep.Date.Date &&
                     t.Income == rep.TotalAmount &&
                     (DashboardDeptId == 0 || t.DepartmentId == rep.DepartmentId));
 
-                // 390줄: rep.Department 를 rep.DepartmentId 로 수정 (부서 이름을 가져오기 위해 List에서 찾음)
                 string deptPrefix = "";
                 if (DashboardDeptId == 0)
                 {
@@ -593,10 +613,6 @@
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"대시보드 로드 오류: {ex.Message}");
-        }
-        finally
-        {
-            
         }
     }
 }

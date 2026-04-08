@@ -794,7 +794,16 @@
     private int TargetYear = DateTime.Now.Year;
     private bool isImporting = false;
     private bool isRestoring = false;
-
+    // 특정 연도의 11월 4째주 주일(마감일)을 구하는 로직
+    private DateTime GetFiscalYearEndDate(int year)
+    {
+    // 11월 1일 시작
+    DateTime nov1 = new DateTime(year, 11, 1);
+    // 첫 번째 주일 찾기
+    int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
+    // 4번째 주일은 첫 번째 주일 + 21일
+    return nov1.AddDays(daysUntilSunday + 21);
+    }
     // 권한 체크
     private bool IsSystemAdmin => CurrentUser?.Role == "Admin";
     private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
@@ -1168,7 +1177,13 @@
 
             wsBudget.Cell(3, 1).Value = "수입"; wsBudget.Cell(3, 2).Value = "주일헌금"; wsBudget.Cell(3, 3).Value = "예배"; wsBudget.Cell(3, 5).Value = 2600000;
             wsBudget.Cell(4, 1).Value = "지출"; wsBudget.Cell(4, 2).Value = "행사비"; wsBudget.Cell(4, 3).Value = "성경학교"; wsBudget.Cell(4, 5).Value = 200000;
-            wsBudget.Columns().AdjustToContents();
+            
+            // 🚀 수정: 예산 양식 칸 너비를 웹페이지와 유사한 비율로 고정
+            wsBudget.Column(1).Width = 10; // 구분
+            wsBudget.Column(2).Width = 20; // 항목
+            wsBudget.Column(3).Width = 30; // 상세내역
+            wsBudget.Column(4).Width = 35; // 산출근거
+            wsBudget.Column(5).Width = 15; // 금액
 
             var wsMapping = workbook.Worksheets.Add("자동분류일괄입력");
             var headers2 = new[] { "구분", "키워드", "분류될항목" };
@@ -1180,7 +1195,11 @@
 
             wsMapping.Cell(3, 1).Value = "수입"; wsMapping.Cell(3, 2).Value = "인천중앙교회"; wsMapping.Cell(3, 3).Value = "교회보조금";
             wsMapping.Cell(4, 1).Value = "지출"; wsMapping.Cell(4, 2).Value = "다이소"; wsMapping.Cell(4, 3).Value = "행사비";
-            wsMapping.Columns().AdjustToContents();
+            
+            // 🚀 수정: 자동분류 양식 칸 너비 비율 고정
+            wsMapping.Column(1).Width = 10; // 구분
+            wsMapping.Column(2).Width = 40; // 키워드
+            wsMapping.Column(3).Width = 40; // 분류될 항목
 
             using var stream = new MemoryStream(); workbook.SaveAs(stream);
             var base64 = Convert.ToBase64String(stream.ToArray());
