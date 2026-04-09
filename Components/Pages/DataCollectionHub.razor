@@ -163,6 +163,20 @@
                             </div>
                         </div>
 
+                        @if (CurrentUser?.Role == "Admin")
+                        {
+                            <div class="mb-4">
+                                <div class="hub-label" style="color: #ba1a1a;">4. 부서 선택 (관리자 필수)</div>
+                                <select class="form-select hub-input fw-bold" @bind="adminSelectedDeptId" style="color: #785600;">
+                                    <option value="0">부서를 선택하세요</option>
+                                    @foreach (var dept in allDepts.Where(d => d.Name != "관리자"))
+                                    {
+                                        <option value="@dept.Id">@dept.Name</option>
+                                    }
+                                </select>
+                            </div>
+                        }
+
                         <button class="hub-gold-btn w-100 py-3" @onclick="UploadReceipt" disabled="@(isUploading || isOcrProcessing)">
                             @if (isUploading)
                             {
@@ -736,6 +750,7 @@
     // TAB 4: 장부 매칭 (ReceiptQuery + MonthlyLedger 병합)
     // ???????????????????????????????????????????
     private bool CanViewAll => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Auditor" || CurrentUser?.Department?.Name == "교육국" || CurrentUser?.Department?.Name == "관리자";
+    private int adminSelectedDeptId = 0;
 
     private List<UploadedReceipt> pendingReceipts = new();
     private List<LedgerEntry> unmatchedEntries = new();
@@ -919,6 +934,12 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", "적요(사용처)를 입력해 주세요."); return;
         }
+        if (CurrentUser.Role == "Admin" && adminSelectedDeptId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "부서를 선택해주세요."); return;
+        }
+
+        int targetDeptId = CurrentUser.Role == "Admin" ? adminSelectedDeptId : CurrentUser.DepartmentId;
 
         isUploading = true;
         StateHasChanged();
@@ -935,7 +956,7 @@
             await selectedFile.OpenReadStream(maxAllowedSize: MaxFileSize).CopyToAsync(fileStream);
 
             newReceipt.Amount = inputAmount.Value;
-            newReceipt.DepartmentId = CurrentUser.DepartmentId;
+            newReceipt.DepartmentId = targetDeptId;
             newReceipt.ImagePath = $"/uploads/receipts/{fileName}";
 
             DbContext.UploadedReceipts.Add(newReceipt);

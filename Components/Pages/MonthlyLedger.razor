@@ -279,34 +279,46 @@
     }
 
     /* =======================================================
-           Print Styles (인쇄 양식)
+           Print Styles (인쇄 양식) - 왼쪽/상단 여백 완벽 제거 버전
         ======================================================= */
     @@media print {
-        body * {
-            visibility: hidden !important;
+        /* 1. 웹 전용 UI 숨기기 */
+        .sidebar, .pc-top-bar, .mobile-top-header, .mobile-bottom-nav, .no-print, #monthly-ledger-content {
+            display: none !important;
+        }
+        /* 🚀 2. 핵심 원인: 사이드바가 차지하던 왼쪽 빈 공간과 기본 패딩을 강제로 초기화 */
+        html, body, .page, .main-content-area, .content, main {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            background-color: white !important;
         }
 
-        .print-only, .print-only * {
-            visibility: visible !important;
-        }
+            body * {
+                visibility: visible;
+            }
 
         .print-only {
-            position: absolute !important;
-            left: 0;
-            top: 0;
-            width: 100%;
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
-
+        /* 3. 인쇄 용지 여백 설정 (상단 40mm가 너무 넓어 15mm로 축소. 필요시 변경) */
         @@page {
             size: A4 portrait;
-            /* 🚀 상단 책철을 위한 여백 40mm, 좌우 10mm로 넓힘 */
-            margin: 40mm 10mm 5mm 10mm;
+            /* 상단 우측 하단 좌측  */
+            margin: 20mm 9mm 5mm 9mm;
         }
-
+        /* 4. 강제 페이지 넘김 */
         .page-break-before {
             page-break-before: always !important;
+            break-before: page !important;
+            margin-top: 0 !important;
         }
-
+        /* 5. 타이틀 및 테이블 디자인 유지 */
         .print-only-title {
             display: block !important;
             text-align: center !important;
@@ -318,7 +330,9 @@
         table.table {
             width: 100% !important;
             border-collapse: collapse !important;
+            table-layout: fixed !important; /* 🚀 표 칸 너비를 고정하여 우측 선 잘림 완벽 방지 */
             font-size: 11pt !important;
+            margin-left: 0 !important;
         }
 
             table.table th, table.table td {
@@ -445,13 +459,17 @@
 
                     <div class="selector-divider"></div>
 
-                    <select class="settings-input fw-bold border-0 py-1" style="background: transparent; width: auto; box-shadow: none;" @onchange="OnMonthChanged" value="@CurrentMonth">
+                    <button class="selector-btn" @onclick="() => ChangeMonth(-1)">◀</button>
+
+                    <select class="settings-input fw-bold border-0 py-1 px-1" style="background: transparent; width: auto; box-shadow: none; text-align: center; -webkit-appearance: none; appearance: none;" @onchange="OnMonthChanged" value="@CurrentMonth">
                         <option value="0">전체 월</option>
                         @for (int i = 1; i <= 12; i++)
                         {
                             <option value="@i">@(i)월</option>
                         }
                     </select>
+
+                    <button class="selector-btn" @onclick="() => ChangeMonth(1)">▶</button>
                 </div>
 
                 @if (IsAdmin)
@@ -754,7 +772,15 @@
                         <td class="text-end ledger-tabular fw-bold" style="color: #807666; font-size: 0.75rem;">자동계산</td>
                         @if (IsAdmin)
                         {
-                            <td></td>
+                            <td>
+                                <select class="form-select ledger-input fw-bold" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; color: #785600;" @bind="newItem.DepartmentId">
+                                    <option value="0">부서 선택</option>
+                                    @foreach (var dept in Departments.Where(d => d.Name != "관리자" && d.Name != "교회학교 운영팀" && d.Name != "감사위원회"))
+                                    {
+                                        <option value="@dept.Id">@dept.Name</option>
+                                    }
+                                </select>
+                            </td>
                         }
                         @if (CanEditLedger)
                         {
@@ -908,38 +934,78 @@
                             <th style="width:5%" class="text-center">No</th>
                             <th style="width:8%" class="text-center">날짜</th>
                             <th style="width:6%" class="text-center">구분</th>
-                            <th style="width:12%" class="text-center">분류항목</th>
-                            <th style="width:25%" class="text-center">내역</th>
+                            <th style="width:13%" class="text-center">분류항목</th>
+                            <th style="width:22%" class="text-center">내역</th>
                             <th style="width:13%" class="text-center">비고</th>
-                            <th style="width:10%" class="text-center">수입</th>
-                            <th style="width:10%" class="text-center">지출</th>
+                            <th style="width:11%" class="text-center">수입</th>
+                            <th style="width:11%" class="text-center">지출</th>
                             <th style="width:11%" class="text-center">잔액</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td></td><td class="text-center">-</td><td class="text-center">이월</td><td class="text-center">전월이월</td><td></td><td></td><td class="text-end money-cell">@sb.ToString("N0")</td><td class="text-end money-cell">-</td><td class="text-end money-cell">@sb.ToString("N0")</td></tr>
                         @{
+                            // 천만원(10,000,000, 10자리) 이상일 경우 자동으로 폰트를 줄이는 로컬 함수
+                            string GetMoneyFont(decimal amt)
+                            {
+                                int len = amt.ToString("N0").Length;
+                                if (len >= 11) return "8.5pt";
+                                if (len >= 10) return "9.5pt";
+                                return "11pt";
+                            }
                             int seq = 1;
                         }
+
+                        <tr>
+                            <td></td>
+                            <td class="text-center">-</td>
+                            <td class="text-center">이월</td>
+                            <td class="text-center">전월이월</td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-end money-cell" style="font-size: @GetMoneyFont(sb) !important; letter-spacing: -0.5px;">@sb.ToString("N0")</td>
+                            <td class="text-end money-cell">-</td>
+                            <td class="text-end money-cell" style="font-size: @GetMoneyFont(sb) !important; letter-spacing: -0.5px;">@sb.ToString("N0")</td>
+                        </tr>
+
                         @foreach (var item in mg.OrderBy(x => x.Date))
                         {
                             rb += item.Income - item.Expense;
                             mI += item.Income; mEx += item.Expense;
+
+                            // 🚀 분류항목(Category) 글자 수 체크 추가
+                            string category = item.Category ?? "";
+                            string desc = item.Description ?? "";
+                            string note = item.Note ?? "";
+
+                            // 글자 길이에 따른 동적 폰트 조절
+                            string catFont = category.Length >= 7 ? "9pt" : "11pt";
+                            string descFont = desc.Length >= 12 ? "9pt" : "11pt";
+                            string noteFont = note.Length >= 7 ? "9pt" : "11pt";
+
                             <tr>
                                 <td class="text-center">@seq</td>
                                 <td class="text-center">@item.Date.ToString("MM-dd")</td>
                                 <td class="text-center">@item.Type</td>
-                                <td class="text-center clip-cell">@item.Category</td>
-                                <td class="clip-cell">@item.Description @(IsAdmin && SelectedDepartmentId == 0 ? $"[{Departments.FirstOrDefault(d => d.Id == item.DepartmentId)?.Name}]" : "")</td>
-                                <td class="clip-cell">@item.Note</td>
-                                <td class="text-end money-cell">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
-                                <td class="text-end money-cell">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
-                                <td class="text-end money-cell">@rb.ToString("N0")</td>
+
+                                <td class="text-center" style="font-size: @catFont !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@category</td>
+
+                                <td style="font-size: @descFont !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@desc</td>
+                                <td style="font-size: @noteFont !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">@note</td>
+
+                                <td class="text-end money-cell" style="font-size: @GetMoneyFont(item.Income) !important; letter-spacing: -0.5px;">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
+                                <td class="text-end money-cell" style="font-size: @GetMoneyFont(item.Expense) !important; letter-spacing: -0.5px;">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
+                                <td class="text-end money-cell" style="font-size: @GetMoneyFont(rb) !important; letter-spacing: -0.5px;">@rb.ToString("N0")</td>
                             </tr>
                             seq++;
                         }
+
+                        <tr style="border-top: 2px solid #444 !important;">
+                            <td colspan="6" class="text-end fw-bold">@gy 년 @gm 월 계</td>
+                            <td class="text-end money-cell fw-bold" style="font-size: @GetMoneyFont(mI) !important; letter-spacing: -0.5px;">@mI.ToString("N0")</td>
+                            <td class="text-end money-cell fw-bold" style="font-size: @GetMoneyFont(mEx) !important; letter-spacing: -0.5px;">@mEx.ToString("N0")</td>
+                            <td class="text-end money-cell fw-bold" style="font-size: @GetMoneyFont(rb) !important; letter-spacing: -0.5px;">@rb.ToString("N0")</td>
+                        </tr>
                     </tbody>
-                    <tfoot><tr><td colspan="6" class="text-end fw-bold">@gy 년 @gm 월 계</td><td class="text-end money-cell fw-bold">@mI.ToString("N0")</td><td class="text-end money-cell fw-bold">@mEx.ToString("N0")</td><td class="text-end money-cell fw-bold">@rb.ToString("N0")</td></tr></tfoot>
                 </table>
             </div>
         }
@@ -1054,6 +1120,35 @@
     private async Task OnDeptChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int d)) { SelectedDepartmentId = d; await LoadData(); } }
     private async Task ChangeYear(int v) { CurrentYear += v; await LoadData(); }
     private async Task OnMonthChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int m)) { CurrentMonth = m; CurrentQuarter = 0; await LoadData(); } }
+    // 🚀 추가: 좌우 화살표로 월을 넘기는 기능 (연도 자동 전환 포함)
+    private async Task ChangeMonth(int offset)
+    {
+        if (CurrentMonth == 0)
+        {
+            // '전체 월' 상태에서 화살표를 누르면 1월 또는 12월로 바로 이동
+            CurrentMonth = offset > 0 ? 1 : 12;
+        }
+        else
+        {
+            CurrentMonth += offset;
+
+            // 12월에서 다음 달로 넘길 때
+            if (CurrentMonth > 12)
+            {
+                CurrentMonth = 1;
+                CurrentYear++;
+            }
+            // 1월에서 이전 달로 넘길 때
+            else if (CurrentMonth < 1)
+            {
+                CurrentMonth = 12;
+                CurrentYear--;
+            }
+        }
+
+        CurrentQuarter = 0; // 월 이동 시 분기 필터는 해제함
+        await LoadData();
+    }
     private async Task OnQuarterChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int q)) { CurrentQuarter = q; CurrentMonth = 0; await LoadData(); } }
 
     private async Task LoadData()
@@ -1188,8 +1283,9 @@
     private async Task SaveNewEntry()
     {
         if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "내역을 입력해주세요."); return; }
+        if (IsAdmin && newItem.DepartmentId == 0) { await JSRuntime.InvokeVoidAsync("alert", "부서를 선택해주세요."); return; }
         if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
-        newItem.DepartmentId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+        newItem.DepartmentId = IsAdmin ? newItem.DepartmentId : (SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId);
 
         // 🚀 수정: 직접 입력 시 날짜에 맞춰 회계연도를 스마트하게 계산
         newItem.FiscalYear = CalculateFiscalYear(newItem.Date);
@@ -1337,7 +1433,7 @@
                     mI += item.Income; mE += item.Expense; runBal += item.Income - item.Expense;
                     ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type;
                     ws.Cell(row, 3).Value = item.Category;
-                    string desc = item.Description; if (IsAdmin && SelectedDepartmentId == 0) desc += $" [{item.DepartmentInfo?.Name}]";
+                    string desc = item.Description; // 🚀 부서명 표시 로직 제거됨
                     ws.Cell(row, 4).Value = desc; ws.Cell(row, 5).Value = item.Note;
                     ws.Cell(row, 6).Value = item.Income == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Income;
                     ws.Cell(row, 7).Value = item.Expense == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Expense;

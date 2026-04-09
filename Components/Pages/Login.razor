@@ -26,7 +26,12 @@
             </div>
             <div class="mb-5">
                 <label class="form-label fw-bold" style="color: var(--on-surface-sub); font-size: 0.85rem;">비밀번호</label>
-                <input type="password" class="form-control form-control-lg ledger-input px-3" @bind="Password" placeholder="Password" />
+                <div class="position-relative">
+                    <input type="@(showPassword ? "text" : "password")" class="form-control form-control-lg ledger-input px-3" style="padding-right: 2.5rem;" @bind="Password" placeholder="Password" @onkeyup="EnterKey" />
+                    <button type="button" class="btn border-0 position-absolute end-0 top-50 translate-middle-y text-muted" @onclick="() => showPassword = !showPassword" tabindex="-1">
+                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
             </div>
 
             <button type="button" class="btn btn-ledger-primary w-100 btn-lg" @onclick="TryLogin" disabled="@isLoading">
@@ -62,6 +67,7 @@
     private string Password = "";
     private string ErrorMessage = "";
     private bool isLoading = false;
+    private bool showPassword = false;
 
     // Step 2: OTP 인증
     private bool isOtpStep = false;

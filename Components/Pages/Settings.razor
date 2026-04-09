@@ -154,108 +154,190 @@
                     </div>
                 </div>
 
-                <div class="settings-card-warm mb-4">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold mb-1 text-muted">항목 (직접입력/선택)</label>
-                            <div class="position-relative">
-                                <input class="settings-input" list="catList" @bind="newPlan.Category" placeholder="예: 행사비, 주일헌금" style="padding-right: 2rem;" />
-                                <datalist id="catList">@foreach (var c in currentCats) { <option value="@c"></option> }</datalist>
-                                @if (!string.IsNullOrEmpty(newPlan.Category))
-                                {
-                                    <button class="position-absolute end-0 top-50 translate-middle-y btn btn-sm border-0" style="color: #ba1a1a;" @onclick="@(() => newPlan.Category = string.Empty)" title="지우기"><i class="bi bi-x-circle-fill"></i></button>
-                                }
+                @if (!IsSystemAdmin)
+                {
+                    <div class="settings-card-warm mb-4">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold mb-1 text-muted">항목 (직접입력/선택)</label>
+                                <div class="position-relative">
+                                    <input class="settings-input" list="catList" @bind="newPlan.Category" placeholder="예: 행사비, 주일헌금" style="padding-right: 2rem;" />
+                                    <datalist id="catList">@foreach (var c in currentCats) { <option value="@c"></option> }</datalist>
+                                    @if (!string.IsNullOrEmpty(newPlan.Category))
+                                    {
+                                        <button class="position-absolute end-0 top-50 translate-middle-y btn btn-sm border-0" style="color: #ba1a1a;" @onclick="@(() => newPlan.Category = string.Empty)" title="지우기"><i class="bi bi-x-circle-fill"></i></button>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1 text-muted">상세내역</label>
+                                <input class="settings-input" @bind="newPlan.SubCategory" placeholder="상세내역" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold mb-1 text-muted">산출근거</label>
+                                <input class="settings-input" @bind="newPlan.CalcDetail" placeholder="산출근거" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-bold mb-1 text-muted">금액</label>
+                                <input type="number" class="settings-input text-end fw-bold settings-tabular" style="color: #785600;" @bind="newPlan.Amount" placeholder="0" />
+                            </div>
+                            <div class="col-md-2">
+                                <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan">@((newPlan.Id == 0) ? "➕ 추가" : "💾 수정")</button>
                             </div>
                         </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold mb-1 text-muted">상세내역</label>
-                            <input class="settings-input" @bind="newPlan.SubCategory" placeholder="상세내역" />
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small fw-bold mb-1 text-muted">산출근거</label>
-                            <input class="settings-input" @bind="newPlan.CalcDetail" placeholder="산출근거" />
-                        </div>
-                        <div class="col-md-2">
-                            <label class="form-label small fw-bold mb-1 text-muted">금액</label>
-                            <input type="number" class="settings-input text-end fw-bold settings-tabular" style="color: #785600;" @bind="newPlan.Amount" placeholder="0" />
-                        </div>
-                        <div class="col-md-2">
-                            <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan">@((newPlan.Id == 0) ? "➕ 추가" : "💾 수정")</button>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold" style="color: #4e4637;">총 @(budgetList.Count(b => b.Year == TargetYear && b.Type == activeTab))건의 예산 내역</span>
+                        <div class="d-flex gap-2">
+                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> 전체 나열</button>
+                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> 전체 축소</button>
                         </div>
                     </div>
-                </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="fw-bold" style="color: #4e4637;">총 @(budgetList.Count(b => b.Year == TargetYear && b.Type == activeTab))건의 예산 내역</span>
-                    <div class="d-flex gap-2">
-                        <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> 전체 나열</button>
-                        <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> 전체 축소</button>
-                    </div>
-                </div>
-
-                <div class="settings-table-container">
-                    <table class="settings-table">
-                        <thead>
-                            <tr>
-                                <th class="text-start ps-4">항목</th>
-                                <th>상세내역</th>
-                                <th>산출근거</th>
-                                <th class="text-end pe-4">금액</th>
-                                <th width="140">관리</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if (!CurrentYearBudgets.Any())
-                            {
-                                <tr><td colspan="5" class="text-center py-5 text-muted">등록된 예산이 없습니다.</td></tr>
-                            }
-                            else
-                            {
-                                @foreach (var group in GroupedBudgets)
+                    <div class="settings-table-container">
+                        <table class="settings-table">
+                            <thead>
+                                <tr>
+                                    <th class="text-start ps-4">항목</th>
+                                    <th>상세내역</th>
+                                    <th>산출근거</th>
+                                    <th class="text-end pe-4">금액</th>
+                                    <th width="140">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (!CurrentYearBudgets.Any())
                                 {
-                                    bool isExpanded = IsExpanded(group.Key);
-                                    decimal groupTotal = group.Sum(x => x.Amount);
-
-                                    <tr style="cursor: pointer; background-color: #fcfbf6;" @onclick="() => ToggleCategory(group.Key)">
-                                        <td class="fw-bold text-start ps-4" style="color: #5a4000;">
-                                            <i class="bi @(isExpanded ? "bi-caret-down-fill" : "bi-caret-right-fill") me-2"></i>@group.Key
-                                        </td>
-                                        <td></td><td></td>
-                                        <td class="text-end fw-bold settings-tabular pe-4" style="color: #1b1c15; font-size: 1rem;">@groupTotal.ToString("N0")</td>
-                                        <td class="text-center"><span class="badge bg-white text-secondary border px-2 py-1">@(group.Count())건</span></td>
-                                    </tr>
-
-                                    @if (isExpanded)
+                                    <tr><td colspan="5" class="text-center py-5 text-muted">등록된 예산이 없습니다.</td></tr>
+                                }
+                                else
+                                {
+                                    @foreach (var group in GroupedBudgets)
                                     {
-                                        @foreach (var item in group)
+                                        bool isExpanded = IsExpanded(group.Key);
+                                        decimal groupTotal = group.Sum(x => x.Amount);
+
+                                        <tr style="cursor: pointer; background-color: #fcfbf6;" @onclick="() => ToggleCategory(group.Key)">
+                                            <td class="fw-bold text-start ps-4" style="color: #5a4000;">
+                                                <i class="bi @(isExpanded ? "bi-caret-down-fill" : "bi-caret-right-fill") me-2"></i>@group.Key
+                                            </td>
+                                            <td></td><td></td>
+                                            <td class="text-end fw-bold settings-tabular pe-4" style="color: #1b1c15; font-size: 1rem;">@groupTotal.ToString("N0")</td>
+                                            <td class="text-center"><span class="badge bg-white text-secondary border px-2 py-1">@(group.Count())건</span></td>
+                                        </tr>
+
+                                        @if (isExpanded)
                                         {
-                                            <tr>
-                                                <td class="text-start ps-5 text-muted small"><i class="bi bi-arrow-return-right me-2"></i></td>
-                                                <td>@item.SubCategory</td>
-                                                <td class="text-muted" style="font-size: 0.85rem;">@item.CalcDetail</td>
-                                                <td class="text-end settings-tabular pe-4 fw-bold" style="color: #785600;">@item.Amount.ToString("N0")</td>
-                                                <td class="text-center">
-                                                    <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => EditPlan(item)">수정</button>
-                                                    <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => SafeDeletePlan(item.Id)">삭제</button>
-                                                </td>
-                                            </tr>
+                                            @foreach (var item in group)
+                                            {
+                                                <tr>
+                                                    <td class="text-start ps-5 text-muted small"><i class="bi bi-arrow-return-right me-2"></i></td>
+                                                    <td>@item.SubCategory</td>
+                                                    <td class="text-muted" style="font-size: 0.85rem;">@item.CalcDetail</td>
+                                                    <td class="text-end settings-tabular pe-4 fw-bold" style="color: #785600;">@item.Amount.ToString("N0")</td>
+                                                    <td class="text-center">
+                                                        <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => EditPlan(item)">수정</button>
+                                                        <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => SafeDeletePlan(item.Id)">삭제</button>
+                                                    </td>
+                                                </tr>
+                                            }
                                         }
                                     }
                                 }
+                            </tbody>
+                            @if (CurrentYearBudgets.Any())
+                            {
+                                <tfoot style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
+                                    <tr>
+                                        <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">총 합계</td>
+                                        <td class="text-end fw-bold settings-tabular pe-4" style="color: #5a4000; font-size: 1.1rem;">@CurrentYearBudgets.Sum(b => b.Amount).ToString("N0")</td>
+                                        <td></td>
+                                    </tr>
+                                </tfoot>
                             }
-                        </tbody>
-                        @if (CurrentYearBudgets.Any())
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    @* Admin 전용: 부서별 아코디언 *@
+                    <div class="accordion shadow-sm" id="adminBudgetAccordion">
+                        @foreach (var dept in visibleDepartments)
                         {
-                            <tfoot style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
-                                <tr>
-                                    <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">총 합계</td>
-                                    <td class="text-end fw-bold settings-tabular pe-4" style="color: #5a4000; font-size: 1.1rem;">@CurrentYearBudgets.Sum(b => b.Amount).ToString("N0")</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
+                            bool isDeptExpanded = expandedDepts.ContainsKey(dept.Id) && expandedDepts[dept.Id];
+                            var deptBudgets = budgetList.Where(b => b.DepartmentId == dept.Id && b.Year == TargetYear && b.Type == activeTab).ToList();
+                            decimal deptTotal = deptBudgets.Sum(b => b.Amount);
+
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-budget-@dept.Id">
+                                    <button class="accordion-button @(isDeptExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
+                                        @dept.Name
+                                        <span class="badge bg-white text-muted border ms-2">@deptBudgets.Count 건</span>
+                                        <span class="ms-3 fw-bold settings-tabular" style="color: #5a4000; font-size: 0.9rem;">₩ @deptTotal.ToString("N0")</span>
+                                    </button>
+                                </h2>
+                                <div class="accordion-collapse collapse @(isDeptExpanded ? "show" : "")">
+                                    <div class="accordion-body bg-white p-0">
+                                        @if (!deptBudgets.Any())
+                                        {
+                                            <div class="text-center py-4 text-muted">등록된 예산이 없습니다.</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="settings-table-container" style="border-radius: 0; border: none; border-top: 1px solid #eae9dd;">
+                                                <table class="settings-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th class="text-start ps-4">항목</th>
+                                                            <th>상세내역</th>
+                                                            <th>산출근거</th>
+                                                            <th class="text-end pe-4">금액</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var catGroup in deptBudgets.GroupBy(b => b.Category))
+                                                        {
+                                                            string catKey = $"{dept.Id}_{catGroup.Key}";
+                                                            bool isCatExpanded = IsExpanded(catKey);
+                                                            decimal catTotal = catGroup.Sum(x => x.Amount);
+
+                                                            <tr style="cursor: pointer; background-color: #fcfbf6;" @onclick="() => ToggleCategory(catKey)">
+                                                                <td class="fw-bold text-start ps-4" style="color: #5a4000;">
+                                                                    <i class="bi @(isCatExpanded ? "bi-caret-down-fill" : "bi-caret-right-fill") me-2"></i>@catGroup.Key
+                                                                </td>
+                                                                <td></td><td></td>
+                                                                <td class="text-end fw-bold settings-tabular pe-4" style="color: #1b1c15;">@catTotal.ToString("N0")</td>
+                                                            </tr>
+                                                            @if (isCatExpanded)
+                                                            {
+                                                                @foreach (var item in catGroup)
+                                                                {
+                                                                    <tr>
+                                                                        <td class="text-start ps-5 text-muted small"><i class="bi bi-arrow-return-right me-2"></i></td>
+                                                                        <td>@item.SubCategory</td>
+                                                                        <td class="text-muted" style="font-size: 0.85rem;">@item.CalcDetail</td>
+                                                                        <td class="text-end settings-tabular pe-4 fw-bold" style="color: #785600;">@item.Amount.ToString("N0")</td>
+                                                                    </tr>
+                                                                }
+                                                            }
+                                                        }
+                                                    </tbody>
+                                                    <tfoot style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
+                                                        <tr>
+                                                            <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">합계</td>
+                                                            <td class="text-end fw-bold settings-tabular pe-4" style="color: #5a4000;">@deptTotal.ToString("N0")</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
                         }
-                    </table>
-                </div>
+                    </div>
+                }
             }
 
             @* ──────────────────────────────
@@ -525,8 +607,18 @@
                             
                             <div class="mb-4">
                                 <label class="form-label fw-bold small" style="color: #ba1a1a;">새로운 비밀번호 입력</label>
-                                <input type="password" class="settings-input mb-2" style="border-color: rgba(186, 26, 26, 0.3);" @bind="newSelfPassword" placeholder="변경할 비밀번호 입력" />
-                                <input type="password" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3);" @bind="confirmSelfPassword" placeholder="비밀번호 재입력" @onkeyup="HandlePasswordKey" />
+                                <div class="position-relative mb-2">
+                                    <input type="@(showNewPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="newSelfPassword" placeholder="변경할 비밀번호 입력" />
+                                    <button type="button" class="btn border-0 position-absolute end-0 top-50 translate-middle-y text-muted" style="padding: 0 0.5rem;" @onclick="() => showNewPassword = !showNewPassword" tabindex="-1">
+                                        <i class="bi @(showNewPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
+                                <div class="position-relative">
+                                    <input type="@(showConfirmPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="confirmSelfPassword" placeholder="비밀번호 재입력" @onkeyup="HandlePasswordKey" />
+                                    <button type="button" class="btn border-0 position-absolute end-0 top-50 translate-middle-y text-muted" style="padding: 0 0.5rem;" @onclick="() => showConfirmPassword = !showConfirmPassword" tabindex="-1">
+                                        <i class="bi @(showConfirmPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                                    </button>
+                                </div>
                             </div>
                             <button class="settings-gold-btn w-100 py-3 fs-6" @onclick="ChangeMyPassword">비밀번호 변경 저장</button>
                         </div>
@@ -808,6 +900,8 @@
     private bool IsSystemAdmin => CurrentUser?.Role == "Admin";
     private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
     private bool IsAuditor => CurrentUser?.Role == "Auditor" || CurrentUser?.Role == "Director";
+    private bool showNewPassword = false;
+    private bool showConfirmPassword = false;
    
     private List<string> IncomeCats = new();
     private List<string> ExpenseCats = new();
@@ -920,13 +1014,30 @@
 
         if (activeTab == "Income" || activeTab == "Expense")
         {
-            var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Type == activeTab).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
-            budgetList = allPlansForTab;
-            budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
-
-            var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
-            IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
-            ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            if (IsSystemAdmin)
+            {
+                // Admin: 모든 부서 예산 로드
+                var allDepts = await DbContext.Departments.AsNoTracking().Where(d => d.Name != "관리자").OrderBy(d => d.Id).ToListAsync();
+                visibleDepartments = allDepts;
+                var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking()
+                    .Where(b => b.Type == activeTab)
+                    .OrderBy(b => b.Year).ThenBy(b => b.DepartmentId).ThenBy(b => b.Category).ToListAsync();
+                budgetList = allPlansForTab;
+                budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
+                var allCurrentYearPlans = await DbContext.BudgetPlans.AsNoTracking()
+                    .Where(b => b.Year == TargetYear).ToListAsync();
+                IncomeCats = allCurrentYearPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
+                ExpenseCats = allCurrentYearPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            }
+            else
+            {
+                var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Type == activeTab).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
+                budgetList = allPlansForTab;
+                budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
+                var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
+                IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
+                ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            }
         }
         else if (activeTab == "Mapping")
         {
