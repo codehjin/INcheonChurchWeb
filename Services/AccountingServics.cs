@@ -44,16 +44,43 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         // [1-1] 보조금 현황 계산 로직
         // =========================================================
-        // 🚀 11월 3째주 주일을 구하는 헬퍼 메서드 추가
-        public static DateTime GetFourthSundayOfNovember(int year)
+        // 특정 월의 4번째 주일(일요일)을 구하는 범용 헬퍼
+        public static DateTime GetFourthSundayOfMonth(int year, int month)
         {
-            DateTime nov1 = new DateTime(year, 11, 1);
-            int daysToSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
-            DateTime firstSunday = nov1.AddDays(daysToSunday);
-            return firstSunday.AddDays(21); // 첫째 주일 + 21일 = 넷째 주일 🚀 수정됨
+            DateTime first = new DateTime(year, month, 1);
+            int daysToSunday = ((int)DayOfWeek.Sunday - (int)first.DayOfWeek + 7) % 7;
+            DateTime firstSunday = first.AddDays(daysToSunday);
+            return firstSunday.AddDays(21); // 첫째 주일 + 21일 = 넷째 주일
         }
 
-        // 🚀 분기 날짜 로직 업데이트
+        // 기존 호환용 래퍼
+        public static DateTime GetFourthSundayOfNovember(int year) => GetFourthSundayOfMonth(year, 11);
+
+        // 기본 분기 날짜 계산 (DB 설정이 없을 때 사용되는 규칙)
+        // 규칙: 3개월마다 4주차 주일이 분기 마감일, 다음날 월요일이 새 분기 시작
+        //   Q1: 전년 11월 4주차 주일 다음 월요일 ~ 2월 4주차 주일
+        //   Q2: 2월 4주차 주일 다음 월요일 ~ 5월 4주차 주일
+        //   Q3: 5월 4주차 주일 다음 월요일 ~ 8월 4주차 주일
+        //   Q4: 8월 4주차 주일 다음 월요일 ~ 11월 4주차 주일
+        public static (DateTime Start, DateTime End) GetDefaultQuarterRange(int year, int quarter)
+        {
+            DateTime prevNov4Sun = GetFourthSundayOfMonth(year - 1, 11);
+            DateTime feb4Sun = GetFourthSundayOfMonth(year, 2);
+            DateTime may4Sun = GetFourthSundayOfMonth(year, 5);
+            DateTime aug4Sun = GetFourthSundayOfMonth(year, 8);
+            DateTime nov4Sun = GetFourthSundayOfMonth(year, 11);
+
+            return quarter switch
+            {
+                1 => (prevNov4Sun.AddDays(1), feb4Sun),
+                2 => (feb4Sun.AddDays(1), may4Sun),
+                3 => (may4Sun.AddDays(1), aug4Sun),
+                4 => (aug4Sun.AddDays(1), nov4Sun),
+                _ => (prevNov4Sun.AddDays(1), nov4Sun) // 전체 (회계연도 전체)
+            };
+        }
+
+        // 분기 날짜 조회: DB 수동 설정 우선, 없으면 기본 규칙 적용
         public async Task<(DateTime Start, DateTime End)> GetQuarterDateRangeAsync(int deptId, int year, int quarter)
         {
             string key = $"Quarter_{year}_Q{quarter}";
@@ -69,20 +96,8 @@ namespace INcheonChurchWeb.Services
                 }
             }
 
-            // 2. 설정이 없을 경우 새로운 기준(11월~11월)에 따른 기본값 계산
-            DateTime prevNovFourthSun = GetFourthSundayOfNovember(year - 1);
-            DateTime q1Start = prevNovFourthSun.AddDays(1); // 전년도 11월 4째주 월요일 시작
-            DateTime currentNovFourthSun = GetFourthSundayOfNovember(year); // 당해년도 11월 4째주 주일 마감
-
-            return quarter switch
-            {
-                1 => (q1Start, new DateTime(year, 2, DateTime.DaysInMonth(year, 2))),
-                2 => (new DateTime(year, 3, 1), new DateTime(year, 5, 31)),
-                3 => (new DateTime(year, 6, 1), new DateTime(year, 8, 31)),
-                4 => (new DateTime(year, 9, 1), currentNovFourthSun), // 🚀 수정됨
-                _ => (q1Start, currentNovFourthSun) // 전체 (회계연도 전체) 🚀 수정됨
-            };
-                        
+            // 2. 설정이 없을 경우 기본 규칙 적용
+            return GetDefaultQuarterRange(year, quarter);
         }
         // =========================================================
         // [1-2] 분기 설정: 날짜 범위 저장 및 조회
@@ -461,15 +476,14 @@ namespace INcheonChurchWeb.Services
             return result;
         }
 
-        private async Task<int> GetQuarterNumberAsync(int deptId, int fiscalYear, DateTime date)
+        public async Task<int> GetQuarterNumberAsync(int deptId, int fiscalYear, DateTime date)
         {
             var q1 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 1);
             var q2 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 2);
             var q3 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 3);
-            var q4prev = await GetQuarterDateRangeAsync(deptId, fiscalYear - 1, 4);
-            if (date >= q4prev.Start && date <= q1.End) return 1;
-            if (date > q1.End && date <= q2.End) return 2;
-            if (date > q2.End && date <= q3.End) return 3;
+            if (date.Date >= q1.Start.Date && date.Date <= q1.End.Date) return 1;
+            if (date.Date >= q2.Start.Date && date.Date <= q2.End.Date) return 2;
+            if (date.Date >= q3.Start.Date && date.Date <= q3.End.Date) return 3;
             return 4;
         }
 
@@ -635,5 +649,66 @@ namespace INcheonChurchWeb.Services
         }
 
         public async Task DeleteLedgerEntryAsync(int id) { var entry = await _db.Transactions.FindAsync(id); if (entry != null) { _db.Transactions.Remove(entry); await _db.SaveChangesAsync(); } }
+        // 수동 설정 및 11월 4째주 주일 규칙을 모두 반영하여 회계연도를 반환하는 메서드
+        // 핵심: Q1 시작일(전년 11월 말)과 Q4 종료일(당년 11월)을 모두 확인하여
+        //       날짜가 어느 회계연도에 속하는지 정확히 판단
+        public async Task<int> CalculateFiscalYearAsync(int deptId, DateTime date)
+        {
+            int calendarYear = date.Year;
+
+            // 11월·12월 데이터는 올해 회계연도(calendarYear) 소속인지,
+            // 다음 해 회계연도(calendarYear+1) 소속인지 판단해야 함
+            if (date.Month == 11 || date.Month == 12)
+            {
+                // 다음 해 회계연도의 Q1 시작일을 확인
+                var q1Next = await GetQuarterDateRangeAsync(deptId, calendarYear + 1, 1);
+
+                // 날짜가 다음 해 Q1 시작일 이후라면 → 다음 해 회계연도 소속
+                if (date.Date >= q1Next.Start.Date)
+                {
+                    return calendarYear + 1;
+                }
+            }
+            return calendarYear;
+        }
+
+        // 분기 설정 변경 시, 해당 부서의 관련 장부 데이터 FiscalYear/Quarter를 일괄 재계산
+        public async Task<int> BulkRecalcFiscalYearQuarterAsync(int deptId, int fiscalYear)
+        {
+            // 해당 회계연도의 전체 날짜 범위를 구함
+            var q1 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 1);
+            var q4 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 4);
+
+            // 이전 회계연도의 범위도 구함 (경계에 있는 데이터 포착용)
+            var q1Prev = await GetQuarterDateRangeAsync(deptId, fiscalYear - 1, 1);
+            var q4Prev = await GetQuarterDateRangeAsync(deptId, fiscalYear - 1, 4);
+
+            // 넓은 날짜 범위로 해당 부서의 모든 관련 데이터를 한 번에 가져옴
+            DateTime rangeStart = q4Prev.Start.Date < q1.Start.Date ? q4Prev.Start.Date : q1.Start.Date;
+            DateTime rangeEnd = q4.End.Date.AddDays(60); // 여유 있게
+
+            var targets = await _db.Transactions
+                .Where(t => t.DepartmentId == deptId && t.Date >= rangeStart && t.Date <= rangeEnd)
+                .ToListAsync();
+
+            int updatedCount = 0;
+            foreach (var t in targets)
+            {
+                int newFiscalYear = await CalculateFiscalYearAsync(deptId, t.Date);
+                int newQuarter = await GetQuarterNumberAsync(deptId, newFiscalYear, t.Date);
+
+                if (t.FiscalYear != newFiscalYear || t.Quarter != newQuarter)
+                {
+                    t.FiscalYear = newFiscalYear;
+                    t.Quarter = newQuarter;
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0)
+                await _db.SaveChangesAsync();
+
+            return updatedCount;
+        }
     }
 }

@@ -1089,24 +1089,6 @@
 
     private int targetUploadEntryId = 0;
 
-    // 🚀 추가: 특정 연도의 11월 4째주 주일(회계 마감일) 계산 로직
-    private DateTime GetFiscalYearEndDate(int year)
-    {
-        DateTime nov1 = new DateTime(year, 11, 1);
-        int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
-        return nov1.AddDays(daysUntilSunday + 21);
-    }
-
-    // 🚀 추가: 주어진 날짜가 속한 '회계연도'를 반환하는 함수 (새 항목 입력 시 사용)
-    private int CalculateFiscalYear(DateTime date)
-    {
-        int calendarYear = date.Year;
-        DateTime currentYearEnd = GetFiscalYearEndDate(calendarYear);
-        if (date > currentYearEnd) return calendarYear + 1;
-        DateTime lastYearEnd = GetFiscalYearEndDate(calendarYear - 1);
-        return date > lastYearEnd ? calendarYear : calendarYear - 1;
-    }
-
     protected override async Task OnInitializedAsync()
     {
         Departments = await Accounting.GetDepartmentsAsync();
@@ -1157,8 +1139,16 @@
         StateHasChanged();
         try
         {
-            // 🚀 1. DB의 'FiscalYear(회계연도)' 필드를 기준으로 전체 데이터 로드
-            var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking().Where(t => t.FiscalYear == CurrentYear);
+            // 🚀 1. 분기 설정의 실제 날짜 범위를 기준으로 전체 데이터 로드 (FiscalYear 컬럼 의존 제거)
+            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+            var q1Range = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 1);
+            var q4Range = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, 4);
+
+            DateTime fiscalYearStart = q1Range.Start.Date;
+            DateTime fiscalYearEnd = q4Range.End.Date;
+
+            var query = DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
+                .Where(t => t.Date >= fiscalYearStart && t.Date <= fiscalYearEnd);
             if (SelectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == SelectedDepartmentId);
             var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
 
@@ -1173,17 +1163,14 @@
 
             // 🚀 2. 이월금 완벽 계산: 이번 회계연도 시작일 이전의 모든 내역 합산
             decimal baseCarryOver = bp.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-            DateTime fiscalYearStart = GetFiscalYearEndDate(CurrentYear - 1).AddDays(1); // 작년 11월 4주 월요일
-            DateTime fiscalYearEnd = GetFiscalYearEndDate(CurrentYear); // 올해 11월 4주 주일
 
-            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
             var totalPrevData = await DbContext.Transactions.AsNoTracking()
                 .Where(t => t.DepartmentId == qDeptId && t.Date < fiscalYearStart)
                 .ToListAsync();
 
             CarryOverAmount = baseCarryOver + totalPrevData.Sum(x => x.Income) - totalPrevData.Sum(x => x.Expense);
 
-            // 🚀 3. 분기/월 필터링 (회계 마감 기준일 적용)
+            // 🚀 3. 분기/월 필터링 (분기 설정의 실제 날짜 범위 기준)
             IEnumerable<LedgerEntry> fq = allYearData;
             var prevDataInCurrentYear = new List<LedgerEntry>();
 
@@ -1207,8 +1194,10 @@
             }
             else if (CurrentQuarter > 0)
             {
-                fq = allYearData.Where(t => t.Quarter == CurrentQuarter);
-                prevDataInCurrentYear = allYearData.Where(x => x.Quarter < CurrentQuarter).ToList();
+                // 분기 필터링도 실제 날짜 범위를 사용
+                var qRange = await Accounting.GetQuarterDateRangeAsync(qDeptId, CurrentYear, CurrentQuarter);
+                fq = allYearData.Where(t => t.Date.Date >= qRange.Start.Date && t.Date.Date <= qRange.End.Date);
+                prevDataInCurrentYear = allYearData.Where(x => x.Date.Date < qRange.Start.Date).ToList();
             }
 
             // 조회 월/분기 이전의 누적 금액을 최종 이월금에 더해줍니다.
@@ -1287,9 +1276,16 @@
         if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
         newItem.DepartmentId = IsAdmin ? newItem.DepartmentId : (SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId);
 
-        // 🚀 수정: 직접 입력 시 날짜에 맞춰 회계연도를 스마트하게 계산
-        newItem.FiscalYear = CalculateFiscalYear(newItem.Date);
-        newItem.Quarter = GetQuarter(newItem.Date);
+        // [수정] DB에 저장된 분기 설정(환경설정)을 기준으로 회계연도와 분기 동적 계산
+        int calculatedYear = newItem.Date.Year;
+        if (newItem.Date.Month == 11 || newItem.Date.Month == 12)
+        {
+            var q4 = await Accounting.GetQuarterDateRangeAsync(newItem.DepartmentId, newItem.Date.Year, 4);
+            if (newItem.Date > q4.End) calculatedYear = newItem.Date.Year + 1;
+        }
+        // [수정 후] 백엔드의 통합 로직을 통해 회계연도와 분기를 계산
+        newItem.FiscalYear = await Accounting.CalculateFiscalYearAsync(newItem.DepartmentId, newItem.Date);
+        newItem.Quarter = await Accounting.GetQuarterNumberAsync(newItem.DepartmentId, newItem.FiscalYear, newItem.Date);
         newItem.Note ??= "";
         if (newItem.Type == "수입") newItem.Expense = 0; else newItem.Income = 0;
 
@@ -1321,10 +1317,16 @@
             ex.Description = editBuffer.Description ?? "";
             ex.Note = editBuffer.Note ?? "";
             if (ex.Type == "수입") { ex.Expense = 0; ex.Income = editBuffer.Income; } else { ex.Income = 0; ex.Expense = editBuffer.Expense; }
-            ex.Quarter = GetQuarter(editBuffer.Date);
-
-            // 🚀 수정: 수정 시에도 날짜에 맞춰 회계연도 재계산
-            ex.FiscalYear = CalculateFiscalYear(editBuffer.Date);
+            // [수정] DB에 저장된 분기 설정(환경설정)을 기준으로 회계연도와 분기 재계산 적용
+            int editYear = editBuffer.Date.Year;
+            if (editBuffer.Date.Month == 11 || editBuffer.Date.Month == 12)
+            {
+                var q4Edit = await Accounting.GetQuarterDateRangeAsync(ex.DepartmentId, editBuffer.Date.Year, 4);
+                if (editBuffer.Date > q4Edit.End) editYear = editBuffer.Date.Year + 1;
+            }
+            // [수정 후] 백엔드의 통합 로직을 통해 회계연도와 분기를 재계산
+            ex.FiscalYear = await Accounting.CalculateFiscalYearAsync(ex.DepartmentId, editBuffer.Date);
+            ex.Quarter = await Accounting.GetQuarterNumberAsync(ex.DepartmentId, ex.FiscalYear, editBuffer.Date);
 
             await DbContext.SaveChangesAsync();
         }
@@ -1392,8 +1394,15 @@
         try
         {
             using var workbook = new XLWorkbook();
+            // [변경됨] 엑셀 다운로드도 실제 날짜 범위 기반으로 데이터 조회
+            int qDeptIdExcel = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
+            var q1RangeExcel = await Accounting.GetQuarterDateRangeAsync(qDeptIdExcel, CurrentYear, 1);
+            var q4RangeExcel = await Accounting.GetQuarterDateRangeAsync(qDeptIdExcel, CurrentYear, 4);
+            DateTime fyStartExcel = q1RangeExcel.Start.Date;
+            DateTime fyEndExcel = q4RangeExcel.End.Date;
+
             var allData = await DbContext.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
-                .Where(t => t.FiscalYear == CurrentYear && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId))
+                .Where(t => t.Date >= fyStartExcel && t.Date <= fyEndExcel && (SelectedDepartmentId == 0 || t.DepartmentId == SelectedDepartmentId))
                 .OrderBy(t => t.Date).ToListAsync();
 
             var bq2 = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
@@ -1402,12 +1411,11 @@
 
             // 엑셀 다운로드 시에도 이월금 보정 (회계 마감일 기준)
             decimal baseCarryOver = bp2.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-            DateTime fiscalYearStart = GetFiscalYearEndDate(CurrentYear - 1).AddDays(1);
-            int qDeptId = SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId;
-            var totalPrevData = await DbContext.Transactions.AsNoTracking()
-                .Where(t => t.DepartmentId == qDeptId && t.Date < fiscalYearStart).ToListAsync();
 
-            decimal runBal = baseCarryOver + totalPrevData.Sum(x => x.Income) - totalPrevData.Sum(x => x.Expense);
+            var totalPrevDataExcel = await DbContext.Transactions.AsNoTracking()
+                .Where(t => t.DepartmentId == qDeptIdExcel && t.Date < fyStartExcel).ToListAsync();
+
+            decimal runBal = baseCarryOver + totalPrevDataExcel.Sum(x => x.Income) - totalPrevDataExcel.Sum(x => x.Expense);
 
             foreach (var mg in allData.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key))
             {
@@ -1453,5 +1461,5 @@
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 다운로드 오류: {ex.Message}"); }
     }
 
-    private int GetQuarter(DateTime d) => d.Month switch { 11 or 12 or 1 or 2 => 1, 3 or 4 or 5 => 2, 6 or 7 or 8 => 3, _ => 4 };
+    
 }

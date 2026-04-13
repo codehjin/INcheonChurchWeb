@@ -429,17 +429,52 @@
             {
                 <div class="col-md-10 mx-auto">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)년도 분기 날짜 설정</h4>
+
+                    <div class="settings-info-box mb-4">
+                        <i class="bi bi-calendar-range fs-5 mt-1" style="color: #785600;"></i>
+                        <div>
+                            <div class="fw-bold mb-1" style="color: #1b1c15;">분기 설정 규칙 안내</div>
+                            <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">
+                                <b>기본 규칙:</b> 매 3개월마다 <b>4주차 주일(일요일)</b>이 분기 마감일이며, 다음 날 월요일이 새 분기 시작일입니다. 매분기마다 확인해서 수정하세요<br/>
+                                분기 설정에 따라 대시보드의 통계와 월별장부의 분기설정이 달라집니다, <br/>
+                                <b>[기본값 자동 적용]</b> 버튼을 누르면 위 규칙으로 자동 계산되고, 필요 시 수동으로 수정할 수 있습니다. 부서별로 필히 확인해서 설정하셔야 합니다. 
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <button class="settings-gold-btn" @onclick="ApplyDefaultQuarters">
+                            <i class="bi bi-magic me-1"></i>기본값 자동 적용
+                        </button>
+                        <button class="settings-secondary-btn" @onclick="SaveAllQuarters">
+                            <i class="bi bi-save me-1"></i>전체 분기 저장
+                        </button>
+                    </div>
+
+                    @{
+                        var defaultRanges = new (DateTime Start, DateTime End)[4];
+                        for (int dq = 1; dq <= 4; dq++)
+                            defaultRanges[dq - 1] = AccountingService.GetDefaultQuarterRange(TargetYear, dq);
+                    }
+
                     <div class="settings-card-warm border border-light">
                         @for (int q = 1; q <= 4; q++)
                         {
                             int localQ = q;
+                            var defRange = defaultRanges[localQ - 1];
                             <div class="mb-3 row align-items-center bg-white p-3 rounded shadow-sm border border-light">
                                 <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q 분기</label>
-                                <div class="col d-flex gap-2 align-items-center">
-                                    <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)">🔗 연속성 맞춤</button>
-                                    <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterStartDates[localQ - 1]" />
-                                    <span style="color: #d2c5b2;">~</span>
-                                    <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterEndDates[localQ - 1]" />
+                                <div class="col d-flex flex-column gap-1">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)">🔗 연속성 맞춤</button>
+                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterStartDates[localQ - 1]" />
+                                        <span style="color: #d2c5b2;">~</span>
+                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterEndDates[localQ - 1]" />
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #807666; padding-left: 6rem;">
+                                        기본값: @defRange.Start.ToString("yyyy-MM-dd") ~ @defRange.End.ToString("yyyy-MM-dd")
+                                        (@defRange.End.ToString("M월 d일") 주일 마감)
+                                    </div>
                                 </div>
                                 <div class="col-sm-2"><button class="settings-gold-btn w-100 py-2" @onclick="() => SaveQuarter(localQ)">저장</button></div>
                             </div>
@@ -887,15 +922,7 @@
     private bool isImporting = false;
     private bool isRestoring = false;
     // 특정 연도의 11월 4째주 주일(마감일)을 구하는 로직
-    private DateTime GetFiscalYearEndDate(int year)
-    {
-    // 11월 1일 시작
-    DateTime nov1 = new DateTime(year, 11, 1);
-    // 첫 번째 주일 찾기
-    int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
-    // 4번째 주일은 첫 번째 주일 + 21일
-    return nov1.AddDays(daysUntilSunday + 21);
-    }
+    private DateTime GetFiscalYearEndDate(int year) => AccountingService.GetFourthSundayOfMonth(year, 11);
     // 권한 체크
     private bool IsSystemAdmin => CurrentUser?.Role == "Admin";
     private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
@@ -958,6 +985,29 @@
         {
             QuarterStartDates[q - 1] = QuarterEndDates[q - 2].Date.AddDays(1);
         }
+    }
+
+    private void ApplyDefaultQuarters()
+    {
+        for (int q = 1; q <= 4; q++)
+        {
+            var range = AccountingService.GetDefaultQuarterRange(TargetYear, q);
+            QuarterStartDates[q - 1] = range.Start;
+            QuarterEndDates[q - 1] = range.End;
+        }
+    }
+
+    private async Task SaveAllQuarters()
+    {
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}년도 전체 분기 기간을 저장하시겠습니까?") != true) return;
+        for (int q = 1; q <= 4; q++)
+        {
+            await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]);
+        }
+        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, TargetYear);
+        string msg = $"{TargetYear}년도 전체 분기 기간이 저장되었습니다.";
+        if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
+        await JSRuntime.InvokeVoidAsync("alert", msg);
     }
 
     protected override async Task OnInitializedAsync()
@@ -1233,7 +1283,15 @@
     }
 
     private async Task SavePlan() { if (string.IsNullOrWhiteSpace(newPlan.Category)) return; newPlan.Year = TargetYear; newPlan.Type = activeTab; newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(newPlan); newPlan = new(); await LoadData(); }
-    private async Task SaveQuarter(int q) { if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return; await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]); await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear}년도 {q}분기 기간이 설정되었습니다."); }
+    private async Task SaveQuarter(int q)
+    {
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return;
+        await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]);
+        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, TargetYear);
+        string msg = $"{TargetYear}년도 {q}분기 기간이 설정되었습니다.";
+        if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
+        await JSRuntime.InvokeVoidAsync("alert", msg);
+    }
     private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "삭제하시겠습니까?") == true) { await AccService.DeleteBudgetPlanAsync(id); await LoadData(); } }
     
    private async Task AddUser() 
