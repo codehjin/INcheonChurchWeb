@@ -559,23 +559,35 @@
                         }
                         @foreach (var receipt in GetFilteredPendingReceipts())
                         {
-                            bool isActive = selectedMatchingReceipt?.Id == receipt.Id;
-                            <div class="hub-receipt-item mb-2 @(isActive ? "selected" : "")" @onclick="() => SelectMatchingReceipt(receipt)">
-                                <input type="checkbox" class="form-check-input" style="min-width: 1.25rem; min-height: 1.25rem;" checked="@(selectedMatchingReceiptIds.Contains(receipt.Id))" @onchange="e => ToggleMatchingReceiptSelection(receipt.Id, e)" @onclick:stopPropagation="true" />
-                                <div class="flex-grow-1">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <span style="font-size: 0.9rem; font-weight: 700; color: #4e4637; letter-spacing: 0.05em;">@receipt.ReceiptDate.ToString("yyyy.MM.dd")</span>
-                                        <button class="hub-delete-btn" @onclick="() => DeleteReceipt(receipt.Id)" @onclick:stopPropagation="true">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                    <div class="d-flex justify-content-between align-items-end mt-1">
-                                        <span class="fw-bold" style="color: #1b1c15;">@receipt.Description</span>
-                                        <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">원</span></span>
-                                    </div>
-                                </div>
-                            </div>
-                        }
+                         bool isActive = selectedMatchingReceipt?.Id == receipt.Id;
+                         <div class="hub-receipt-item mb-2 d-flex align-items-center gap-3 @(isActive ? "selected" : "")" @onclick="() => SelectMatchingReceipt(receipt)">
+                            <input type="checkbox" class="form-check-input flex-shrink-0" style="min-width: 1.25rem; min-height: 1.25rem;" checked="@(selectedMatchingReceiptIds.Contains(receipt.Id))" @onchange="e => ToggleMatchingReceiptSelection(receipt.Id, e)" @onclick:stopPropagation="true" />
+        
+                        @* 🚀 추가된 썸네일 및 돋보기 버튼 영역 *@
+                        <div class="position-relative flex-shrink-0">
+                          <img src="@receipt.ImagePath" alt="영수증" class="rounded border" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.src='/images/no-image.png'" />
+                          <button type="button" class="btn btn-dark p-0" 
+                            style="position: absolute; bottom: -5px; right: -5px; width: 22px; height: 22px; border-radius: 50%; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                            @onclick:stopPropagation="true" 
+                            @onclick="() => OpenImageModal(receipt.ImagePath)">
+                          <i class="bi bi-zoom-in" style="font-size: 0.75rem;"></i>
+                          </button>
+                        </div>
+
+                       <div class="flex-grow-1 min-w-0">
+                          <div class="d-flex justify-content-between align-items-start">
+                            <span style="font-size: 0.9rem; font-weight: 700; color: #4e4637; letter-spacing: 0.05em;">@receipt.ReceiptDate.ToString("yyyy.MM.dd")</span>
+                            <button class="hub-delete-btn" @onclick="() => DeleteReceipt(receipt.Id)" @onclick:stopPropagation="true">
+                               <i class="bi bi-trash"></i>
+                            </button>
+                          </div>
+                        <div class="d-flex justify-content-between align-items-end mt-1">
+                         <span class="fw-bold text-truncate" style="color: #1b1c15; max-width: 150px;">@receipt.Description</span>
+                         <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">원</span></span>
+                       </div>
+                      </div>
+                     </div>
+}
                     </div>
                 </div>
 
@@ -661,26 +673,34 @@
 }
 
 @* 이미지 크게 보기 모달 *@
+@* 이미지 크게 보기 모달 (확대/축소/이동 지원) *@
 @if (showImageModal)
 {
-    <div class="modal fade show d-block" style="background: rgba(48, 49, 41, 0.8); backdrop-filter: blur(8px);" tabindex="-1" @onclick="CloseImageModal">
-        <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation>
-            <div class="modal-content" style="background: transparent; border: none;">
-                <div class="text-end p-2 d-flex justify-content-end align-items-center">
-                    <span class="badge bg-secondary me-2" style="opacity: 0.8;">확대: 휠 / 이동: 드래그</span>
-                    <button class="btn btn-sm btn-outline-light me-3" @onclick="ResetImageTransform"><i class="bi bi-arrows-fullscreen"></i> 화면 맞춤</button>
-                    
-                    <button class="btn btn-sm" style="color: #ffffff; font-size: 1.5rem; background: none; border: none; padding: 0;" @onclick="CloseImageModal"><i class="bi bi-x-lg"></i></button>
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);" @onclick="CloseImageModal">
+        <div class="modal-dialog modal-dialog-centered modal-xl" @onclick:stopPropagation="true">
+            <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+                
+                <div class="modal-header border-0 pb-0 justify-content-end">
+                    <button type="button" class="btn-close btn-close-white" style="filter: invert(1); font-size: 1.5rem;" @onclick="CloseImageModal"></button>
                 </div>
                 
-                <div class="text-center p-0"
-                     style="overflow: hidden; position: relative; height: 80vh; cursor: @(isDragging ? "grabbing" : "grab");"
-                     @onwheel="HandleWheel" @onwheel:preventDefault="true"
-                     @onmousedown="HandleMouseDown" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp" @onmouseleave="HandleMouseUp">
-                    
-                    <img src="@currentLargeImageUrl" class="rounded" 
-                         style="transform: translate(@(imgX)px, @(imgY)px) scale(@imgScale); transition: transform 0.05s linear; max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none;" />
+                <div class="modal-body text-center p-0" 
+                     style="overflow: hidden; height: 85vh; display: flex; align-items: center; justify-content: center;"
+                     @onwheel="HandleWheel"
+                     @onmousedown="HandleMouseDown"
+                     @onmousemove="HandleMouseMove"
+                     @onmouseup="HandleMouseUp"
+                     @onmouseleave="HandleMouseUp">
+                     
+                    @* 💡 변수명을 currentLargeImageUrl, imgX, imgY, imgScale 로 변경했습니다 *@
+                    <img src="@currentLargeImageUrl" 
+                         style="max-width: 100%; max-height: 100%; 
+                                transform: translate(@(imgX)px, @(imgY)px) scale(@imgScale); 
+                                cursor: @(isDragging ? "grabbing" : "grab"); 
+                                transition: transform 0.05s ease-out;" 
+                         draggable="false" />
                 </div>
+
             </div>
         </div>
     </div>
@@ -698,30 +718,79 @@
 
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
-// 🚀 영수증 확대/이동 상태 변수
+
+    // ==========================================
+    // 🔎 공통 이미지 모달 (확대/축소/이동) 상태 변수 - 중복 제거된 단일 선언
+    // ==========================================
+    private bool showImageModal = false;
+    private string currentLargeImageUrl = string.Empty;
+
     private double imgScale = 1.0;
     private double imgX = 0;
     private double imgY = 0;
     private bool isDragging = false;
-    private double startDragX, startDragY;
+    private double startDragX = 0;
+    private double startDragY = 0;
 
-    // ???????????????????????????????????????????
-    // 공통 변수
-    // ???????????????????????????????????????????
-    private string activeTab = "single";
-    private bool showImageModal = false;
-    private string currentLargeImageUrl = "";
-
-    // 🚀 추가: 특정 연도의 11월 4째주 주일(마감일)을 계산하는 로직
-    private DateTime GetFiscalYearEndDate(int year)
+    // 모달 열기 (썸네일 버튼 등에서 호출)
+    private void OpenImageModal(string imageUrl)
     {
-    // 11월 1일 시작
-    DateTime nov1 = new DateTime(year, 11, 1);
-    // 첫 번째 주일(Sunday)까지의 일수 계산
-    int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
-    // 4번째 주일은 첫 번째 주일로부터 21일(3주) 뒤
-    return nov1.AddDays(daysUntilSunday + 21);
+        currentLargeImageUrl = imageUrl;
+        ResetImageTransform();
+        showImageModal = true;
     }
+
+    // 모달 닫기
+    private void CloseImageModal()
+    {
+        showImageModal = false;
+        currentLargeImageUrl = string.Empty;
+    }
+
+    // 줌 및 위치 초기화
+    private void ResetImageTransform()
+    {
+        imgScale = 1.0;
+        imgX = 0;
+        imgY = 0;
+    }
+
+    // [+] [-] 버튼 확대/축소
+    private void ZoomIn() => imgScale = Math.Min(imgScale + 0.2, 5.0);
+    private void ZoomOut() => imgScale = Math.Max(imgScale - 0.2, 0.5);
+
+    // 마우스 휠: 확대/축소 (공통)
+    private void HandleWheel(WheelEventArgs e)
+    {
+        if (e.DeltaY < 0) imgScale = Math.Min(imgScale + 0.1, 5.0);
+        else imgScale = Math.Max(imgScale - 0.1, 0.5);
+    }
+
+    // 마우스 클릭: 드래그 시작
+    private void HandleMouseDown(MouseEventArgs e)
+    {
+        isDragging = true;
+        startDragX = e.ClientX - imgX;
+        startDragY = e.ClientY - imgY;
+    }
+
+    // 마우스 이동: 이미지 팬(Pan)
+    private void HandleMouseMove(MouseEventArgs e)
+    {
+        if (isDragging)
+        {
+            imgX = e.ClientX - startDragX;
+            imgY = e.ClientY - startDragY;
+        }
+    }
+
+    // 마우스 떼기: 드래그 종료
+    private void HandleMouseUp(MouseEventArgs e) => isDragging = false;
+
+    // =====================================================
+    // 공통 UI / 탭 변수 (한 번만 선언)
+    // =====================================================
+    private string activeTab = "single";
     // ???????????????????????????????????????????
     // TAB 1: 단일 영수증 업로드 (ReceiptUpload.razor)
     // ???????????????????????????????????????????
@@ -1346,6 +1415,16 @@
         if (d > nov4thSunday) return 1; // 마감일 다음날(월요일)부터는 내년도 1분기로 편입
         return 4; // 마감일 당일까지는 올해 4분기
     }
+
+    // 특정 연도의 11월 4째주 일요일(주일)을 계산하는 헬퍼 (GetQuarter, 엑셀파싱에서 사용)
+    private DateTime GetFiscalYearEndDate(int year)
+    {
+        // 11월 1일부터 시작하여 첫 번째 Sunday까지의 일수 계산
+        DateTime nov1 = new DateTime(year, 11, 1);
+        int daysUntilSunday = ((int)DayOfWeek.Sunday - (int)nov1.DayOfWeek + 7) % 7;
+        // 첫 주일을 기준으로 3주(21일)를 더하면 4째주 주일
+        return nov1.AddDays(daysUntilSunday + 21);
+    }
     private decimal ParseDecimal(string? value) { if (string.IsNullOrWhiteSpace(value)) return 0; decimal.TryParse(value.Replace("\"", "").Replace(",", ""), out decimal r); return r; }
 
     private async Task SaveToLedger()
@@ -1574,55 +1653,5 @@
 
     private async Task HandleKeyUp(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e) { if (e.Key == "Enter") await SearchData(); }
 
-    // ???????????????????????????????????????????
-    // 공통 모달
-    // ???????????????????????????????????????????
-    private void ShowImageModal(string url){currentLargeImageUrl = url;showImageModal = true;    
-    // 🚀 추가: 새 영수증을 열 때 줌/위치 초기화
-    ResetImageTransform(); }
-    // 🚀 [+] 버튼 클릭 시 확대
-    private void ZoomIn()
-    {
-        // 한 번 누를 때마다 0.2배씩 커지며, 최대 5배까지만 확대되도록 제한
-        imgScale = Math.Min(imgScale + 0.2, 5.0);
+    
     }
-
-    // 🚀 [-] 버튼 클릭 시 축소
-    private void ZoomOut()
-    {
-        // 한 번 누를 때마다 0.2배씩 작아지며, 최소 0.5배까지만 축소되도록 제한
-        imgScale = Math.Max(imgScale - 0.2, 0.5);
-    }
-    private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; }
-   // 🚀 줌 및 이동 핸들러 로직 (파일 맨 아래 추가)
-    private void HandleWheel(WheelEventArgs e)
-    {
-        if (e.DeltaY < 0) imgScale = Math.Min(imgScale + 0.1, 5.0);
-        else imgScale = Math.Max(imgScale - 0.1, 0.5);
-    }
-
-    private void HandleMouseDown(MouseEventArgs e)
-    {
-        isDragging = true;
-        startDragX = e.ClientX - imgX;
-        startDragY = e.ClientY - imgY;
-    }
-
-    private void HandleMouseMove(MouseEventArgs e)
-    {
-        if (isDragging)
-        {
-            imgX = e.ClientX - startDragX;
-            imgY = e.ClientY - startDragY;
-        }
-    }
-
-    private void HandleMouseUp(MouseEventArgs e) => isDragging = false;
-
-    private void ResetImageTransform()
-    {
-        imgScale = 1.0;
-        imgX = 0;
-        imgY = 0;
-    }
-}
