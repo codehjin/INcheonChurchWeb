@@ -617,6 +617,35 @@
                         }
                         <th>증빙</th>
                     </tr>
+                        <tr style="background-color: #fbfcfa; border-bottom: 2px solid #d2c5b2;">
+                            @if (isBatchEditMode)
+                            {
+                                <th></th>
+                            }
+                            <th></th>
+                            <th><input type="text" class="form-control form-control-sm px-1" placeholder="날짜" @bind="filterDate" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                            <th>
+                                <select class="form-select form-select-sm px-1" @bind="filterType" @bind:event="onchange" @bind:after="ApplyFilters">
+                                    <option value="">전체</option>
+                                    <option value="수입">수입</option>
+                                    <option value="지출">지출</option>
+                                </select>
+                            </th>
+                            <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="filterCategory" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                            <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="filterDescription" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                            <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="filterNote" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                            <th></th>
+                            <th></th>
+                            <th></th> @if (IsAdmin)
+                            {
+                                <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="filterDepartment" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                            }
+                            @if (CanEditLedger)
+                            {
+                                <th></th>
+                            }
+                            <th></th>
+                        </tr>
                 </thead>
                 <tbody>
                     @{
@@ -1063,6 +1092,10 @@
 
     private string filterType = "";
     private string filterCategory = "";
+    private string filterDate = "";
+    private string filterDescription = "";
+    private string filterNote = "";
+    private string filterDepartment = "";
 
     private bool isBatchEditMode = false;
     // 🚀 수정: 사용하지 않는 isBatchPrintMode 변수 삭제 완료
@@ -1215,6 +1248,10 @@
         var temp = Entries.AsEnumerable();
         if (!string.IsNullOrEmpty(filterType)) temp = temp.Where(x => x.Type == filterType);
         if (!string.IsNullOrEmpty(filterCategory)) temp = temp.Where(x => x.Category.Contains(filterCategory, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(filterDate)) temp = temp.Where(x => x.Date.ToString("MM.dd").Contains(filterDate) || x.Date.ToString("yyyy-MM-dd").Contains(filterDate));
+        if (!string.IsNullOrEmpty(filterDescription)) temp = temp.Where(x => x.Description != null && x.Description.Contains(filterDescription, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(filterNote)) temp = temp.Where(x => x.Note != null && x.Note.Contains(filterNote, StringComparison.OrdinalIgnoreCase));
+        if (IsAdmin && !string.IsNullOrEmpty(filterDepartment)) temp = temp.Where(x => Departments.FirstOrDefault(d => d.Id == x.DepartmentId)?.Name?.Contains(filterDepartment, StringComparison.OrdinalIgnoreCase) == true);
         FilteredEntries = temp.ToList();
 
         entryBalances.Clear();

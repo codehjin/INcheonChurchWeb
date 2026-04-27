@@ -31,7 +31,21 @@ var options = new WebApplicationOptions
 };
 
 var builder = WebApplication.CreateBuilder(options);
-// =========================================================
+
+// 👇👇 교체할 부분 👇👇
+string googleKeyPath = Path.Combine(builder.Environment.ContentRootPath, "google-vision-key.json");
+
+if (File.Exists(googleKeyPath))
+{
+    Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", googleKeyPath);
+    Console.WriteLine("✅ Google Vision API 키 로드 완료!");
+}
+else
+{
+    // 파일이 제대로 복사되지 않았을 경우 에러를 뿜게 하여 원인을 바로 알 수 있게 합니다.
+    throw new FileNotFoundException($"❌ 구글 API 키 파일을 찾을 수 없습니다. 파일 속성에서 '출력 디렉터리로 복사'를 설정했는지 확인하세요! 경로: {googleKeyPath}");
+}
+// 👆👆 여기까지 👆👆
 
 // 1. 키 저장 경로 설정 (프로젝트 실행 폴더 내 'keys' 폴더)
 var keyDirectory = Path.Combine(Directory.GetCurrentDirectory(), "keys");

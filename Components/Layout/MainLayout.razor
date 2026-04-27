@@ -7,6 +7,56 @@
 @inject INcheonChurchWeb.Data.AppDbContext DbContext
 @inject IJSRuntime JSRuntime
 
+@* 🎨 레이아웃 정밀 교정 스타일 (부트스트랩/기존 CSS의 중첩 여백 강제 초기화) *@
+<style>
+    /* 1. 부모 컨테이너: flex-start로 설정하여 사이 간격 벌어짐 방지 */
+    .page {
+        display: flex !important;
+        justify-content: flex-start !important;
+        align-items: stretch;
+        min-height: 100vh;
+        width: 100%;
+        overflow-x: hidden;
+    }
+
+    /* 2. PC 사이드바: 250px 엄격 고정 */
+    .sidebar {
+        width: 250px !important;
+        flex: 0 0 250px !important;
+        height: 100vh;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    /* 3. 메인 본문: 유연한 너비 및 중첩 여백 제거 */
+    .main-content-area {
+        flex: 1 !important;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        margin-left: 0 !important; /* 핵심: 기존에 숨어있던 250px 마진 강제 제거 */
+        padding-left: 0 !important;
+    }
+
+    /* 모바일 환경 대응 (576px 미만) */
+    @@media (max-width: 575.98px) {
+        .page {
+            flex-direction: column !important;
+        }
+
+        .sidebar {
+            display: none !important;
+        }
+
+        .main-content-area {
+            margin-left: 0 !important;
+            width: 100%;
+        }
+    }
+
+</style>
+
 <div class="page">
     @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 방지) *@
     @if (!isLoaded)
@@ -18,7 +68,11 @@
             </div>
         </div>
         <style>
-            @@keyframes spin { to { transform: rotate(360deg); } }
+            @@keyframes spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
         </style>
     }
     else if (CurrentUser == null)
@@ -35,7 +89,7 @@
         <div class="main-content-area">
 
             @* 🖥️ PC 전용 상단 바 *@
-            <div class="pc-top-bar d-none d-sm-flex">
+            <div class="pc-top-bar d-none d-sm-flex" style="padding: 0 1.5rem; height: 60px; display: flex; align-items: center; border-bottom: 1px solid var(--surface-high);">
                 <span class="me-auto" style="font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 0.9375rem; color: var(--on-surface); letter-spacing: -0.01em;">
                     @(CurrentUser.Department?.Name ?? "소속없음") 재정관리
                 </span>
@@ -59,7 +113,7 @@
             </div>
 
             @* 콘텐츠 영역 *@
-            <article class="content px-3 px-sm-4 mobile-content flex-grow-1">
+            <article class="content px-3 px-sm-4 mobile-content flex-grow-1" style="padding-top: 1.5rem; padding-bottom: 5rem;">
                 <CascadingValue Value="CurrentUser">
                     @Body
                 </CascadingValue>

@@ -59,7 +59,7 @@
 </style>
 
 <div class="hub-surface min-vh-100" style="padding-bottom: @(activeTab == "matching" ? "7rem" : "2rem");">
-    <div class="container-fluid px-3 px-md-5 pt-4">
+    <div class="container-fluid px-2 pt-4">
 
         <div class="mb-4">
             <h2 class="fw-bold mb-1" style="color: #1b1c15; font-family: 'Manrope', sans-serif; letter-spacing: -0.02em;">수집 및 정리</h2>
@@ -93,8 +93,8 @@
         @if (activeTab == "single")
         {
             <div class="row g-4">
-                <div class="col-lg-7">
-                    <div class="hub-card p-4 p-md-5">
+                <div class="col-12">
+                    <div class="hub-card p-3 p-md-4">
 
                         <div class="hub-info-box mb-4">
                             <i class="bi bi-robot fs-4" style="color: #785600;"></i>
@@ -130,18 +130,38 @@
 
                         @if (!string.IsNullOrEmpty(previewImageUrl))
                         {
-                            <div class="text-center mb-4 p-3 rounded" style="background-color: #f5f4e8;">
-                                <img src="@previewImageUrl" class="hub-preview-img" />
+                            <div class="text-center mb-2 p-0 rounded" 
+                                 style="overflow: hidden; position: relative; height: 350px; display: flex; align-items: center; justify-content: center; background-color: #f5f4e8; cursor: @(isDragging ? "grabbing" : "grab");"
+                                 @onwheel="HandleWheel" @onwheel:preventDefault="true"
+                                 @onmousedown="HandleMouseDown" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp" @onmouseleave="HandleMouseUp">
+                                
+                                <img src="@previewImageUrl" 
+                                     style="transform: translate(@(imgX)px, @(imgY)px) scale(@imgScale); transition: transform 0.05s linear; max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none;" />
+                            </div>
+                            
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <span class="badge bg-secondary" style="opacity: 0.7;">휠: 확대 / 드래그: 이동</span>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut" title="축소">
+                                        <i class="bi bi-dash-lg"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ResetImageTransform" title="화면 맞춤">
+                                        <i class="bi bi-arrows-fullscreen"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomIn" title="확대">
+                                        <i class="bi bi-plus-lg"></i>
+                                    </button>
+                                </div>
                             </div>
                         }
 
                         <div class="mb-3">
-                            <div class="hub-label">1. 결제 날짜</div>
+                            <div class="hub-label" style="color: #ba1a1a;">1. 결제 날짜(필수입력)</div>
                             <input type="date" class="form-control hub-input" @bind="newReceipt.ReceiptDate" />
                         </div>
 
                         <div class="mb-3">
-                            <div class="hub-label" style="color: #ba1a1a;">2. 결제 금액 (숫자만)</div>
+                            <div class="hub-label" style="color: #ba1a1a;">2. 결제 금액(필수입력)</div>
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="number" class="form-control hub-input flex-grow-1 text-end fw-bold" @bind="inputAmount" placeholder="예: 15000" />
                                 <span class="fw-bold" style="color: #4e4637;">원</span>
@@ -153,7 +173,7 @@
                         </div>
 
                         <div class="mb-4">
-                            <div class="hub-label">3. 적요 (사용처 / 내용)</div>
+                            <div class="hub-label">3. 사용처/내역(선택입력)</div>
                             <div class="d-flex gap-2 align-items-center">
                                 <input type="text" class="form-control hub-input flex-grow-1" @bind="newReceipt.Description" placeholder="예: 다이소" />
                                 @if (!string.IsNullOrEmpty(newReceipt.Description))
@@ -197,7 +217,7 @@
         ???????????????????????????????????????????????????????????????? *@
         @if (activeTab == "multi")
         {
-            <div class="hub-card p-4 p-md-5">
+            <div class="hub-card p-3 p-md-4">
 
                 <div class="hub-info-box mb-4">
                     <i class="bi bi-info-circle-fill" style="color: #785600; font-size: 1.25rem;"></i>
@@ -292,7 +312,7 @@
          </div>
      }
 
-            <div class="hub-card p-4 p-md-5 mb-4">
+            <div class="hub-card p-3 p-md-4">
                 <div class="d-flex align-items-center gap-3 mb-3">
                     <i class="bi bi-bank fs-4" style="color: #785600;"></i>
                     <div>
@@ -646,17 +666,25 @@
     <div class="modal fade show d-block" style="background: rgba(48, 49, 41, 0.8); backdrop-filter: blur(8px);" tabindex="-1" @onclick="CloseImageModal">
         <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation>
             <div class="modal-content" style="background: transparent; border: none;">
-                <div class="text-end p-2">
-                    <button class="btn btn-sm" style="color: #ffffff; font-size: 1.5rem; background: none; border: none;" @onclick="CloseImageModal"><i class="bi bi-x-lg"></i></button>
+                <div class="text-end p-2 d-flex justify-content-end align-items-center">
+                    <span class="badge bg-secondary me-2" style="opacity: 0.8;">확대: 휠 / 이동: 드래그</span>
+                    <button class="btn btn-sm btn-outline-light me-3" @onclick="ResetImageTransform"><i class="bi bi-arrows-fullscreen"></i> 화면 맞춤</button>
+                    
+                    <button class="btn btn-sm" style="color: #ffffff; font-size: 1.5rem; background: none; border: none; padding: 0;" @onclick="CloseImageModal"><i class="bi bi-x-lg"></i></button>
                 </div>
-                <div class="text-center p-0">
-                    <img src="@currentLargeImageUrl" class="img-fluid rounded" style="max-height: 80vh; object-fit: contain;" />
+                
+                <div class="text-center p-0"
+                     style="overflow: hidden; position: relative; height: 80vh; cursor: @(isDragging ? "grabbing" : "grab");"
+                     @onwheel="HandleWheel" @onwheel:preventDefault="true"
+                     @onmousedown="HandleMouseDown" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp" @onmouseleave="HandleMouseUp">
+                    
+                    <img src="@currentLargeImageUrl" class="rounded" 
+                         style="transform: translate(@(imgX)px, @(imgY)px) scale(@imgScale); transition: transform 0.05s linear; max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none;" />
                 </div>
             </div>
         </div>
     </div>
 }
-
 <script>
     if (typeof window.downloadExcelFile !== 'function') {
         window.downloadExcelFile = (fileName, base64String) => {
@@ -670,6 +698,12 @@
 
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
+// 🚀 영수증 확대/이동 상태 변수
+    private double imgScale = 1.0;
+    private double imgX = 0;
+    private double imgY = 0;
+    private bool isDragging = false;
+    private double startDragX, startDragY;
 
     // ???????????????????????????????????????????
     // 공통 변수
@@ -894,11 +928,11 @@
                         if (ocrResult.Amount.HasValue && ocrResult.Amount.Value > 0) inputAmount = ocrResult.Amount.Value;
                         if (!string.IsNullOrEmpty(ocrResult.Description)) newReceipt.Description = ocrResult.Description;
 
-                        await JSRuntime.InvokeVoidAsync("alert", "? AI가 영수증 정보를 인식했습니다.\n입력된 금액과 날짜가 정확한지 확인해 주세요!");
+                        await JSRuntime.InvokeVoidAsync("alert", "AI가 영수증 정보를 인식했습니다.\n입력된 금액과 날짜가 정확한지 확인해 주세요!");
                     }
                     else
                     {
-                        await JSRuntime.InvokeVoidAsync("alert", $"?? OCR 알림: {ocrResult.ErrorMessage}\n\n(사진은 정상적으로 선택되었습니다. 수동으로 입력해 주세요.)");
+                        await JSRuntime.InvokeVoidAsync("alert", $"OCR 알림: {ocrResult.ErrorMessage}\n\n(사진은 정상적으로 선택되었습니다. 수동으로 입력해 주세요.)");
                     }
                 }
                 catch (Exception ex)
@@ -932,7 +966,7 @@
         }
         if (string.IsNullOrWhiteSpace(newReceipt.Description))
         {
-            await JSRuntime.InvokeVoidAsync("alert", "적요(사용처)를 입력해 주세요."); return;
+            newReceipt.Description = "내역 없음";
         }
         if (CurrentUser.Role == "Admin" && adminSelectedDeptId == 0)
         {
@@ -1543,7 +1577,52 @@
     // ???????????????????????????????????????????
     // 공통 모달
     // ???????????????????????????????????????????
-    private void ShowLargeImage(string url) { currentLargeImageUrl = url; showImageModal = true; }
+    private void ShowImageModal(string url){currentLargeImageUrl = url;showImageModal = true;    
+    // 🚀 추가: 새 영수증을 열 때 줌/위치 초기화
+    ResetImageTransform(); }
+    // 🚀 [+] 버튼 클릭 시 확대
+    private void ZoomIn()
+    {
+        // 한 번 누를 때마다 0.2배씩 커지며, 최대 5배까지만 확대되도록 제한
+        imgScale = Math.Min(imgScale + 0.2, 5.0);
+    }
+
+    // 🚀 [-] 버튼 클릭 시 축소
+    private void ZoomOut()
+    {
+        // 한 번 누를 때마다 0.2배씩 작아지며, 최소 0.5배까지만 축소되도록 제한
+        imgScale = Math.Max(imgScale - 0.2, 0.5);
+    }
     private void CloseImageModal() { showImageModal = false; currentLargeImageUrl = ""; }
-   
+   // 🚀 줌 및 이동 핸들러 로직 (파일 맨 아래 추가)
+    private void HandleWheel(WheelEventArgs e)
+    {
+        if (e.DeltaY < 0) imgScale = Math.Min(imgScale + 0.1, 5.0);
+        else imgScale = Math.Max(imgScale - 0.1, 0.5);
+    }
+
+    private void HandleMouseDown(MouseEventArgs e)
+    {
+        isDragging = true;
+        startDragX = e.ClientX - imgX;
+        startDragY = e.ClientY - imgY;
+    }
+
+    private void HandleMouseMove(MouseEventArgs e)
+    {
+        if (isDragging)
+        {
+            imgX = e.ClientX - startDragX;
+            imgY = e.ClientY - startDragY;
+        }
+    }
+
+    private void HandleMouseUp(MouseEventArgs e) => isDragging = false;
+
+    private void ResetImageTransform()
+    {
+        imgScale = 1.0;
+        imgX = 0;
+        imgY = 0;
+    }
 }
