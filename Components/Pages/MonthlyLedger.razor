@@ -16,8 +16,8 @@
 
 <style>
     /* =======================================================
-           🎨 DESIGN SYSTEM: The Tactile Ledger
-        ======================================================= */
+               🎨 DESIGN SYSTEM: The Tactile Ledger (화면 디자인 - 기존 동일)
+       ======================================================= */
     .ledger-surface {
         background-color: #fbfaee;
         min-height: 100vh;
@@ -235,7 +235,7 @@
         display: inline-block;
     }
 
-    /* 아이콘 버튼 (색상 수정 완료) */
+    /* 아이콘 버튼 */
     .icon-btn {
         display: inline-flex;
         align-items: center;
@@ -250,28 +250,13 @@
         font-size: 0.9rem;
     }
 
-        .icon-btn:hover {
-            background-color: #eae9dd;
-        }
+        .icon-btn:hover { background-color: #eae9dd; }
+        .icon-btn.edit { color: #198754; }
+        .icon-btn.delete { color: #dc3545; }
+        .icon-btn.receipt { color: #785600; }
+        .icon-btn.upload { color: #e6a23c; }
 
-        .icon-btn.edit {
-            color: #198754;
-        }
-        /* 녹색 (수정) */
-        .icon-btn.delete {
-            color: #dc3545;
-        }
-        /* 빨강 (삭제) */
-        .icon-btn.receipt {
-            color: #785600;
-        }
-
-        .icon-btn.upload {
-            color: #e6a23c;
-        }
-    /* 주황/노랑 (업로드 폴더) */
-
-    /* 🚀 추가: 웹(화면)에서는 아래쪽에 배치된 인쇄 양식을 완벽히 숨깁니다. */
+    /* 웹(화면)에서는 아래쪽에 배치된 인쇄 양식을 완벽히 숨깁니다. */
     @@media screen {
         .print-only {
             display: none !important;
@@ -279,25 +264,38 @@
     }
 
     /* =======================================================
-           Print Styles (인쇄 양식) - 왼쪽/상단 여백 완벽 제거 버전
-        ======================================================= */
+               🚀 Print Styles (인쇄 양식) - 스크롤바, 날짜 고정, 축소 최적화
+       ======================================================= */
     @@media print {
         /* 1. 웹 전용 UI 숨기기 */
         .sidebar, .pc-top-bar, .mobile-top-header, .mobile-bottom-nav, .no-print, #monthly-ledger-content {
             display: none !important;
         }
-        /* 🚀 2. 핵심 원인: 사이드바가 차지하던 왼쪽 빈 공간과 기본 패딩을 강제로 초기화 */
-        html, body, .page, .main-content-area, .content, main {
+
+        /* 🚀 2. 세로/가로 스크롤바 원천 차단 (min-height 해제) */
+        html, body, .page, .main-content-area, .content, main, .ledger-surface {
             margin: 0 !important;
             padding: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
+            min-height: 0 !important; /* 화면용 100vh 무효화 (세로 스크롤 주범) */
+            height: auto !important;
+            overflow: visible !important;
             background-color: white !important;
         }
 
-            body * {
-                visibility: visible;
-            }
+        .ledger-table-container, .table-responsive {
+            overflow: visible !important;
+            max-height: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        body * {
+            visibility: visible;
+        }
 
         .print-only {
             display: block !important;
@@ -306,19 +304,61 @@
             margin: 0 !important;
             padding: 0 !important;
         }
-        /* 3. 인쇄 용지 여백 설정 (상단 40mm가 너무 넓어 15mm로 축소. 필요시 변경) */
+        /* 🚀영수증 팝업 상단 텍스트(날짜, 적요, 금액) 한 줄 고정 및 폰트 최적화 */
+        .receipt-box > div:not(.receipt-img-wrapper) {
+            display: flex !important;
+            flex-wrap: nowrap !important; /* 절대 줄바꿈 금지 */
+            justify-content: space-between !important;
+            align-items: center !important;
+            font-size: 10pt !important; /* 기본 폰트 10pt 고정 (모아찍기 시 자동 축소) */
+            width: 100% !important;
+            overflow: hidden !important;
+            white-space: nowrap !important;
+            padding-bottom: 4px !important;
+            border-bottom: 1px solid #aaa !important;
+            margin-bottom: 4px !important;
+        }
+            /* 내부 요소(span 등) 말줄임표 처리 방어 로직 */
+            .receipt-box > div:not(.receipt-img-wrapper) > * {
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important; /* 너무 길면 ... 으로 표시하여 밑으로 떨어지는 것 방지 */
+                display: inline-block !important;
+                font-size: inherit !important;
+            }
+            /* 각 항목(날짜, 적요, 금액)의 가로 비율 강제 할당 */
+            .receipt-box > div:not(.receipt-img-wrapper) > :nth-child(1) {
+                flex: 0 0 auto !important;
+                margin-right: 8px !important;
+                font-weight: bold !important;
+            }
+            /* 날짜 */
+
+            .receipt-box > div:not(.receipt-img-wrapper) > :nth-child(2) {
+                flex: 1 1 auto !important;
+                min-width: 0 !important; /* 적요가 길어도 영역을 뚫고 나가지 않도록 제한 */
+                text-align: left !important;
+            }
+            /* 적요 (유연하게 공간 차지) */
+
+            .receipt-box > div:not(.receipt-img-wrapper) > :nth-child(3) {
+                flex: 0 0 auto !important;
+                margin-left: 8px !important;
+                font-weight: bold !important;
+            }
+     
+        /* 3. 인쇄 용지 여백 설정 */
         @@page {
             size: A4 portrait;
-            /* 상단 우측 하단 좌측  */
             margin: 20mm 9mm 5mm 9mm;
         }
-        /* 4. 강제 페이지 넘김 */
+
         .page-break-before {
             page-break-before: always !important;
             break-before: page !important;
             margin-top: 0 !important;
         }
-        /* 5. 타이틀 및 테이블 디자인 유지 */
+
         .print-only-title {
             display: block !important;
             text-align: center !important;
@@ -327,31 +367,56 @@
             font-weight: bold;
         }
 
-        table.table {
+        /* 🚀 4. 장부 테이블 설정 (기본 9pt, 자동 너비 분배)
+           min-width: 0으로 설정하여 브라우저가 모아찍기(1, 2, 4장)에 맞게 
+           자연스럽게 스케일(비율 축소)을 조정하도록 합니다. */
+        table.table, .ledger-table {
             width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important; /* 화면용 1100px 강제 해제 */
             border-collapse: collapse !important;
-            table-layout: fixed !important; /* 🚀 표 칸 너비를 고정하여 우측 선 잘림 완벽 방지 */
-            font-size: 11pt !important;
+            table-layout: auto !important; 
+            font-size: 10pt !important; /* 기본 폰트 9 지정 */
             margin-left: 0 !important;
         }
 
-            table.table th, table.table td {
-                padding: 4px !important;
-                border: 1px solid #444 !important;
-                vertical-align: middle !important;
-            }
+        /* 🚀 5. 날짜 열(두 번째 열) 절대 줄바꿈 금지 및 너비 고정 */
+        table.table th:nth-child(2), table.table td:nth-child(2),
+        .ledger-table th:nth-child(2), .ledger-table td:nth-child(2) {
+            white-space: nowrap !important;
+            width: 85px !important;
+            min-width: 85px !important;
+            text-align: center !important;
+        }
 
-            table.table thead th {
-                background-color: #d3d3d3 !important;
-                font-weight: bold !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-            }
+        /* 나머지 칸 텍스트 줄바꿈 세팅 및 테두리 */
+        table.table td, .ledger-table td {
+            word-break: keep-all !important;
+            overflow-wrap: break-word !important;
+            padding: 4px !important;
+            border: 1px solid #444 !important;
+            vertical-align: middle !important;
+        }
+
+        table.table th, .ledger-table th {
+            padding: 4px !important;
+            border: 1px solid #444 !important;
+            vertical-align: middle !important;
+        }
+
+        table.table thead th, .ledger-table thead th {
+            background-color: #d3d3d3 !important;
+            font-weight: bold !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
 
         .money-cell {
             text-align: right !important;
+            white-space: nowrap !important; /* 금액도 줄바꿈 방지 */
         }
-        /* 영수증 인쇄 그리드 */
+
+        /* 6. 영수증 인쇄 그리드 */
         .receipt-grid-1 .receipt-box {
             width: 100%;
             height: 90vh;
@@ -361,35 +426,25 @@
             flex-direction: column;
         }
 
-        .receipt-grid-2 {
+        .receipt-grid-2 { display: flex; flex-wrap: wrap; justify-content: space-between; }
+        .receipt-grid-2 .receipt-box {
+            width: 48%;
+            height: 85vh;
+            margin-bottom: 5mm;
+            page-break-inside: avoid;
             display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
+            flex-direction: column;
         }
 
-            .receipt-grid-2 .receipt-box {
-                width: 48%;
-                height: 85vh;
-                margin-bottom: 5mm;
-                page-break-inside: avoid;
-                display: flex;
-                flex-direction: column;
-            }
-
-        .receipt-grid-4 {
+        .receipt-grid-4 { display: flex; flex-wrap: wrap; justify-content: space-between; }
+        .receipt-grid-4 .receipt-box {
+            width: 48%;
+            height: 42vh;
+            margin-bottom: 5mm;
+            page-break-inside: avoid;
             display: flex;
-            flex-wrap: wrap;
-            justify-content: space-between;
+            flex-direction: column;
         }
-
-            .receipt-grid-4 .receipt-box {
-                width: 48%;
-                height: 42vh;
-                margin-bottom: 5mm;
-                page-break-inside: avoid;
-                display: flex;
-                flex-direction: column;
-            }
 
         .receipt-img-wrapper {
             flex: 1;
@@ -401,11 +456,11 @@
             padding: 2px;
         }
 
-            .receipt-img-wrapper img {
-                max-width: 100%;
-                max-height: 100%;
-                object-fit: contain;
-            }
+        .receipt-img-wrapper img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
 
         .receipt-empty {
             flex: 1;
@@ -1062,7 +1117,7 @@
                     }
                     else
                     {
-                        <div class="receipt-empty">증빙물 부착란</div>
+                        <div class="receipt-empty"></div>
                     }
                 </div>
             }
