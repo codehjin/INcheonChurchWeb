@@ -12,6 +12,8 @@
 <style>
     /* ── Tactile Ledger Design Tokens ── */
     .dash-hero-card {
+        font-size: 1rem ;
+        font-weight: 700 ;
         background-color: var(--surface-lowest);
         border-radius: 0.75rem;
         box-shadow: 0 4px 20px rgba(48, 49, 41, 0.04);
@@ -24,6 +26,7 @@
     }
 
     .dash-detail-card {
+        font-size: 1rem ;
         background-color: var(--surface-lowest);
         border-radius: 0.75rem;
         box-shadow: 0 4px 20px rgba(48, 49, 41, 0.04);
@@ -32,7 +35,7 @@
     }
 
     .dash-label {
-        font-size: 0.8125rem;
+        font-size: 1rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.04em;
@@ -42,7 +45,7 @@
     }
 
     .dash-hero-amount {
-        font-size: clamp(2rem, 4vw, 2.75rem);
+        font-size: clamp(1.5rem, 4vw, 2rem);
         font-weight: 900;
         font-variant-numeric: tabular-nums;
         letter-spacing: -0.02em;
@@ -53,8 +56,8 @@
     .dash-badge-pct {
         background-color: var(--surface-low);
         border-radius: 9999px;
-        padding: 0.25rem 0.875rem;
-        font-size: 0.8125rem;
+        padding: 0.25rem 1rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--primary-gold);
         text-transform: uppercase;
@@ -77,7 +80,7 @@
     }
 
     .dash-meta-label {
-        font-size: 0.8125rem;
+        font-size: 1rem;
         font-weight: 600;
         letter-spacing: -0.01em;
         color: var(--on-surface-muted);
@@ -96,14 +99,14 @@
     }
 
     .dash-filter-chip-label {
-        font-size: 0.8125rem;
+        font-size: 1rem;
         font-weight: 600;
         letter-spacing: -0.01em;
         color: var(--on-surface-muted);
     }
 
     .dash-filter-chip-value {
-        font-size: 0.875rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--on-surface);
     }
@@ -117,20 +120,20 @@
     .dash-stat-meta {
         display: flex;
         justify-content: space-between;
-        font-size: 0.75rem;
+        font-size: 1rem;
         font-weight: 700;
         color: var(--on-surface);
     }
 
     .dash-list-wrap {
         overflow: hidden;
-        border-radius: 0.75rem;
+        border-radius: 1rem;
         background-color: rgba(255,255,255,0.5);
     }
 
     .dash-list-head th {
         padding: 1rem 2rem;
-        font-size: 0.875rem;
+        font-size: 1rem;
         font-weight: 700;
         letter-spacing: -0.01em;
         color: var(--primary-gold);
@@ -154,13 +157,13 @@
 
     .dash-list-body td {
         padding: 1.25rem 2rem;
-        font-size: 0.875rem;
+        font-size: 1rem;
         vertical-align: middle;
         border: none !important;
     }
 
     .dash-status-waiting {
-        font-size: 0.875rem;
+        font-size: 1rem;
         font-weight: 600;
         color: var(--primary-gold);
         background-color: var(--surface-low);
@@ -169,7 +172,7 @@
     }
 
     .dash-status-done {
-        font-size: 0.875rem;
+        font-size: 1rem;
         font-weight: 600;
         color: var(--on-surface-muted);
         font-variant-numeric: tabular-nums;
@@ -187,7 +190,7 @@
                     <h3 style="font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; letter-spacing: -0.02em; color: var(--on-surface); margin-bottom: 0.25rem; line-height: 1.2;">
                         @CurrentYear 재정 현황 요약
                     </h3>
-                    <p style="color: var(--on-surface-sub); font-size: 0.9375rem; font-weight: 400; line-height: 1.5; opacity: 0.85; margin: 0;">
+                    <p style="color: var(--on-surface-sub); font-size: 1.1rem; font-weight: 400; line-height: 1.5; opacity: 0.85; margin: 0;">
                         현재 회계 기간의 재정 성과 상세 내역입니다.
                     </p>
                 </div>
@@ -204,7 +207,7 @@
                     {
                         <div class="dash-filter-chip">
                             <span class="dash-filter-chip-label">부서</span>
-                            <select style="background: none; border: none; font-size: 0.875rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;" @onchange="OnDeptChanged" value="@DashboardDeptId">
+                            <select style="background: none; border: none; font-size: 1.2rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;" @onchange="OnDeptChanged" value="@DashboardDeptId">
                                 <option value="0">전체 부서</option>
                                 @foreach (var dept in Departments)
                                 {
@@ -271,7 +274,7 @@
             @* 지출 항목별 상세 *@
             <div class="dash-detail-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 예산 집행률</h5>
+                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 예산 집행률</h5>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                     @if (ExpenseStats.Any())
@@ -283,7 +286,7 @@
 
                             <div class="dash-stat-row">
                                 <div class="dash-stat-meta">
-                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 0.7rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
                                     <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
                                         ₩@stat.Amount.ToString("N0") (@displayPct)
                                     </span>
@@ -296,7 +299,7 @@
                     }
                     else
                     {
-                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">예산 및 집행 내역이 없습니다.</p>
+                        <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 집행 내역이 없습니다.</p>
                     }
                 </div>
             </div>
@@ -304,7 +307,7 @@
             @* 수입 항목별 상세 *@
             <div class="dash-detail-card">
                 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 예산 달성률</h5>
+                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 예산 달성률</h5>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                     @if (IncomeStats.Any())
@@ -316,7 +319,7 @@
 
                             <div class="dash-stat-row">
                                 <div class="dash-stat-meta">
-                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 0.7rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
                                     <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
                                         ₩@stat.Amount.ToString("N0") (@displayPct)
                                     </span>
@@ -329,7 +332,7 @@
                     }
                     else
                     {
-                        <p style="color: var(--on-surface-muted); font-size: 0.8125rem; text-align: center; padding: 1rem 0;">예산 및 수입 내역이 없습니다.</p>
+                        <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 수입 내역이 없습니다.</p>
                     }
                 </div>
             </div>
@@ -339,8 +342,8 @@
         <div style="display: flex; flex-direction: column; gap: 1.5rem; padding-bottom: 2rem;">
             <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1rem;">
                 <div>
-                    <h4 style="font-size: 1.0625rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin-bottom: 0.25rem;">지출결의서 신청현황</h4>
-                    <p style="font-size: 0.875rem; color: var(--on-surface-muted); font-weight: 400; line-height: 1.5; margin: 0;">모든 승인 대기 및 완료된 신청 건의 상태입니다.</p>
+                    <h4 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin-bottom: 0.25rem;">지출결의서 신청현황</h4>
+                    <p style="font-size: 1rem; color: var(--on-surface-muted); font-weight: 400; line-height: 1.5; margin: 0;">모든 승인 대기 및 완료된 신청 건의 상태입니다.</p>
                 </div>
                 <div style="text-align: right;">
                     <p class="dash-label" style="margin-bottom: 0.25rem;">총 신청액 누계</p>
@@ -392,7 +395,7 @@
                         else
                         {
                             <tr>
-                                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-muted); font-size: 0.875rem;">
+                                <td colspan="4" style="text-align: center; padding: 3rem; color: var(--on-surface-muted); font-size: 1rem;">
                                     신청 내역이 없습니다.
                                 </td>
                             </tr>

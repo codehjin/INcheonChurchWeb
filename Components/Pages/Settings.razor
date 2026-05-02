@@ -28,24 +28,24 @@
     
     /* 탭 메뉴 디자인 */
     .settings-tab-bar { background-color: #f5f4e8; border-radius: 0.75rem; padding: 0.375rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
-    .settings-tab { padding: 0.625rem 1rem; font-size: 0.875rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out; }
+    .settings-tab { padding: 0.625rem 1rem; font-size: 1rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out; }
     .settings-tab:hover { background-color: #eae9dd; }
     .settings-tab.active { background-color: #ffffff; color: #5a4000; box-shadow: 0 2px 6px rgba(48, 49, 41, 0.06); font-weight: 800; }
     
     /* 버튼 디자인 */
-    .settings-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.5rem 1.25rem; font-size: 0.875rem; transition: all 0.15s ease-out; }
+    .settings-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.5rem 1.25rem; font-size: 1rem; transition: all 0.15s ease-out; }
     .settings-gold-btn:hover { transform: translateY(-1px); color: #ffffff; box-shadow: 0 4px 10px rgba(120, 86, 0, 0.2); }
     .settings-gold-btn:disabled { opacity: 0.6; transform: none; box-shadow: none; cursor: not-allowed; }
     
-    .settings-secondary-btn { background-color: #eae9dd; color: #5a4000; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.5rem 1.25rem; font-size: 0.875rem; transition: all 0.2s ease-out; }
+    .settings-secondary-btn { background-color: #eae9dd; color: #5a4000; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.5rem 1.25rem; font-size: 1rem; transition: all 0.2s ease-out; }
     .settings-secondary-btn:hover { background-color: #e4e3d7; color: #5a4000; }
     .settings-secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .settings-danger-btn { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.4rem 1rem; font-size: 0.8125rem; transition: all 0.2s ease-out; }
+    .settings-danger-btn { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.4rem 1rem; font-size: 1rem; transition: all 0.2s ease-out; }
     .settings-danger-btn:hover { background-color: rgba(186, 26, 26, 0.2); color: #ba1a1a; }
 
     /* 입력창 (Input & Select) */
-    .settings-input { background-color: #ffffff; border: 1px solid #e4e3d7; border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 0.9rem; color: #1b1c15; transition: border-color 0.2s, box-shadow 0.2s; width: 100%; }
+    .settings-input { background-color: #ffffff; border: 1px solid #e4e3d7; border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 1rem; color: #1b1c15; transition: border-color 0.2s, box-shadow 0.2s; width: 100%; }
     .settings-input:focus { outline: none; border-color: #785600; box-shadow: 0 0 0 2px rgba(120, 86, 0, 0.1); }
     select.settings-input { padding-right: 2.25rem !important; }
 
@@ -56,8 +56,8 @@
     /* 테이블 디자인 */
     .settings-table-container { overflow-x: auto; border-radius: 0.5rem; background-color: #ffffff; border: 1px solid #eae9dd; }
     .settings-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
-    .settings-table th { background-color: rgba(234, 233, 221, 0.6); color: #4e4637; font-weight: 700; font-size: 0.8125rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.875rem 1rem; border-bottom: 2px solid #d2c5b2; white-space: nowrap; text-align: center; }
-    .settings-table td { padding: 0.875rem 1rem; vertical-align: middle; font-size: 0.9rem; color: #1b1c15; border-bottom: 1px solid #eae9dd; text-align: center; }
+    .settings-table th { background-color: rgba(234, 233, 221, 0.6); color: #4e4637; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.875rem 1rem; border-bottom: 2px solid #d2c5b2; white-space: nowrap; text-align: center; }
+    .settings-table td { padding: 0.875rem 1rem; vertical-align: middle; font-size: 1rem; color: #1b1c15; border-bottom: 1px solid #eae9dd; text-align: center; }
     .settings-table tbody tr { transition: background-color 0.15s; }
     .settings-table tbody tr:hover { background-color: #fbfcfa; }
     .settings-tabular { font-variant-numeric: tabular-nums; }
@@ -69,7 +69,7 @@
 
     /* 연도 선택기 */
     .year-selector { display: inline-flex; align-items: center; background-color: #ffffff; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #eae9dd; }
-    .year-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 0.25rem; color: #785600; border: none; background: transparent; cursor: pointer; transition: background 0.2s; font-size: 0.85rem; font-weight: bold; }
+    .year-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 0.25rem; color: #785600; border: none; background: transparent; cursor: pointer; transition: background 0.2s; font-size: 1rem; font-weight: bold; }
     .year-btn:hover { background-color: #f5f4e8; }
     .year-btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .year-value { font-size: 1rem; font-weight: 800; color: #1b1c15; min-width: 4rem; text-align: center; padding: 0 0.5rem; }
