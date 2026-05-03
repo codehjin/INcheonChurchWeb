@@ -17,16 +17,25 @@
     <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/js/app.js"></script>
 
     <script>
-        // 엑셀 파일 다운로드
-        window.downloadExcelFile = function (fileName, base64) {
-            const link = document.createElement('a');
-            link.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + base64;
-            link.download = fileName;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            // 새 창 팝업 인쇄 함수
+        window.printPopup = function (html) {
+            var w = window.open('', '_blank', 'width=1000,height=800');
+            w.document.write(html);
+            w.document.close();
+            w.focus();
+
+            // 이미지 등이 모두 로드된 후 인쇄창 호출
+            w.onload = function () {
+                w.print();
+                w.close();
+            };
+            // 만약 onload가 작동하지 않을 경우를 대비한 보험 (0.8초 후 강제 실행)
+            setTimeout(function () {
+                try { w.print(); w.close(); } catch (e) { }
+            }, 800);
         };
 
         // 숨겨진 파일 input 트리거

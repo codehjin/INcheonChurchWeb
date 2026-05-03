@@ -1,0 +1,17 @@
+.hub-card { background-color: #ffffff; border-radius: 0.375rem; border: none; box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04); transition: all 0.2s ease-out; }
+.hub-card-warm { background-color: #f5f4e8; border-radius: 0.375rem; border: none; }
+.hub-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.25rem; padding: 0.75rem 2.5rem; font-size: 1rem; transition: all 0.15s ease-out; }
+.hub-gold-btn:hover { transform: scale(1.03); color: #ffffff; }
+.hub-gold-btn:active { transform: scale(0.97); }
+.hub-gold-btn:disabled { opacity: 0.5; transform: none; }
+.hub-input { background-color: #ffffff; border: none; border-radius: 0.375rem; padding: 0.625rem 1rem; font-size: 1rem; color: #1b1c15; transition: box-shadow 0.2s ease-out; }
+.hub-input:focus { outline: none; box-shadow: 0 0 0 2px rgba(123, 88, 3, 0.2); }
+.hub-info-box { background-color: #f5f4e8; border-radius: 0.375rem; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1rem; }
+.hub-table-row { transition: background-color 0.15s ease-out; }
+.hub-table-row:hover { background-color: #ffffff; }
+.hub-table-header { background-color: rgba(234, 233, 221, 0.5); }
+.hub-badge { font-size: 1rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+.hub-tabular { font-variant-numeric: tabular-nums; }
+.hub-file-table td, .hub-file-table th { border: none !important; padding: 1rem 1rem; vertical-align: middle; }
+.hub-file-table thead th { font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #4e4637; }
+.hub-amount { color: #5a4000; font-weight: 800; font-size: 1.1rem !important; }

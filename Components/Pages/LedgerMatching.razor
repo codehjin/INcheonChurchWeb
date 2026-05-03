@@ -1,0 +1,222 @@
+@using INcheonChurchWeb.Models
+
+<div class="hub-info-box mb-4">
+    <i class="bi bi-info-circle" style="color: #785600; font-size: 1.25rem;"></i>
+    <div>
+        <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">사용법 안내</div>
+        <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.6;">왼쪽 리스트에서 미연결된 영수증을 선택하고, 오른쪽 리스트에서 매칭할 장부 데이터를 선택한 뒤 하단의 '건별매치' 버튼을 누르세요. 날짜와 금액이 일치하는 항목들은 '자동매치' 기능을 통해 한 번에 정리할 수 있습니다.</p>
+    </div>
+</div>
+
+<div class="row g-4" style="align-items: stretch;">
+    <div class="col-lg-5 d-flex flex-column">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="fw-bold mb-0 d-flex align-items-center gap-2" style="color: #1b1c15;">
+                미연결 영수증
+                <span class="hub-tabular px-2 py-1 rounded-pill" style="background-color: rgba(90, 64, 0, 0.1); color: #5a4000; font-size: 0.8rem;">@PendingReceipts.Count</span>
+            </h5>
+            <select class="form-select hub-input fw-bold" style="width: auto; font-size: 1rem; padding: 0.3rem 2.25rem 0.3rem 0.75rem;" @bind:get="MatchingFilterMonth" @bind:set="SetMatchingFilterMonth">
+                <option value="0">전체 기간</option>
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@(m)월</option> }
+            </select>
+        </div>
+
+        <div class="flex-grow-1" style="overflow-y: auto; max-height: 65vh;">
+            @if (!GetFilteredPendingReceipts().Any())
+            {
+                <div class="text-center py-5" style="color: #4e4637;">
+                    <i class="bi bi-check-circle fs-1 d-block mb-2" style="color: #174577;"></i>
+                    모든 영수증이 매칭 완료되었습니다!
+                </div>
+            }
+            @foreach (var receipt in GetFilteredPendingReceipts())
+            {
+                bool isActive = SelectedMatchingReceipt?.Id == receipt.Id;
+                <div class="hub-receipt-item mb-2 d-flex align-items-center gap-3 @(isActive ? "selected" : "")" @onclick="() => SelectMatchingReceipt(receipt)">
+                    <input type="checkbox" class="form-check-input flex-shrink-0" style="min-width: 1.25rem; min-height: 1.25rem;" checked="@(SelectedMatchingReceiptIds.Contains(receipt.Id))" @onchange="e => ToggleMatchingReceiptSelection(receipt.Id, e)" @onclick:stopPropagation="true" />
+
+                    <div class="position-relative flex-shrink-0">
+                        <img src="@receipt.ImagePath" alt="영수증" class="rounded border" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.src='/images/no-image.png'" />
+                        <button type="button" class="btn btn-dark p-0"
+                                style="position: absolute; bottom: -5px; right: -5px; width: 22px; height: 22px; border-radius: 50%; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
+                                @onclick:stopPropagation="true"
+                                @onclick="() => OpenImageModal.InvokeAsync(receipt.ImagePath)">
+                            <i class="bi bi-zoom-in" style="font-size: 0.75rem;"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <span style="font-size: 0.9rem; font-weight: 700; color: #4e4637; letter-spacing: 0.05em;">@receipt.ReceiptDate.ToString("yyyy.MM.dd")</span>
+                            <button class="hub-delete-btn" @onclick="() => DeleteReceipt.InvokeAsync(receipt.Id)" @onclick:stopPropagation="true">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-end mt-1">
+                            <span class="fw-bold text-truncate" style="color: #1b1c15; max-width: 150px;">@receipt.Description</span>
+                            <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">원</span></span>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="col-lg-7 d-flex flex-column">
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
+            <h5 class="fw-bold mb-0" style="color: #1b1c15;">장부 데이터</h5>
+            <div class="d-flex gap-2 align-items-center">
+                <div class="position-relative">
+                    <i class="bi bi-search position-absolute" style="left: 0.75rem; top: 50%; transform: translateY(-50%); color: #4e4637; font-size: 0.8rem;"></i>
+                    <input type="text" class="form-control hub-input" style="padding-left: 2rem; font-size: 1rem; width: 220px;" placeholder="장부 내역 검색..." @bind:get="SearchKeyword" @bind:set="SetSearchKeyword" @bind:event="oninput" @onkeyup="HandleKeyUp" />
+                </div>
+                <button class="hub-secondary-btn px-3 py-2" style="font-size: 0.75rem;" @onclick="SearchData">
+                    <i class="bi bi-search me-1"></i>검색
+                </button>
+            </div>
+        </div>
+
+        <div class="hub-card-warm rounded-3 overflow-hidden flex-grow-1" style="box-shadow: 0 2px 8px rgba(48,49,41,0.04);">
+            <div style="overflow-x: auto; max-height: 65vh; overflow-y: auto;">
+                <table class="table mb-0 hub-file-table" style="border-collapse: collapse;">
+                    <thead class="hub-table-header" style="position: sticky; top: 0; z-index: 1;">
+                        <tr>
+                            <th style="padding: 1rem 1.5rem;">선택</th>
+                            <th style="padding: 1rem 0.5rem;">날짜</th>
+                            <th style="padding: 1rem 0.5rem;">카테고리</th>
+                            <th style="padding: 1rem 0.5rem;">적요</th>
+                            <th style="padding: 1rem 1.5rem;" class="text-end">금액</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in UnmatchedEntries)
+                        {
+                            bool isSuggested = SelectedMatchingReceipt != null &&
+                                (item.Date.Date == SelectedMatchingReceipt.ReceiptDate.Date || item.Expense == SelectedMatchingReceipt.Amount);
+                            <tr class="hub-table-row" style="cursor: pointer; @(isSuggested ? "background-color: rgba(120, 86, 0, 0.06);" : "") @(SelectedMatchingEntryId == item.Id ? "background-color: rgba(90, 64, 0, 0.1);" : "")">
+                                <td style="padding: 1rem 1.5rem;">
+                                    <input type="radio" name="ledger_match_select" style="width: 1rem; height: 1rem; accent-color: #5a4000; cursor: pointer;"
+                                           checked="@(SelectedMatchingEntryId == item.Id)"
+                                           @onchange="() => SetSelectedMatchingEntryId(item.Id)" />
+                                </td>
+                                <td class="hub-tabular" style="padding: 1rem 0.5rem; color: #4e4637; font-size: 0.875rem;">@item.Date.ToString("yyyy.MM.dd")</td>
+                                <td style="padding: 1rem 0.5rem;">
+                                    <span class="hub-badge hub-badge-cat">@item.Category</span>
+                                </td>
+                                <td style="padding: 1rem 0.5rem; font-weight: 600; color: #1b1c15; font-size: 0.875rem;">@item.Description</td>
+                                <td class="text-end hub-tabular" style="padding: 1rem 1.5rem; font-weight: 800; color: #1b1c15; font-size: 0.875rem;">@(item.Expense > 0 ? item.Expense.ToString("N0") : item.Income.ToString("N0"))</td>
+                            </tr>
+                        }
+                        @if (!UnmatchedEntries.Any())
+                        {
+                            <tr><td colspan="5" class="text-center py-5" style="color: #4e4637;">증빙 없는 장부 내역이 없습니다.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="hub-bottom-bar">
+    <div class="d-flex align-items-center gap-3">
+        <span style="font-size: 0.6875rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.08em;">선택된 항목</span>
+        <span class="px-2 py-1 rounded hub-tabular" style="background-color: #5a4000; color: #ffffff; font-size: 0.625rem; font-weight: 800;">
+            @SelectedMatchingReceiptIds.Count 영수증 / @(SelectedMatchingEntryId > 0 ? "1" : "0") 장부
+        </span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <button class="hub-secondary-btn" @onclick="AutoMatchReceipts">
+            자동매치
+        </button>
+        <button class="hub-gold-btn" @onclick="ManualMatchSingle" disabled="@(SelectedMatchingReceipt == null || SelectedMatchingEntryId == 0)">
+            건별매치
+        </button>
+    </div>
+</div>
+
+@if (ShowImageModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(5px);" @onclick="CloseImageModal">
+        <div class="modal-dialog modal-dialog-centered modal-xl" @onclick:stopPropagation="true">
+            <div class="modal-content" style="background: transparent; border: none; box-shadow: none;">
+                <div class="modal-header border-0 pb-0 justify-content-end">
+                    <button type="button" class="btn-close btn-close-white" style="filter: invert(1); font-size: 1.5rem;" @onclick="CloseImageModal"></button>
+                </div>
+
+                <div class="modal-body text-center p-0"
+                     style="overflow: hidden; height: 85vh; display: flex; align-items: center; justify-content: center;"
+                     @onwheel="HandleWheel"
+                     @onmousedown="HandleMouseDown"
+                     @onmousemove="HandleMouseMove"
+                     @onmouseup="HandleMouseUp"
+                     @onmouseleave="HandleMouseUp">
+
+                    <img src="@CurrentLargeImageUrl"
+                         style="max-width: 100%; max-height: 100%; transform: translate(@(ImgX)px, @(ImgY)px) scale(@ImgScale); cursor: @(IsDragging ? "grabbing" : "grab"); transition: transform 0.05s ease-out;"
+                         draggable="false" />
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<UploadedReceipt> PendingReceipts { get; set; } = new();
+    [Parameter] public List<LedgerEntry> UnmatchedEntries { get; set; } = new();
+    [Parameter] public int MatchingFilterMonth { get; set; }
+    [Parameter] public EventCallback<int> MatchingFilterMonthChanged { get; set; }
+    [Parameter] public UploadedReceipt? SelectedMatchingReceipt { get; set; }
+    [Parameter] public EventCallback<UploadedReceipt?> SelectedMatchingReceiptChanged { get; set; }
+    [Parameter] public HashSet<int> SelectedMatchingReceiptIds { get; set; } = new();
+    [Parameter] public int SelectedMatchingEntryId { get; set; }
+    [Parameter] public EventCallback<int> SelectedMatchingEntryIdChanged { get; set; }
+    [Parameter] public string SearchKeyword { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchKeywordChanged { get; set; }
+
+    [Parameter] public EventCallback SearchData { get; set; }
+    [Parameter] public EventCallback<KeyboardEventArgs> HandleKeyUp { get; set; }
+    [Parameter] public EventCallback<int> DeleteReceipt { get; set; }
+    [Parameter] public EventCallback<string> OpenImageModal { get; set; }
+    [Parameter] public EventCallback ManualMatchSingle { get; set; }
+    [Parameter] public EventCallback AutoMatchReceipts { get; set; }
+
+    [Parameter] public bool ShowImageModal { get; set; }
+    [Parameter] public string CurrentLargeImageUrl { get; set; } = string.Empty;
+    [Parameter] public double ImgX { get; set; }
+    [Parameter] public double ImgY { get; set; }
+    [Parameter] public double ImgScale { get; set; }
+    [Parameter] public bool IsDragging { get; set; }
+    [Parameter] public EventCallback CloseImageModal { get; set; }
+    [Parameter] public EventCallback<WheelEventArgs> HandleWheel { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseDown { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseMove { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseUp { get; set; }
+
+    private List<UploadedReceipt> GetFilteredPendingReceipts()
+    {
+        if (MatchingFilterMonth == 0) return PendingReceipts;
+        return PendingReceipts.Where(r => r.ReceiptDate.Month == MatchingFilterMonth).ToList();
+    }
+
+    private Task SetMatchingFilterMonth(int value) => MatchingFilterMonthChanged.InvokeAsync(value);
+    private Task SetSearchKeyword(string value) => SearchKeywordChanged.InvokeAsync(value);
+
+    private async Task SelectMatchingReceipt(UploadedReceipt receipt)
+    {
+        await SelectedMatchingReceiptChanged.InvokeAsync(receipt);
+        if (!SelectedMatchingReceiptIds.Contains(receipt.Id))
+        {
+            SelectedMatchingReceiptIds.Clear();
+            SelectedMatchingReceiptIds.Add(receipt.Id);
+        }
+    }
+
+    private void ToggleMatchingReceiptSelection(int id, ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false)) SelectedMatchingReceiptIds.Add(id);
+        else SelectedMatchingReceiptIds.Remove(id);
+    }
+
+    private Task SetSelectedMatchingEntryId(int id) => SelectedMatchingEntryIdChanged.InvokeAsync(id);
+}

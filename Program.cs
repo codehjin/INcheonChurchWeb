@@ -68,10 +68,11 @@ builder.Services.AddRazorComponents()
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=church.db";
 
 // 가져온 연결 문자열(connectionString)로 DB를 연결합니다.
-builder.Services.AddDbContext<AppDbContext>(options =>
+builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddScoped<AccountingService>();
+builder.Services.AddScoped<FileService>();
 
 // 부서별 심야 자동 백업 서비스를 백그라운드 엔진에 등록
 builder.Services.AddHostedService<INcheonChurchWeb.Services.AutoBackupService>();
@@ -102,7 +103,8 @@ app.MapRazorComponents<App>()
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
-    var db = services.GetRequiredService<AppDbContext>();
+    var dbFactory = services.GetRequiredService<IDbContextFactory<AppDbContext>>();
+    using var db = dbFactory.CreateDbContext();
 
     DbInitializer.Initialize(db);
 }

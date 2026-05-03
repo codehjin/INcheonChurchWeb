@@ -1,0 +1,82 @@
+@using INcheonChurchWeb.Models
+
+<div class="hub-card p-3 p-md-4">
+
+    <div class="hub-info-box mb-4">
+        <i class="bi bi-info-circle-fill" style="color: #785600; font-size: 1.25rem;"></i>
+        <div>
+            <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">작업 효율 팁</div>
+            <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.5;">최대 20장의 영수증 사진을 한 번에 선택하세요. AI가 자동으로 날짜와 금액을 판독하여 장부에 임시 저장합니다. 비어있거나 잘못 인식된 항목은 월별장부에서 수정할 수 있습니다.</p>
+        </div>
+    </div>
+
+    <div class="mb-4">
+        <InputFile multiple OnChange="HandleFilesSelected" class="form-control hub-input" accept="image/*" />
+        <div class="mt-2" style="font-size: 1rem; font-weight: 700; color: #ba1a1a;">※ 한 번에 최대 20장까지만 업로드 가능합니다.</div>
+    </div>
+
+    @if (FileStatuses.Any())
+    {
+        <div class="hub-card-warm rounded p-0 mb-4 overflow-hidden">
+            <table class="table mb-0 hub-file-table">
+                <thead class="hub-table-header">
+                    <tr>
+                        <th>파일명</th>
+                        <th>AI 판독 상태</th>
+                        <th>인식된 날짜</th>
+                        <th class="text-end">인식된 금액</th>
+                        <th>인식된 사용처</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var file in FileStatuses)
+                    {
+                        <tr class="hub-table-row">
+                            <td class="text-truncate fw-bold" style="max-width: 150px; color: #1b1c15;" title="@file.FileName">@file.FileName</td>
+                            <td>
+                                @if (file.Status == ReceiptFileStatus.Pending)
+                                {
+                                    <span class="hub-badge" style="background-color: #eae9dd; color: #4e4637;">대기중</span>
+                                }
+                                else if (file.Status == ReceiptFileStatus.Processing)
+                                {
+                                    <span class="hub-badge" style="background-color: rgba(120, 86, 0, 0.1); color: #785600;"><span class="spinner-border spinner-border-sm me-1"></span>분석중</span>
+                                }
+                                else if (file.Status == ReceiptFileStatus.Success)
+                                {
+                                    <span class="hub-badge" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">성공</span>
+                                }
+                                else
+                                {
+                                    <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">실패/수동필요</span>
+                                }
+                            </td>
+                            <td class="hub-tabular" style="color: #4e4637;">@(file.ParsedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
+                            <td class="text-end hub-tabular hub-amount">@(file.ParsedAmount > 0 ? file.ParsedAmount.ToString("#,0") + "원" : "-")</td>
+                            <td style="color: #1b1c15;">@(string.IsNullOrEmpty(file.ParsedDescription) ? "-" : file.ParsedDescription)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <button class="hub-gold-btn w-100 py-3" @onclick="ProcessAllFiles" disabled="@IsProcessing">
+            @if (IsProcessing)
+            {
+                <span class="spinner-border spinner-border-sm me-2"></span><span>@($"{ProcessedCount} / {FileStatuses.Count} 처리중...")</span>
+            }
+            else
+            {
+                <i class="bi bi-magic me-2"></i><span>전체 AI 분석 및 서버 저장 시작</span>
+            }
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ReceiptFileUploadModel> FileStatuses { get; set; } = new();
+    [Parameter] public bool IsProcessing { get; set; }
+    [Parameter] public int ProcessedCount { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> HandleFilesSelected { get; set; }
+    [Parameter] public EventCallback ProcessAllFiles { get; set; }
+}

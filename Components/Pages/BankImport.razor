@@ -1,0 +1,328 @@
+@using INcheonChurchWeb.Models
+
+@if (!string.IsNullOrEmpty(UserDepartmentName))
+{
+    <div class="hub-info-box mb-4">
+        <i class="bi bi-building" style="color: #785600; font-size: 1.25rem;"></i>
+        <div>
+            <span style="color: #1b1c15; font-weight: 700;">현재 '@UserDepartmentName' 부서 장부로 작업 중입니다.</span>
+            @if (AutoRules != null && AutoRules.Any())
+            {
+                <span class="hub-badge ms-2" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">자동 분류 ON (@(AutoRules.Count)개 규칙 적용중)</span>
+            }
+        </div>
+    </div>
+}
+
+<div class="hub-card p-3 p-md-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <i class="bi bi-bank fs-4" style="color: #785600;"></i>
+        <div>
+            <h5 class="fw-bold mb-0" style="color: #1b1c15;">은행 통장 거래내역 가져오기</h5>
+            <p class="mb-0" style="color: #4e4637; font-size: 1rem;">자동 분류 규칙에 따라 항목이 분류되며, 미리보기 후 저장합니다.</p>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-3">
+        <div class="flex-grow-1">
+            <InputFile OnChange="LoadBankFiles" class="form-control hub-input" accept=".xls,.xlsx,.csv" />
+        </div>
+        @if (LastTransactionDate.HasValue)
+        {
+            <div class="p-2 px-3 rounded" style="background-color: #f5f4e8;">
+                <span style="color: #4e4637; font-size: 1rem; display: block;">마지막 장부 기록일</span>
+                <strong class="hub-tabular" style="color: #5a4000; font-size: 1.1rem;">@LastTransactionDate.Value.ToString("yyyy-MM-dd")</strong>
+            </div>
+        }
+    </div>
+    @if (IsLoading)
+    {
+        <div class="mt-3 p-3 rounded d-flex align-items-center gap-2" style="background-color: #f5f4e8;">
+            <div class="spinner-border spinner-border-sm" style="color: #785600;"></div>
+            <span style="color: #5a4000; font-weight: 600; font-size: 0.875rem;">은행 엑셀 파일 분석 중...</span>
+        </div>
+    }
+</div>
+
+@if (SavedPreviewList != null && SavedPreviewList.Any())
+{
+    var unclassifiedIncomeCount = SavedPreviewList.Count(x => x.Category == GlobalConstants.CategoryUnclassified && x.Type == GlobalConstants.TransactionTypeIncome);
+    var unclassifiedExpenseCount = SavedPreviewList.Count(x => x.Category == GlobalConstants.CategoryUnclassified && x.Type == GlobalConstants.TransactionTypeExpense);
+    var totalUnclassified = unclassifiedIncomeCount + unclassifiedExpenseCount;
+
+    <div class="hub-card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold mb-0" style="color: #1b1c15;">
+                <i class="bi bi-arrows-move me-2" style="color: #785600;"></i>퀵 분류 (남은 미분류: @totalUnclassified 건)
+            </h5>
+            <button class="hub-secondary-btn px-3 py-2" style="font-size: 1rem;" @onclick="ClearWorkData">
+                <i class="bi bi-arrow-clockwise me-1"></i>목록 비우기
+            </button>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-5">
+                <div class="hub-card p-3" style="background-color: #ffffff;">
+                    <div class="d-flex rounded p-1 mb-3" style="background-color: #f5f4e8;">
+                        <button class="btn btn-sm flex-fill fw-bold @(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "bg-white shadow-sm" : "")"
+                                style="border-radius: 0.375rem; color: @(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "#5a4000" : "#4e4637"); border: none;"
+                                @onclick="@(() => ChangeTab(GlobalConstants.TransactionTypeIncome))">
+                            ?? 수입 (@unclassifiedIncomeCount)
+                        </button>
+                        <button class="btn btn-sm flex-fill fw-bold @(SavedCurrentTab == GlobalConstants.TransactionTypeExpense ? "bg-white shadow-sm" : "")"
+                                style="border-radius: 0.375rem; color: @(SavedCurrentTab == GlobalConstants.TransactionTypeExpense ? "#ba1a1a" : "#4e4637"); border: none;"
+                                @onclick="@(() => ChangeTab(GlobalConstants.TransactionTypeExpense))">
+                            ?? 지출 (@unclassifiedExpenseCount)
+                        </button>
+                    </div>
+
+                    <div class="mb-3 p-2 rounded" style="background-color: #f5f4e8;">
+                        <input type="text" class="form-control hub-input mb-2" placeholder="?? 텍스트 검색..." @bind:get="SearchUnclassified" @bind:set="SetSearchUnclassified" @bind:event="oninput" />
+                        <div class="d-flex gap-1">
+                            <select class="form-select hub-input fw-bold flex-grow-1" style="font-size: 1rem;" @bind:get="BatchSelectedCategory" @bind:set="SetBatchSelectedCategory">
+                                <option value="">(일괄 지정 카테고리 선택)</option>
+                                @if(SavedCurrentTab == GlobalConstants.TransactionTypeIncome) { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } }
+                                else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
+                            </select>
+                            <button class="hub-gold-btn px-3 py-1" style="font-size: 1rem; padding: 0.4rem 1rem;" @onclick="ApplyBatchToUnclassified" disabled="@(SelectedUnclassified.Count == 0 || string.IsNullOrEmpty(BatchSelectedCategory))">
+                                <i class="bi bi-check2-all"></i> 적용 (@SelectedUnclassified.Count)
+                            </button>
+                        </div>
+                    </div>
+
+                    <div style="height: 380px; overflow-y: auto; padding-right: 5px;">
+                        @{ var currentList = GetFilteredUnclassified(); }
+                        @if (!currentList.Any())
+                        {
+                            <div class="text-center py-5 mt-4" style="color: #4e4637;"><i class="bi bi-check-circle fs-1 d-block mb-2" style="color: #174577;"></i> @SavedCurrentTab 미분류가 모두 처리되었습니다!</div>
+                        }
+                        else
+                        {
+                            <div class="text-end mb-2"><button class="btn btn-sm p-0" style="color: #5a4000; font-weight: 600; font-size: 1rem; text-decoration: none; border: none; background: none;" @onclick="SelectAllCurrentTab">전체선택</button></div>
+                            @foreach (var item in currentList)
+                            {
+                                <div class="p-2 mb-2 rounded d-flex align-items-center" style="background-color: @(SelectedUnclassified.Contains(item) ? (SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "rgba(90, 64, 0, 0.15)" : "rgba(186, 26, 26, 0.1)") : "#f5f4e8"); cursor: grab; transition: all 0.15s ease-out;" draggable="true" @ondragstart="@(() => HandleDragStart(item))">
+                                    <input type="checkbox" class="form-check-input me-3" style="transform: scale(1.2); cursor:pointer;" checked="@SelectedUnclassified.Contains(item)" @onchange="@(e => ToggleUnclassified(item, e))" />
+                                    <div class="flex-grow-1" @onclick="@(() => ToggleRowClick(item))" style="cursor:pointer;">
+                                        <small class="d-block" style="color: #4e4637; font-size: 1rem; font-weight: 600;">@item.Date.ToString("MM-dd")</small>
+                                        <strong style="color: #1b1c15; font-size: 1rem;">@item.Description</strong>
+                                        <div class="text-end fw-bold hub-tabular" style="color: @(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "#5a4000" : "#ba1a1a"); font-size: 1rem;">@(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? $"+{item.Income:N0}" : $"-{item.Expense:N0}")</div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <div class="hub-card p-3" style="background-color: #ffffff;">
+                    @if (SavedCurrentTab == GlobalConstants.TransactionTypeIncome)
+                    {
+                        <div class="fw-bold mb-3 pb-2" style="color: #5a4000; font-size: 1.1rem;"><i class="bi bi-box-arrow-in-down me-2"></i>수입 전용 바구니</div>
+                        <div class="row g-3">
+                            @foreach (var cat in IncomeCats)
+                            {
+                                <div class="col-4">
+                                    <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(90, 64, 0, 0.06)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                        <strong style="color: #5a4000; font-size: 1rem;">@cat</strong>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="fw-bold mb-3 pb-2" style="color: #ba1a1a; font-size: 1.1rem;"><i class="bi bi-cart-dash me-2"></i>지출 전용 바구니</div>
+                        <div class="row g-3">
+                            @foreach (var cat in ExpenseCats)
+                            {
+                                <div class="col-4">
+                                    <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(186, 26, 26, 0.04)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                        <strong style="color: #ba1a1a; font-size: 1rem;">@cat</strong>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-end mb-3 mt-4">
+        <div>
+            <h5 class="fw-bold mb-2" style="color: #1b1c15;">최종 장부 미리보기 (@SavedPreviewList.Count 건)</h5>
+            <input type="text" class="form-control hub-input" placeholder="?? 전체 내역 검색..." style="width: 250px;" @bind:get="SearchPreview" @bind:set="SetSearchPreview" @bind:event="oninput" />
+        </div>
+        <button class="hub-gold-btn" @onclick="SaveToLedger" disabled="@(IsSaving || totalUnclassified > 0)">
+            @if (IsSaving) { <span><div class="spinner-border spinner-border-sm me-2"></div>저장 중...</span> }
+            else if (totalUnclassified > 0) { <span>?? 미분류 해결 필요 (@totalUnclassified)</span> }
+            else { <span><i class="bi bi-floppy-fill me-2"></i>장부에 저장하기</span> }
+        </button>
+    </div>
+
+    <div class="hub-card-warm rounded overflow-hidden mb-4" style="max-height: 500px; overflow-y: auto;">
+        <table class="table mb-0 hub-file-table">
+            <thead class="hub-table-header" style="position: sticky; top: 0; z-index: 1;">
+                <tr>
+                    <th style="width: 10%">날짜</th><th style="width: 8%">구분</th><th class="text-start">적요</th><th class="text-start">비고</th><th style="width: 10%" class="text-end">수입</th><th style="width: 10%" class="text-end">지출</th><th style="width: 15%">카테고리 수정</th><th style="width: 6%"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in GetFilteredPreview())
+                {
+                    <tr class="hub-table-row" style="@(item.Category == GlobalConstants.CategoryUnclassified ? "background-color: rgba(186, 26, 26, 0.05);" : "")">
+                        <td class="hub-tabular" style="color: #4e4637;">@item.Date.ToString("MM-dd")</td>
+                        <td>
+                            @if(item.Type == GlobalConstants.TransactionTypeIncome) { <span class="hub-badge" style="background-color: rgba(90, 64, 0, 0.1); color: #5a4000;">수입</span> }
+                            else { <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">지출</span> }
+                        </td>
+                        <td class="text-start fw-bold" style="color: #1b1c15;">@item.Description</td>
+                        <td class="text-start" style="color: #4e4637; font-size: 1rem;">@item.Note</td>
+                        <td class="text-end hub-tabular" style="color: #5a4000; font-weight: 700;">@((item.Income > 0) ? item.Income.ToString("N0") : "")</td>
+                        <td class="text-end hub-tabular" style="color: #ba1a1a; font-weight: 700;">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
+                        <td>
+                            <select class="form-select hub-input fw-bold" style="font-size: 1rem; padding: 0.3rem 0.5rem; @(item.Category==GlobalConstants.CategoryUnclassified ? "color: #ba1a1a;" : "color: #174577;")" @bind="item.Category">
+                                @if(item.Category == GlobalConstants.CategoryUnclassified) { <option value="@GlobalConstants.CategoryUnclassified">미분류 ??</option> }
+                                @if (item.Type == GlobalConstants.TransactionTypeIncome) { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } } else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
+                            </select>
+                        </td>
+                        <td><button class="btn btn-sm p-0" style="color: #ba1a1a; border: none; background: none;" @onclick="() => SavedPreviewList.Remove(item)"><i class="bi bi-trash"></i></button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<div class="hub-card p-4 p-md-5 mt-4">
+    <div class="d-flex align-items-center gap-3 mb-3">
+        <i class="bi bi-journal-arrow-up fs-4" style="color: #174577;"></i>
+        <div class="flex-grow-1">
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <h5 class="fw-bold mb-0" style="color: #1b1c15;">월별 장부 엑셀 복원 (그대로 올리기)</h5>
+                <button class="btn btn-sm btn-outline-secondary py-1" style="font-size: 0.75rem;" @onclick="DownloadLedgerTemplate">
+                    <i class="bi bi-download me-1"></i>빈 양식 다운로드
+                </button>
+            </div>
+            <p class="mb-0" style="color: #4e4637; font-size:1rem;">월별 장부 화면에서 다운로드했던 엑셀 파일을 올려주세요. 자동 분류 없이 그대로 즉시 반영됩니다.</p>
+        </div>
+    </div>
+    <div class="p-3 rounded mb-3" style="background-color: #f5f4e8;">
+        <span style="color: #ba1a1a; font-weight: 700; font-size: 1rem;">※ 주의: 날짜와 금액이 겹치는 기존 장부 내역이 있으면 교체(덮어쓰기) 여부를 묻습니다.</span>
+    </div>
+    <div class="d-flex align-items-center gap-3">
+        <InputFile OnChange="HandleLedgerImport" class="form-control hub-input" style="max-width: 50%;" accept=".xls,.xlsx,.csv" />
+        @if (IsLedgerImporting)
+        {
+            <div style="color: #174577; font-weight: 700; font-size: 0.875rem;">
+                <div class="spinner-border spinner-border-sm me-2"></div>장부에 바로 적용 중...
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string UserDepartmentName { get; set; } = string.Empty;
+    [Parameter] public List<CategoryMapping> AutoRules { get; set; } = new();
+    [Parameter] public DateTime? LastTransactionDate { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+    [Parameter] public bool IsLedgerImporting { get; set; }
+    [Parameter] public List<LedgerEntry> SavedPreviewList { get; set; } = new();
+    [Parameter] public string SavedCurrentTab { get; set; } = GlobalConstants.TransactionTypeExpense;
+    [Parameter] public EventCallback<string> SavedCurrentTabChanged { get; set; }
+    [Parameter] public List<string> IncomeCats { get; set; } = new();
+    [Parameter] public List<string> ExpenseCats { get; set; } = new();
+    [Parameter] public string SearchUnclassified { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchUnclassifiedChanged { get; set; }
+    [Parameter] public string SearchPreview { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchPreviewChanged { get; set; }
+    [Parameter] public string BatchSelectedCategory { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> BatchSelectedCategoryChanged { get; set; }
+    [Parameter] public HashSet<LedgerEntry> SelectedUnclassified { get; set; } = new();
+
+    [Parameter] public EventCallback<InputFileChangeEventArgs> LoadBankFiles { get; set; }
+    [Parameter] public EventCallback ClearWorkData { get; set; }
+    [Parameter] public EventCallback SaveToLedger { get; set; }
+    [Parameter] public EventCallback DownloadLedgerTemplate { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> HandleLedgerImport { get; set; }
+
+    private LedgerEntry? draggedItem;
+
+    private Task SetSearchUnclassified(string value) => SearchUnclassifiedChanged.InvokeAsync(value);
+    private Task SetSearchPreview(string value) => SearchPreviewChanged.InvokeAsync(value);
+    private Task SetBatchSelectedCategory(string value) => BatchSelectedCategoryChanged.InvokeAsync(value);
+
+    private async Task ChangeTab(string targetTab)
+    {
+        await SavedCurrentTabChanged.InvokeAsync(targetTab);
+        SelectedUnclassified.Clear();
+        await BatchSelectedCategoryChanged.InvokeAsync(string.Empty);
+    }
+
+    private List<LedgerEntry> GetFilteredUnclassified()
+    {
+        return SavedPreviewList
+            .Where(x => x.Category == GlobalConstants.CategoryUnclassified
+                && x.Type == SavedCurrentTab
+                && (string.IsNullOrEmpty(SearchUnclassified)
+                    || x.Description.Contains(SearchUnclassified)
+                    || x.Note.Contains(SearchUnclassified)))
+            .ToList();
+    }
+
+    private IEnumerable<LedgerEntry> GetFilteredPreview()
+    {
+        if (string.IsNullOrEmpty(SearchPreview)) return SavedPreviewList;
+        return SavedPreviewList.Where(x => x.Description.Contains(SearchPreview) || x.Note.Contains(SearchPreview) || x.Category.Contains(SearchPreview));
+    }
+
+    private void ToggleUnclassified(LedgerEntry item, ChangeEventArgs e)
+    {
+        if ((bool)(e.Value ?? false)) SelectedUnclassified.Add(item);
+        else SelectedUnclassified.Remove(item);
+    }
+
+    private void ToggleRowClick(LedgerEntry item)
+    {
+        if (SelectedUnclassified.Contains(item)) SelectedUnclassified.Remove(item);
+        else SelectedUnclassified.Add(item);
+    }
+
+    private void SelectAllCurrentTab()
+    {
+        var currentList = GetFilteredUnclassified();
+        if (SelectedUnclassified.Count == currentList.Count) SelectedUnclassified.Clear();
+        else foreach (var item in currentList) SelectedUnclassified.Add(item);
+    }
+
+    private async Task ApplyBatchToUnclassified()
+    {
+        if (string.IsNullOrEmpty(BatchSelectedCategory) || !SelectedUnclassified.Any()) return;
+        foreach (var item in SelectedUnclassified) item.Category = BatchSelectedCategory;
+        SelectedUnclassified.Clear();
+        await BatchSelectedCategoryChanged.InvokeAsync(string.Empty);
+    }
+
+    private void HandleDragStart(LedgerEntry item)
+    {
+        draggedItem = item;
+        if (!SelectedUnclassified.Contains(item))
+        {
+            SelectedUnclassified.Clear();
+            SelectedUnclassified.Add(item);
+        }
+    }
+
+    private void HandleDrop(string targetCategory)
+    {
+        if (draggedItem != null && SelectedUnclassified.Any())
+        {
+            foreach (var item in SelectedUnclassified) item.Category = targetCategory;
+            SelectedUnclassified.Clear();
+            draggedItem = null;
+        }
+    }
+}

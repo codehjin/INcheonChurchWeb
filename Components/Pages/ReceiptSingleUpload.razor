@@ -1,0 +1,159 @@
+@using INcheonChurchWeb.Models
+
+<div class="row g-4">
+    <div class="col-12">
+        <div class="hub-card p-3 p-md-4">
+
+            <div class="hub-info-box mb-4">
+                <i class="bi bi-robot fs-4" style="color: #785600;"></i>
+                <div class="d-flex justify-content-between align-items-center flex-grow-1">
+                    <div>
+                        <div class="fw-bold" style="color: #1b1c15; font-size: 1.25rem;">이번 달 AI 자동 판독</div>
+                        <div style="color: #4e4637; font-size: 1rem;">사진 선택 시 자동으로 날짜·금액·사용처를 인식합니다.</div>
+                    </div>
+                    <div class="text-end">
+                        <span class="fw-bold hub-tabular" style="font-size: 1.25rem; color: @(CurrentOcrUsage >= 1000 ? "#ba1a1a" : "#5a4000");">@CurrentOcrUsage</span>
+                        <span style="color: #4e4637; font-size: 1rem;"> / 1,000</span>
+                    </div>
+                </div>
+            </div>
+
+            <InputFile id="hubSingleFileInput" OnChange="HandleFileSelected" style="display:none;" accept="image/*" />
+            <label for="hubSingleFileInput" class="hub-dashed-upload w-100 mb-4 d-flex align-items-center justify-content-center" style="@(CurrentOcrUsage >= 1000 ? "border-color: #ba1a1a; opacity: 0.6;" : "")">
+                @if (IsOcrProcessing)
+                {
+                    <sapn class="spinner-border me-3" style="color: #785600;" role="status"></sapn>
+                    <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI가 영수증 읽는 중...</span>
+                }
+                else
+                {
+                    <i class="bi bi-camera-fill me-3" style="font-size: 2rem; color: #785600;"></i>
+                    <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">@(string.IsNullOrEmpty(SelectedFileName) ? "여기를 눌러 사진 찾기" : "사진 다시 선택하기")</span>
+                }
+            </label>
+            @if (CurrentOcrUsage >= 1000)
+            {
+                <div class="text-center mb-3" style="color: #ba1a1a; font-size: 1rem; font-weight: 700;">이번 달 무료 제공량을 모두 사용했습니다. 수동으로 입력해주세요.</div>
+            }
+
+            @if (!string.IsNullOrEmpty(PreviewImageUrl))
+            {
+                <div class="text-center mb-2 p-0 rounded" 
+                     style="overflow: hidden; position: relative; height: 350px; display: flex; align-items: center; justify-content: center; background-color: #f5f4e8; cursor: @(IsDragging ? "grabbing" : "grab");"
+                     @onwheel="HandleWheel" @onwheel:preventDefault="true"
+                     @onmousedown="HandleMouseDown" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp" @onmouseleave="HandleMouseUp">
+
+                    <img src="@PreviewImageUrl" 
+                         style="transform: translate(@(ImgX)px, @(ImgY)px) scale(@ImgScale); transition: transform 0.05s linear; max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none;" />
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <span class="badge bg-secondary" style="opacity: 0.7;">휠: 확대 / 드래그: 이동</span>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut" title="축소">
+                            <i class="bi bi-dash-lg"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ResetImageTransform" title="화면 맞춤">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomIn" title="확대">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            <div class="mb-3">
+                <div class="hub-label" style="color: #ba1a1a;">1. 결제 날짜(필수입력)</div>
+                <input type="date" class="form-control hub-input" @bind="NewReceipt.ReceiptDate" />
+            </div>
+
+            <div class="mb-3">
+                <div class="hub-label" style="color: #ba1a1a;">2. 결제 금액(필수입력)</div>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="number" class="form-control hub-input flex-grow-1 text-end fw-bold" @bind:get="InputAmount" @bind:set="SetInputAmount" placeholder="예: 15000" />
+                    <span class="fw-bold" style="color: #4e4637;">원</span>
+                    @if (InputAmount.HasValue)
+                    {
+                        <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="ClearAmount"><i class="bi bi-x-circle"></i></button>
+                    }
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="hub-label">3. 사용처/내역(선택입력)</div>
+                <div class="d-flex gap-2 align-items-center">
+                    <input type="text" class="form-control hub-input flex-grow-1" @bind="NewReceipt.Description" placeholder="예: 다이소" />
+                    @if (!string.IsNullOrEmpty(NewReceipt.Description))
+                    {
+                        <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="ClearDescription"><i class="bi bi-x-circle"></i></button>
+                    }
+                </div>
+            </div>
+
+            @if (CurrentUser?.Role == "Admin")
+            {
+                <div class="mb-4">
+                    <div class="hub-label" style="color: #ba1a1a;">4. 부서 선택 (관리자 필수)</div>
+                    <select class="form-select hub-input fw-bold" @bind:get="AdminSelectedDeptId" @bind:set="SetAdminSelectedDeptId" style="color: #785600;">
+                        <option value="0">부서를 선택하세요</option>
+                        @foreach (var dept in AllDepts.Where(d => d.Name != "관리자"))
+                        {
+                            <option value="@dept.Id">@dept.Name</option>
+                        }
+                    </select>
+                </div>
+            }
+
+            <button class="hub-gold-btn w-100 py-3" @onclick="UploadReceipt" disabled="@(IsUploading || IsOcrProcessing)">
+                @if (IsUploading)
+                {
+                    <span class="spinner-border spinner-border-sm me-2"></span><span>업로드 중...</span>
+                }
+                else
+                {
+                    <i class="bi bi-cloud-arrow-up-fill me-2"></i><span>확인 완료 / 서버로 전송</span>
+                }
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public User? CurrentUser { get; set; }
+    [Parameter] public int CurrentOcrUsage { get; set; }
+    [Parameter] public bool IsOcrProcessing { get; set; }
+    [Parameter] public bool IsUploading { get; set; }
+    [Parameter] public string SelectedFileName { get; set; } = string.Empty;
+    [Parameter] public string PreviewImageUrl { get; set; } = string.Empty;
+    [Parameter] public bool IsDragging { get; set; }
+    [Parameter] public double ImgX { get; set; }
+    [Parameter] public double ImgY { get; set; }
+    [Parameter] public double ImgScale { get; set; }
+    [Parameter] public UploadedReceipt NewReceipt { get; set; } = new();
+    [Parameter] public decimal? InputAmount { get; set; }
+    [Parameter] public EventCallback<decimal?> InputAmountChanged { get; set; }
+    [Parameter] public int AdminSelectedDeptId { get; set; }
+    [Parameter] public EventCallback<int> AdminSelectedDeptIdChanged { get; set; }
+    [Parameter] public List<Department> AllDepts { get; set; } = new();
+
+    [Parameter] public EventCallback<InputFileChangeEventArgs> HandleFileSelected { get; set; }
+    [Parameter] public EventCallback<WheelEventArgs> HandleWheel { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseDown { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseMove { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> HandleMouseUp { get; set; }
+    [Parameter] public EventCallback ZoomOut { get; set; }
+    [Parameter] public EventCallback ResetImageTransform { get; set; }
+    [Parameter] public EventCallback ZoomIn { get; set; }
+    [Parameter] public EventCallback UploadReceipt { get; set; }
+
+    private Task SetInputAmount(decimal? value) => InputAmountChanged.InvokeAsync(value);
+    private Task SetAdminSelectedDeptId(int value) => AdminSelectedDeptIdChanged.InvokeAsync(value);
+    private Task ClearAmount() => InputAmountChanged.InvokeAsync(null);
+
+    private Task ClearDescription()
+    {
+        NewReceipt.Description = string.Empty;
+        return Task.CompletedTask;
+    }
+}

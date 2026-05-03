@@ -6,6 +6,8 @@
 @using System.IO
 @using Microsoft.AspNetCore.Components.Forms
 @using ClosedXML.Excel
+@using System.Text
+@using System.Net
 @inject AccountingService Accounting
 @inject AppDbContext DbContext
 @inject IJSRuntime JSRuntime
@@ -504,7 +506,7 @@
                         <span style="font-size: 1rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em;">조회 기간 수입 / 지출</span>
                         <div class="mt-2 d-flex align-items-baseline gap-2 ledger-tabular">
                             <span style="font-size: 1.25rem; font-weight: 800; color: #785600;">+ ₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</span>
-                            <span style="font-size: 0.9rem; font-weight: 600; color: #ba1a1a;">- ₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</span>
+                            <span style="font-size: 0.9rem; font-weight: 600, color: #ba1a1a;">- ₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</span>
                         </div>
                     </div>
                 </div>
@@ -599,7 +601,7 @@
                             {
                                 <col style="width: 6%;" />
                             }
-                            <col style="width: 6%;" />
+                            <col style="width: 6;" />
                         </colgroup>
                         <thead>
                             <tr>
@@ -1286,18 +1288,8 @@
     private async Task ExecutePrintAction()
     {
         showPrintModal = false;
-        if (selectedPrintType == "Ledger")
-        {
-            printMode = "Ledger";
-            StateHasChanged();
-            await Task.Delay(400); // DOM 갱신 완료 대기
-            await JSRuntime.InvokeVoidAsync("window.print");
-            // 인쇄 후 printMode를 빈 값으로 초기화하여 print-only 영역을 DOM에서 비운다
-            await Task.Delay(300);
-            printMode = "";
-            StateHasChanged();
-        }
-        else
+
+        if (selectedPrintType == "Receipt")
         {
             printTargets = FilteredEntries.Where(t => t.Type == "지출" || t.Type == "Expense").ToList();
             if (!printTargets.Any())
@@ -1305,16 +1297,134 @@
                 await JSRuntime.InvokeVoidAsync("alert", "인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.");
                 return;
             }
-            printMode = "Receipt";
-            StateHasChanged();
-            await Task.Delay(400); // DOM 갱신 완료 대기
-            await JSRuntime.InvokeVoidAsync("window.print");
-            // 인쇄 후 초기화
-            await Task.Delay(300);
-            printMode = "";
-            printTargets = new();
-            StateHasChanged();
         }
+
+        var htmlContent = GeneratePrintHtml();
+        await JSRuntime.InvokeVoidAsync("printPopup", htmlContent);
+
+        if (selectedPrintType == "Receipt")
+        {
+            printTargets = new();
+        }
+    }
+
+    private string GeneratePrintHtml()
+    {
+        return selectedPrintType == "Ledger"
+            ? GenerateLedgerPrintHtml()
+            : GenerateReceiptPrintHtml();
+    }
+
+    private string GenerateLedgerPrintHtml()
+    {
+        var sb = new StringBuilder();
+        var grouped = FilteredEntries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
+        bool first = true;
+
+        foreach (var mg in grouped)
+        {
+            var pts = mg.Key.Split('-');
+            int gy = int.Parse(pts[0]);
+            int gm = int.Parse(pts[1]);
+
+            decimal pI = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Income);
+            decimal pE = Entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Expense);
+            decimal sbal = CarryOverAmount + pI - pE;
+            decimal rb = sbal;
+            decimal mI = 0;
+            decimal mEx = 0;
+            string pb = first ? "" : "page-break-before";
+            first = false;
+
+            string pd = SelectedDepartmentId == 0 ? "전체 부서" : Departments.FirstOrDefault(d => d.Id == SelectedDepartmentId)?.Name ?? "";
+
+            sb.AppendLine($"<div class=\"{pb}\">");
+            sb.AppendLine($"<div class=\"print-only-title\" style=\"text-align:center; font-size:18pt; font-weight:bold; margin-bottom:15px;\">[ {gy} 년 {gm} 월 {WebUtility.HtmlEncode(pd)} 재정 장부 ]</div>");
+            sb.AppendLine("<table class=\"ledger-table-print\">");
+            sb.AppendLine("<thead><tr><th style=\"width:5%\">No</th><th style=\"width:10%\">날짜</th><th style=\"width:8%\">구분</th><th style=\"width:12%\">분류항목</th><th style=\"width:28%\">내역</th><th style=\"width:12%\">수입</th><th style=\"width:12%\">지출</th><th style=\"width:13%\">잔액</th></tr></thead>");
+            sb.AppendLine("<tbody>");
+            sb.AppendLine($"<tr><td>-</td><td>-</td><td>이월</td><td>전월이월</td><td style=\"text-align:left !important;\">전월 이월금액</td><td class=\"money-cell-print\">{sbal:N0}</td><td class=\"money-cell-print\">-</td><td class=\"money-cell-print\">{sbal:N0}</td></tr>");
+
+            int seq = 1;
+            foreach (var item in mg.OrderBy(x => x.Date))
+            {
+                rb += item.Income - item.Expense;
+                mI += item.Income; mEx += item.Expense;
+
+                sb.AppendLine("<tr>");
+                sb.AppendLine($"<td>{seq}</td>");
+                sb.AppendLine($"<td>{item.Date:MM-dd}</td>");
+                sb.AppendLine($"<td>{WebUtility.HtmlEncode(item.Type)}</td>");
+                sb.AppendLine($"<td>{WebUtility.HtmlEncode(item.Category)}</td>");
+                sb.AppendLine($"<td style=\"text-align:left !important;\">{WebUtility.HtmlEncode(item.Description)}</td>");
+                sb.AppendLine($"<td class=\"money-cell-print\">{(item.Income > 0 ? item.Income.ToString("N0") : "")}</td>");
+                sb.AppendLine($"<td class=\"money-cell-print\">{(item.Expense > 0 ? item.Expense.ToString("N0") : "")}</td>");
+                sb.AppendLine($"<td class=\"money-cell-print\">{rb:N0}</td>");
+                sb.AppendLine("</tr>");
+                seq++;
+            }
+
+            sb.AppendLine($"<tr style=\"background-color: #f9f9f9 !important; font-weight: bold;\"><td colspan=\"5\" style=\"text-align:right !important; padding-right:10px !important;\">{gm} 월 합계</td><td class=\"money-cell-print\">{mI:N0}</td><td class=\"money-cell-print\">{mEx:N0}</td><td class=\"money-cell-print\">{rb:N0}</td></tr>");
+            sb.AppendLine("</tbody></table>");
+
+            if (quarterEndMonths.Contains(gm))
+            {
+                sb.AppendLine($"<div style=\"margin-top: 40px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: flex-start;\"></div>\n<div style=\"text-align: left; font-size: 10pt; font-weight: bold; color: #333; margin-bottom: 8px; width: 45%;\">[ {gy} 년 {gm} 월 분기 마감 결재 ]</div>\n<table style=\"width: 45%; border-collapse: collapse; font-size: 10pt; text-align: center; border: 1px solid blue;\">\n<tr>\n<td rowspan=\"2\" style=\"border: 1px solid blue; width: 10%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact; padding: 10px 0;\"><br />결재</td>\n<td style=\"border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;\">회계</td>\n<td style=\"border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;\">팀장</td>\n<td style=\"border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;\">국장</td>\n</tr>\n<tr><td style=\"border: 1px solid blue; height: 70px;\"></td><td style=\"border: 1px solid blue; height: 70px;\"></td><td style=\"border: 1px solid blue; height: 70px;\"></td></tr>\n</table>\n</div>");
+            }
+
+            sb.AppendLine("</div>");
+        }
+
+        return sb.ToString();
+    }
+
+    private string GenerateReceiptPrintHtml()
+    {
+        var sb = new StringBuilder();
+        var orderedTargets = printTargets.OrderBy(t => t.Date).ThenBy(t => t.Id).ToList();
+
+        int monthlySeq = 0;
+        int previousMonth = -1;
+
+        sb.AppendLine($"<div class=\"receipt-grid-{receiptsPerSheet}\">");
+
+        foreach (var t in orderedTargets)
+        {
+            if (t.Date.Month != previousMonth)
+            {
+                previousMonth = t.Date.Month;
+                monthlySeq = 1;
+            }
+            else
+            {
+                monthlySeq++;
+            }
+
+            string fontSize = receiptsPerSheet == 1 ? "13pt" : (receiptsPerSheet == 2 ? "11pt" : "9.5pt");
+
+            sb.AppendLine("<div class=\"receipt-box\">");
+            sb.AppendLine($"<div style=\"display: flex; flex-wrap: nowrap; align-items: center; border-bottom: 1.5pt solid #444; padding: 4px 2px; margin-bottom: 6px; font-weight: bold; font-size: {fontSize}; width: 100%; overflow: hidden;\">");
+            sb.AppendLine($"<div style=\"flex: 0 0 8%; text-align: left;\">{monthlySeq}</div>");
+            sb.AppendLine($"<div style=\"flex: 0 0 20%; text-align: left; white-space: nowrap;\">{t.Date:M월 d일}</div>");
+            sb.AppendLine($"<div style=\"flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; margin-right: 5px;\">{WebUtility.HtmlEncode(t.Description)}</div>");
+            sb.AppendLine($"<div style=\"flex: 0 0 24%; text-align: right; color: #ba1a1a; white-space: nowrap;\">{t.Expense:N0}</div>");
+            sb.AppendLine("</div>");
+
+            if (includeReceiptImage && (!string.IsNullOrEmpty(t.ReceiptPath) || !string.IsNullOrEmpty(t.ReceiptUrl)))
+            {
+                var src = !string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath : t.ReceiptUrl;
+                sb.AppendLine($"<div class=\"receipt-img-wrapper\"><img src=\"{WebUtility.HtmlEncode(src)}\" style=\"max-width: 100%; max-height: 100%; object-fit: contain;\" /></div>");
+            }
+            else
+            {
+                sb.AppendLine("<div class=\"receipt-empty\">증빙 이미지 없음</div>");
+            }
+
+            sb.AppendLine("</div>");
+        }
+
+        sb.AppendLine("</div>");
+        return sb.ToString();
     }
 
     private async Task SaveNewEntry()
@@ -1509,5 +1619,6 @@
         }
         catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"엑셀 다운로드 오류: {ex.Message}"); }
     }
+
     private List<int> quarterEndMonths = new(); // 🟢 분기 마감 월을 저장할 리스트
-}
+}}
