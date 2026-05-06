@@ -67,17 +67,17 @@
                         <button class="btn btn-sm flex-fill fw-bold @(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "bg-white shadow-sm" : "")"
                                 style="border-radius: 0.375rem; color: @(SavedCurrentTab == GlobalConstants.TransactionTypeIncome ? "#5a4000" : "#4e4637"); border: none;"
                                 @onclick="@(() => ChangeTab(GlobalConstants.TransactionTypeIncome))">
-                            ?? 수입 (@unclassifiedIncomeCount)
+                            수입 (@unclassifiedIncomeCount)
                         </button>
                         <button class="btn btn-sm flex-fill fw-bold @(SavedCurrentTab == GlobalConstants.TransactionTypeExpense ? "bg-white shadow-sm" : "")"
                                 style="border-radius: 0.375rem; color: @(SavedCurrentTab == GlobalConstants.TransactionTypeExpense ? "#ba1a1a" : "#4e4637"); border: none;"
                                 @onclick="@(() => ChangeTab(GlobalConstants.TransactionTypeExpense))">
-                            ?? 지출 (@unclassifiedExpenseCount)
+                            지출 (@unclassifiedExpenseCount)
                         </button>
                     </div>
 
                     <div class="mb-3 p-2 rounded" style="background-color: #f5f4e8;">
-                        <input type="text" class="form-control hub-input mb-2" placeholder="?? 텍스트 검색..." @bind:get="SearchUnclassified" @bind:set="SetSearchUnclassified" @bind:event="oninput" />
+                        <input type="text" class="form-control hub-input mb-2" placeholder="텍스트 검색..." @bind:get="SearchUnclassified" @bind:set="SetSearchUnclassified" @bind:event="oninput" />
                         <div class="d-flex gap-1">
                             <select class="form-select hub-input fw-bold flex-grow-1" style="font-size: 1rem;" @bind:get="BatchSelectedCategory" @bind:set="SetBatchSelectedCategory">
                                 <option value="">(일괄 지정 카테고리 선택)</option>
@@ -153,11 +153,11 @@
     <div class="d-flex justify-content-between align-items-end mb-3 mt-4">
         <div>
             <h5 class="fw-bold mb-2" style="color: #1b1c15;">최종 장부 미리보기 (@SavedPreviewList.Count 건)</h5>
-            <input type="text" class="form-control hub-input" placeholder="?? 전체 내역 검색..." style="width: 250px;" @bind:get="SearchPreview" @bind:set="SetSearchPreview" @bind:event="oninput" />
+            <input type="text" class="form-control hub-input" placeholder="전체 내역 검색..." style="width: 250px;" @bind:get="SearchPreview" @bind:set="SetSearchPreview" @bind:event="oninput" />
         </div>
         <button class="hub-gold-btn" @onclick="SaveToLedger" disabled="@(IsSaving || totalUnclassified > 0)">
             @if (IsSaving) { <span><div class="spinner-border spinner-border-sm me-2"></div>저장 중...</span> }
-            else if (totalUnclassified > 0) { <span>?? 미분류 해결 필요 (@totalUnclassified)</span> }
+            else if (totalUnclassified > 0) { <span>미분류 해결 필요 (@totalUnclassified)</span> }
             else { <span><i class="bi bi-floppy-fill me-2"></i>장부에 저장하기</span> }
         </button>
     </div>
@@ -184,7 +184,7 @@
                         <td class="text-end hub-tabular" style="color: #ba1a1a; font-weight: 700;">@((item.Expense > 0) ? item.Expense.ToString("N0") : "")</td>
                         <td>
                             <select class="form-select hub-input fw-bold" style="font-size: 1rem; padding: 0.3rem 0.5rem; @(item.Category==GlobalConstants.CategoryUnclassified ? "color: #ba1a1a;" : "color: #174577;")" @bind="item.Category">
-                                @if(item.Category == GlobalConstants.CategoryUnclassified) { <option value="@GlobalConstants.CategoryUnclassified">미분류 ??</option> }
+                                @if(item.Category == GlobalConstants.CategoryUnclassified) { <option value="@GlobalConstants.CategoryUnclassified">미분류</option> }
                                 @if (item.Type == GlobalConstants.TransactionTypeIncome) { @foreach(var c in IncomeCats) { <option value="@c">@c</option> } } else { @foreach(var c in ExpenseCats) { <option value="@c">@c</option> } }
                             </select>
                         </td>
