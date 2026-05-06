@@ -16,7 +16,6 @@
 @inject NavigationManager Nav
 @inject INcheonChurchWeb.Services.OcrService OcrService
 @inject AccountingService Accounting
-@rendermode InteractiveServer
 
 <PageTitle>수집 및 정리</PageTitle>
 
@@ -54,20 +53,20 @@
         ???????????????????????????????????????????????????????????????? *@
         @if (activeTab == "single")
         {
-            <ReceiptSingleUpload CurrentUser="CurrentUser"
-                                 CurrentOcrUsage="currentOcrUsage"
-                                 IsOcrProcessing="isOcrProcessing"
-                                 IsUploading="isUploading"
-                                 SelectedFileName="selectedFileName"
-                                 PreviewImageUrl="previewImageUrl"
-                                 IsDragging="isDragging"
-                                 ImgX="imgX"
-                                 ImgY="imgY"
-                                 ImgScale="imgScale"
-                                 NewReceipt="newReceipt"
+            <ReceiptSingleUpload CurrentUser="@CurrentUser"
+                                 CurrentOcrUsage="@currentOcrUsage"
+                                 IsOcrProcessing="@isOcrProcessing"
+                                 IsUploading="@isUploading"
+                                 SelectedFileName="@selectedFileName"
+                                 PreviewImageUrl="@previewImageUrl"
+                                 IsDragging="@isDragging"
+                                 ImgX="@imgX"
+                                 ImgY="@imgY"
+                                 ImgScale="@imgScale"
+                                 NewReceipt="@newReceipt"
                                  @bind-InputAmount="inputAmount"
                                  @bind-AdminSelectedDeptId="adminSelectedDeptId"
-                                 AllDepts="allDepts"
+                                 AllDepts="@allDepts"
                                  HandleFileSelected="HandleFileSelected"
                                  HandleWheel="HandleWheel"
                                  HandleMouseDown="HandleMouseDown"
@@ -234,7 +233,7 @@
     private decimal? inputAmount = null;
     private IBrowserFile? selectedFile;
     private string selectedFileName = "";
-    private string previewImageUrl = "";
+    private string? previewImageUrl = null;
     private bool isUploading = false;
     private bool isOcrProcessing = false;
     private const long MaxFileSize = GlobalConstants.MaxSingleFileSize;
@@ -420,23 +419,45 @@ private async Task DownloadLedgerTemplate()
         {
             selectedFile = e.File;
             selectedFileName = selectedFile.Name;
-            previewImageUrl = "";
+            previewImageUrl = null;
+            ResetImageTransform(); // 새 이미지 로드 시 줌 위치 초기화
 
-            if (selectedFile.Size < 5 * 1024 * 1024 && !selectedFileName.ToLower().EndsWith(".heic"))
+            // [1단계] 미리보기: 크기 무관하게 비 HEIC 파일인 경우 항상 먼저 실행
+            if (!selectedFileName.ToLower().EndsWith(".heic"))
             {
-                isOcrProcessing = true;
-                StateHasChanged();
-
                 try
                 {
                     var previewImage = await selectedFile.RequestImageFileAsync("image/jpeg", 800, 800);
-                    using var stream = previewImage.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                    using var ms = new MemoryStream();
+                    await previewImage.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024).CopyToAsync(ms);
+                    previewImageUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+
+                    // OCR 시작 전에 미리보기 썸네일부터 즉시 화면에 렌더링
+                    StateHasChanged();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"미리보기 로드 실패: {ex.Message}");
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "HEIC 형식은 브라우저 미리보기가 지원되지 않습니다. 변환 후 업로드해 주세요.");
+                StateHasChanged();
+            }
+
+            // [2단계] OCR: 5MB 미만 및 비 HEIC 파일에만 실행
+            if (selectedFile.Size < 5 * 1024 * 1024 && !selectedFileName.ToLower().EndsWith(".heic"))
+            {
+                isOcrProcessing = true;
+                StateHasChanged(); // 스피너(AI 읽는 중) 표시
+
+                try
+                {
+                    using var stream = selectedFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
                     using var memoryStream = new MemoryStream();
                     await stream.CopyToAsync(memoryStream);
                     var imageBytes = memoryStream.ToArray();
-
-                    var base64 = Convert.ToBase64String(imageBytes);
-                    previewImageUrl = $"data:image/jpeg;base64,{base64}";
 
                     var ocrResult = await OcrService.ProcessReceiptAsync(imageBytes);
 
@@ -455,14 +476,19 @@ private async Task DownloadLedgerTemplate()
                 }
                 catch (Exception ex)
                 {
-                    await JSRuntime.InvokeVoidAsync("console.log", "OCR 변환 실패: " + ex.Message);
+                    Console.WriteLine("OCR 변환 실패: " + ex.Message);
                 }
                 finally
                 {
                     isOcrProcessing = false;
                     await LoadOcrUsage();
-                    StateHasChanged();
+                    StateHasChanged(); // OCR 스피너 제거 및 결과 반영
                 }
+            }
+            else if (selectedFile.Size >= 5 * 1024 * 1024)
+            {
+                // 5MB 이상의 고용량 사진은 미리보기만 보여주고 OCR 패스 안내
+                await JSRuntime.InvokeVoidAsync("alert", "파일 크기가 5MB 이상이라 AI 자동 판독은 생략됩니다. 금액과 내역을 수동으로 입력해 주세요.");
             }
         }
         catch (Exception ex)
@@ -509,13 +535,13 @@ private async Task DownloadLedgerTemplate()
             context.UploadedReceipts.Add(newReceipt);
             await context.SaveChangesAsync();
 
-            await JSRuntime.InvokeVoidAsync("alert", "? 영수증 업로드가 완료되었습니다!");
+            await JSRuntime.InvokeVoidAsync("alert", "영수증 업로드가 완료되었습니다!");
 
             newReceipt = new() { ReceiptDate = DateTime.Now };
             inputAmount = null;
             selectedFile = null;
             selectedFileName = "";
-            previewImageUrl = "";
+            previewImageUrl = null;
         }
         catch (Exception ex)
         {

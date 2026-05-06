@@ -271,27 +271,42 @@
                                 <tr>
                                     <td class="ep-lbl" style="vertical-align:middle;">적&nbsp;&nbsp;요</td>
                                     <td class="ep-detail-cell" colspan="4">
-                                        <div class="ep-detail-header">
-                                            <div class="col-cat">항목</div><div class="col-desc" style="text-align: center !important;">세부내역</div><div class="col-amt" style="text-align: center !important;">금액</div>
-                                        </div>
-                                        <div class="ep-detail-body">
-                                            @if (itemList.Count > 0)
-                                            {
-                                                @foreach (var item in itemList)
+                                        <table class="ep-inner-table">
+                                            <thead>
+                                                <tr>
+                                                    <th class="col-cat">지출항목</th>
+                                                    <th class="col-desc" style="text-align: center;">산출근거</th>
+                                                    <th class="col-amt" style="text-align: center;">금액</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @if (itemList.Count > 0)
                                                 {
-                                                    <div class="ep-detail-row">
-                                                        <div class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category)">@item.Category</span></div>
-                                                        <div class="col-desc"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.CalcDetail ?? "")">@item.CalcDetail</span></div>
-                                                        <div class="col-amt"><span class="text-nowrap-squish" style="font-size: 10pt !important;">@item.Amount.ToString("N0")</span></div>
-                                                    </div>
+                                                    @foreach (var item in itemList)
+                                                    {
+                                                        <tr>
+                                                            <td class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category, "Category")">@item.Category</span></td>
+                                                            <td class="col-desc"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.CalcDetail, "Detail")">@item.CalcDetail</span></td>
+                                                            <td class="col-amt text-end"><span class="text-nowrap-squish" style="font-size: 10pt !important; font-weight: bold;">@item.Amount.ToString("N0")</span></td>
+                                                        </tr>
+                                                    }
                                                 }
-                                            }
-                                            @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
-                                            {
-                                                <div class="ep-detail-row"><div class="col-cat">&nbsp;</div><div class="col-desc"></div><div class="col-amt"></div></div>
-                                            }
-                                        </div>
-                                        <div class="ep-sum-row"><div class="ep-sum-lbl">합 계 :</div><div class="ep-sum-val">@CurrentRequestTotal.ToString("N0")</div></div>
+                                                @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
+                                                {
+                                                    <tr>
+                                                        <td class="col-cat">&nbsp;</td>
+                                                        <td class="col-desc"></td>
+                                                        <td class="col-amt"></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                            <tfoot>
+                                                <tr class="ep-sum-row">
+                                                    <td colspan="2" class="ep-sum-lbl">합 계 :</td>
+                                                    <td class="ep-sum-val">@CurrentRequestTotal.ToString("N0")</td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
                                     </td>
                                 </tr>
                                 <tr>
@@ -354,10 +369,9 @@
 ══════════════════════════════════════════ *@
 <div class="print-only">
     <div class="a4-sheet">
-        <div class="cut-line-top"><span class="scissors-h">✂</span></div>
-        <div class="cut-line-bottom"><span class="scissors-h">✂</span></div>
-        <div class="cut-line-left"><span class="scissors-v">✂</span></div>
-        <div class="cut-line-right"><span class="scissors-v">✂</span></div>
+        <div class="cut-line-bottom"></div>
+        <div class="cut-line-left"></div>
+        <div class="cut-line-right"></div>
 
         <div class="expense-paper print-center">
 
@@ -397,28 +411,42 @@
                 <tr>
                     <td class="ep-lbl" style="vertical-align:middle;">적&nbsp;&nbsp;요</td>
                     <td class="ep-detail-cell" colspan="4">
-                        <div class="ep-detail-header">
-                            <div class="col-cat">지출항목</div><div class="col-desc" style="text-align: center !important;">산출근거</div><div class="col-amt" style="text-align: center !important;">금액</div>
-                        </div>
-                        <div class="ep-detail-body">
-                            @if (itemList.Count > 0)
-                            {
-                                @foreach (var item in itemList)
+                        <table class="ep-inner-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-cat">지출항목</th>
+                                    <th class="col-desc" style="text-align: center;">산출근거</th>
+                                    <th class="col-amt" style="text-align: center;">금액</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (itemList.Count > 0)
                                 {
-                                    <div class="ep-detail-row">
-                                        @* 🚀 GetDynamicStyle에 "Category"와 "Detail"을 각각 보내줍니다 *@
-                                        <div class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category, "Category")">@item.Category</span></div>
-                                        <div class="col-desc"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.CalcDetail, "Detail")">@item.CalcDetail</span></div>
-                                        <div class="col-amt"><span class="text-nowrap-squish" style="font-size: 10pt !important;">@item.Amount.ToString("N0")</span></div>
-                                    </div>
+                                    @foreach (var item in itemList)
+                                    {
+                                        <tr>
+                                            <td class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category, "Category")">@item.Category</span></td>
+                                            <td class="col-desc"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.CalcDetail, "Detail")">@item.CalcDetail</span></td>
+                                            <td class="col-amt text-end"><span class="text-nowrap-squish" style="font-size: 10pt !important; font-weight: bold;">@item.Amount.ToString("N0")</span></td>
+                                        </tr>
+                                    }
                                 }
-                            }
-                            @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
-                            {
-                                <div class="ep-detail-row"><div class="col-cat">&nbsp;</div><div class="col-desc"></div><div class="col-amt"></div></div>
-                            }
-                        </div>
-                        <div class="ep-sum-row"><div class="ep-sum-lbl">합 계 :</div><div class="ep-sum-val">@CurrentRequestTotal.ToString("N0")</div></div>
+                                @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
+                                {
+                                    <tr>
+                                        <td class="col-cat">&nbsp;</td>
+                                        <td class="col-desc"></td>
+                                        <td class="col-amt"></td>
+                                    </tr>
+                                }
+                            </tbody>
+                            <tfoot>
+                                <tr class="ep-sum-row">
+                                    <td colspan="2" class="ep-sum-lbl">합 계 :</td>
+                                    <td class="ep-sum-val">@CurrentRequestTotal.ToString("N0")</td>
+                                </tr>
+                            </tfoot>
+                        </table>
                     </td>
                 </tr>
                 <tr>
@@ -598,7 +626,7 @@
 .ep-request {
     font-weight: bold;
     font-size: 12pt;
-    border-bottom: 1.5px solid #000080 !important;
+    border-bottom: 1px solid #000080 !important;
     color: #000080 !important;
     padding-bottom: 1mm;
     margin-bottom: 0;
@@ -627,37 +655,81 @@
 .ep-val { padding: 2px 6px; }
 
 .ep-detail-cell { padding: 0 !important; vertical-align: top; }
-.ep-detail-header {
-    display: flex; width: 100%; border-bottom: 1px solid #000080 !important; font-size: 11pt;
-}
-.ep-detail-header > div { padding: 2px; border-right: 1px solid #000080 !important; }
-.ep-detail-header > div:last-child { border-right: none; }
 
-/* 🚀 적요 테이블 높이를 줄여 하단 교회 이름이 잘리지 않도록 안전 공간 확보 */
-.ep-detail-body {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    height: 52mm !important; /* 기존 60mm -> 52mm로 축소하여 하단 여백 확보 */
-    overflow: hidden;
-}
-.ep-detail-row {
-    display: flex; width: 100%; flex: 1; border-bottom: 1px solid #000080 !important;
-    align-items: center; text-align: center; box-sizing: border-box;
-}
-.ep-detail-row:last-child { border-bottom: none; }
-.ep-detail-row > div {
-    border-right: 1px solid #000080 !important; height: 100%; display: flex;
-    align-items: center; justify-content: center; box-sizing: border-box; overflow: hidden; padding: 0 4px;
-}
-.ep-detail-row > div:last-child { border-right: none; }
-.col-cat { width: 25%; }
-.col-desc { width: 50%; justify-content: flex-start !important; text-align: left; }
-.col-amt { width: 25%; justify-content: flex-end !important; text-align: right; font-weight: bold; }
+    /* 🚀 중첩 테이블(ep-inner-table) 선 겹침 방지 및 규격 스타일 */
+    .ep-inner-table {
+        width: 100%;
+        height: 52mm !important; /* 하단 교회 이름 잘림 방지용 기존 높이 유지 */
+        border-collapse: collapse;
+        margin: 0;
+        table-layout: fixed;
+    }
 
-.ep-sum-row { display: flex; width: 100%; background: #f0f0ff; border-top: 1.5px solid #000080 !important; align-items: center; font-size: 12pt; }
-.ep-sum-lbl { width: 75%; text-align: center; padding: 2px 5px; border-right: 1px solid #000080 !important; }
-.ep-sum-val { width: 25%; text-align: right; padding: 2px 5px; font-weight: bold; }
+        .ep-inner-table th, .ep-inner-table td {
+            border: 1px solid #000080 !important;
+            vertical-align: middle;
+            padding: 0 4px;
+            box-sizing: border-box;
+        }
+
+        .ep-inner-table th {
+            background: #f0f0ff;
+            color: #000080 !important;
+            font-size: 11pt;
+            padding: 2px;
+            height: 6.5mm;
+        }
+
+        /* 💡 핵심: 최외곽 테두리를 숨겨 부모 td 테두리와 중복(선 굵어짐)되는 현상 방지 */
+        .ep-inner-table tr:first-child th {
+            border-top: hidden !important;
+        }
+
+        .ep-inner-table tr:last-child td {
+            border-bottom: hidden !important;
+        }
+
+        .ep-inner-table th:first-child, .ep-inner-table td:first-child {
+            border-left: hidden !important;
+        }
+
+        .ep-inner-table th:last-child, .ep-inner-table td:last-child {
+            border-right: hidden !important;
+        }
+
+        /* 열 너비 및 내부 정렬 */
+        .ep-inner-table .col-cat {
+            width: 25%;
+            text-align: center;
+        }
+
+        .ep-inner-table .col-desc {
+            width: 50%;
+            text-align: left;
+        }
+
+        .ep-inner-table .col-amt {
+            width: 25%;
+            text-align: right;
+            font-weight: bold;
+        }
+
+    /* 합계 행(tfoot) 스타일 */
+    .ep-sum-row {
+        background: #f0f0ff;
+        font-size: 12pt;
+    }
+
+    .ep-sum-lbl {
+        text-align: center;
+        font-weight: bold;
+    }
+
+    .ep-sum-val {
+        text-align: right;
+        font-weight: bold;
+        padding-right: 5px;
+    }
 
 .ep-acc-hd { padding: 1.5px; border-left: 1px solid #000080 !important; }
 .ep-acc-val { text-align: center; padding: 0px 2px; height: 6mm; vertical-align: middle; border-left: 1px solid #000080 !important; }
@@ -730,29 +802,45 @@
         box-shadow: none !important;
         overflow: hidden;
     }
-
-    /* 가위선 */
-    .cut-line-top {
-        position: absolute; top: 0mm; left: 34.9mm; height: 0; width: 140mm;
-        border-top: 1px dashed #999; display: flex; align-items: center; justify-content: center;
-    }
-    .cut-line-bottom {
-        position: absolute; top: 203mm; left: 34.9mm; height: 0; width: 140mm;
-        border-top: 1px dashed #999; display: flex; align-items: center; justify-content: center;
-    }
-    .scissors-h { font-size: 10pt !important; color: #777; background: #fff; padding: 0 2px; }
-    .cut-line-left {
-        position: absolute; top: 4mm; left: 34.9mm; width: 0; height: 195mm;
-        border-left: 1px dashed #999; display: flex; justify-content: center; align-items: center;
-    }
-    .cut-line-right {
-        position: absolute; top: 4mm; left: 175mm; width: 0; height: 195mm;
-        border-left: 1px dashed #999; display: flex; justify-content: center; align-items: center;
-    }
-    .scissors-v {
-        font-size: 10pt !important; transform: rotate(90deg); display: inline-block;
-        color: #777; background: #fff; padding: 2px 0;
-    }
+        /* 가위선 */
+        .cut-line-bottom {
+            position: absolute;
+            top: 198mm; /* 하단에서 5mm 위로 올림 */
+            left: 37.4mm; /* 왼쪽에서 2.5mm 우측으로 이동 */
+            height: 0;
+            width: 135.2mm; /* 좌우가 좁아진 만큼 너비 조정 (140.1 - 5) */
+            border-top: 1px dashed #999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10; /* 🚀 추가: 가위선을 종이(배경) 위로 강제로 띄움 */
+        }
+        /* 2. 왼쪽 가위선 수정 */
+        .cut-line-left {
+            position: absolute;
+            top: 4mm;
+            left: 37.4mm; /* 왼쪽에서 2.5mm 우측으로 이동 */
+            width: 0;
+            height: 195mm;
+            border-left: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10; /* 🚀 추가 */
+        }
+        /* 3. 오른쪽 가위선 수정 */
+        .cut-line-right {
+            position: absolute;
+            top: 4mm;
+            left: 172.5mm; /* 오른쪽에서 2.5mm 좌측으로 이동 */
+            width: 0;
+            height: 195mm;
+            border-left: 1px dashed #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10; /* 🚀 추가 */
+        }
 
     /* 인쇄 시 파란색 유지되도록 설정 */
     .ep-lbl, .ep-apr-side, .ep-apr-title,

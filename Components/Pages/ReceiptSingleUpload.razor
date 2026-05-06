@@ -19,37 +19,44 @@
             </div>
 
             <InputFile id="hubSingleFileInput" OnChange="HandleFileSelected" style="display:none;" accept="image/*" />
-            <label for="hubSingleFileInput" class="hub-dashed-upload w-100 mb-4 d-flex align-items-center justify-content-center" style="@(CurrentOcrUsage >= 1000 ? "border-color: #ba1a1a; opacity: 0.6;" : "")">
-                @if (IsOcrProcessing)
-                {
-                    <sapn class="spinner-border me-3" style="color: #785600;" role="status"></sapn>
-                    <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI가 영수증 읽는 중...</span>
-                }
-                else
-                {
-                    <i class="bi bi-camera-fill me-3" style="font-size: 2rem; color: #785600;"></i>
-                    <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">@(string.IsNullOrEmpty(SelectedFileName) ? "여기를 눌러 사진 찾기" : "사진 다시 선택하기")</span>
-                }
-            </label>
-            @if (CurrentOcrUsage >= 1000)
-            {
-                <div class="text-center mb-3" style="color: #ba1a1a; font-size: 1rem; font-weight: 700;">이번 달 무료 제공량을 모두 사용했습니다. 수동으로 입력해주세요.</div>
-            }
 
-            @if (!string.IsNullOrEmpty(PreviewImageUrl))
+            @if (string.IsNullOrWhiteSpace(PreviewImageUrl) || !PreviewImageUrl.StartsWith("data:image"))
             {
-                <div class="text-center mb-2 p-0 rounded" 
-                     style="overflow: hidden; position: relative; height: 350px; display: flex; align-items: center; justify-content: center; background-color: #f5f4e8; cursor: @(IsDragging ? "grabbing" : "grab");"
+                <label for="hubSingleFileInput" class="hub-dashed-upload w-100 mb-4 d-flex align-items-center justify-content-center" style="@(CurrentOcrUsage >= 1000 ? "border-color: #ba1a1a; opacity: 0.6;" : "")">
+                    @if (IsOcrProcessing)
+                    {
+                        <span class="spinner-border me-3" style="color: #785600;" role="status"></span>
+                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI가 영수증 읽는 중...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-camera-fill me-3" style="font-size: 2rem; color: #785600;"></i>
+                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">여기를 눌러 사진 찾기</span>
+                    }
+                </label>
+
+                @if (CurrentOcrUsage >= 1000)
+                {
+                    <div class="text-center mb-3" style="color: #ba1a1a; font-size: 1rem; font-weight: 700;">이번 달 무료 제공량을 모두 사용했습니다. 수동으로 입력해주세요.</div>
+                }
+            }
+            else
+            {
+                <div class="text-center mb-2 p-0 rounded"
+                     style="overflow: hidden; position: relative; height: 350px; display: flex; align-items: center; justify-content: center; background-color: #f5f4e8; cursor: @(IsDragging ? "grabbing" : "grab"); border: 1px solid #d2c5b2;"
                      @onwheel="HandleWheel" @onwheel:preventDefault="true"
                      @onmousedown="HandleMouseDown" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp" @onmouseleave="HandleMouseUp">
 
-                    <img src="@PreviewImageUrl" 
+                    <img src="@PreviewImageUrl"
                          style="transform: translate(@(ImgX)px, @(ImgY)px) scale(@ImgScale); transition: transform 0.05s linear; max-height: 100%; max-width: 100%; object-fit: contain; pointer-events: none;" />
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <span class="badge bg-secondary" style="opacity: 0.7;">휠: 확대 / 드래그: 이동</span>
+                    <span class="badge bg-secondary" style="opacity: 0.7;">마우스 휠: 확대 / 드래그: 이동</span>
                     <div class="btn-group" role="group">
+                        <label for="hubSingleFileInput" class="btn btn-sm text-white m-0 d-flex align-items-center" style="background-color: #785600; border-color: #785600; cursor: pointer;" title="사진 다시 선택">
+                            <i class="bi bi-camera-fill me-1"></i> 다시 선택
+                        </label>
                         <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut" title="축소">
                             <i class="bi bi-dash-lg"></i>
                         </button>

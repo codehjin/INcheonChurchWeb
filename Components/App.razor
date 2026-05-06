@@ -1,4 +1,5 @@
-﻿<!DOCTYPE html>
+﻿@using static Microsoft.AspNetCore.Components.Web.RenderMode
+<!DOCTYPE html>
 <html lang="ko">
 
 <head>
@@ -10,65 +11,50 @@
     <link rel="stylesheet" href="app.css" />
     <link rel="stylesheet" href="INcheonChurchWeb.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
+    @* [해결 1] RenderMode 사용을 위한 @using 추가 및 HeadOutlet 설정 *@
     <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
+    @* [해결 2] Routes 설정의 InteractiveServer 오류 해결 *@
     <Routes @rendermode="InteractiveServer" />
+
     <script src="_framework/blazor.web.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="/js/app.js"></script>
+
+    @* [해결 3] 버전 태그(?v=1.1)를 추가하여 브라우저 캐시 문제 해결 *@
+    <script src="/js/app.js?v=1.1"></script>
 
     <script>
-            // 새 창 팝업 인쇄 함수
-        window.printPopup = function (html) {
-            var w = window.open('', '_blank', 'width=1000,height=800');
-            w.document.write(html);
-            w.document.close();
-            w.focus();
+        /* [중요] App.razor 안에 직접 작성되어 있던 window.printPopup 관련
+           인라인 스크립트 중복 선언을 삭제했습니다.
+           이제 모든 JS 로직은 버전 태그가 달린 /js/app.js에서 안전하게 불러옵니다.
+        */
 
-            // 이미지 등이 모두 로드된 후 인쇄창 호출
-            w.onload = function () {
-                w.print();
-                w.close();
-            };
-            // 만약 onload가 작동하지 않을 경우를 대비한 보험 (0.8초 후 강제 실행)
-            setTimeout(function () {
-                try { w.print(); w.close(); } catch (e) { }
-            }, 800);
-        };
-
-        // 숨겨진 파일 input 트리거
+        // 숨겨진 파일 input 트리거 (서비스 로직상 필요한 부분만 유지)
         window.triggerFileInput = function (elementId) {
             const el = document.getElementById(elementId);
             if (el) el.click();
         };
 
-        // 메시지 내의 줄바꿈(\n) 처리 및 글자 크기(+2px)를 위한 포맷팅 함수
         function formatMessage(msg) {
             if (typeof msg !== 'string') msg = String(msg);
-
-            // XSS 보안 처리 및 줄바꿈 적용
             let safeMsg = msg.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
             safeMsg = safeMsg.replace(/\n/g, '<br/>');
-
-            // 기본 글꼴 크기(보통 16px)보다 2px 키운 18px로 강제 지정
             return `<div style="font-size: 18px; font-weight: 500; line-height: 1.6; color: #333; padding: 10px 0;">${safeMsg}</div>`;
         }
 
-        // 기존 alert 덮어쓰기
         window.alert = function (message) {
             return Swal.fire({
                 html: formatMessage(message),
                 confirmButtonText: '확인',
-                confirmButtonColor: '#0d6efd', // 파란색 테마
-                allowOutsideClick: false, // 바깥 클릭 방지
+                confirmButtonColor: '#0d6efd',
+                allowOutsideClick: false,
                 width: '420px',
-                animation: false // 빠른 렌더링을 원하면 true로 변경 가능
+                animation: false
             });
         };
 
-        // 기존 confirm 덮어쓰기
         window.confirm = function (message) {
             return Swal.fire({
                 html: formatMessage(message),
@@ -76,11 +62,10 @@
                 confirmButtonText: '확인',
                 cancelButtonText: '취소',
                 confirmButtonColor: '#0d6efd',
-                cancelButtonColor: '#6c757d', // 회색 테마
+                cancelButtonColor: '#6c757d',
                 allowOutsideClick: false,
                 width: '420px'
             }).then((result) => {
-                // C# 코드가 기다리고 있는 true/false 값을 정상적으로 돌려줌
                 return result.isConfirmed;
             });
         };
