@@ -138,12 +138,12 @@
                             OpenImageModal="OpenImageModal"
                             ManualMatchSingle="ManualMatchSingle"
                             AutoMatchReceipts="AutoMatchReceipts"
-                            ShowImageModal="showImageModal"
-                            CurrentLargeImageUrl="currentLargeImageUrl"
-                            ImgX="imgX"
-                            ImgY="imgY"
-                            ImgScale="imgScale"
-                            IsDragging="isDragging"
+                            ShowImageModal="@showImageModal"
+                            CurrentLargeImageUrl="@currentLargeImageUrl"
+                            ImgX="@imgX"
+                            ImgY="@imgY"
+                            ImgScale="@imgScale"
+                            IsDragging="@isDragging"
                             CloseImageModal="CloseImageModal"
                             HandleWheel="HandleWheel"
                             HandleMouseDown="HandleMouseDown"
@@ -173,7 +173,12 @@
     // 모달 열기 (썸네일 버튼 등에서 호출)
     private void OpenImageModal(string imageUrl)
     {
-        currentLargeImageUrl = imageUrl;
+        if (string.IsNullOrEmpty(imageUrl)) return;
+
+        // 🚀 경로가 "/"로 시작하지 않으면 루트 경로로 인식하도록 "/" 추가
+        // 브라우저가 /data-collection/uploads/... 로 찾는 것을 방지함
+        currentLargeImageUrl = imageUrl.StartsWith("/") ? imageUrl : "/" + imageUrl;
+
         ResetImageTransform();
         showImageModal = true;
     }
