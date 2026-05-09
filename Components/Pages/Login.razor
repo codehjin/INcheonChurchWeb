@@ -106,7 +106,7 @@
                 else
                 {
                     // 🚀 수정 권한이 있는 사용자인지 확인
-                    bool hasEditPermission = user.Role == "Admin" || user.Role == "DeptAdmin" || user.Role == "User";
+                    bool hasEditPermission = user.CanAccessDataCollection;
 
                     // 🚀 2FA 활성화 여부 확인
                     if (hasEditPermission && user.IsTwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFactorSecret))

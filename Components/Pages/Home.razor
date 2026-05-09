@@ -203,7 +203,7 @@
                         <button style="background: none; border: none; color: var(--on-surface-sub); font-weight: 700; padding: 0; cursor: pointer;" @onclick="() => ChangeYear(1)">▶</button>
                     </div>
                     @* 부서 선택 칩 (관리자만) *@
-                    @if (IsAdmin)
+                    @if (CurrentUser?.CanViewAll == true)
                     {
                         <div class="dash-filter-chip">
                             <span class="dash-filter-chip-label">부서</span>

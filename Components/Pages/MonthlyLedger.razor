@@ -471,7 +471,7 @@
                     <button class="selector-btn" @onclick="() => ChangeMonth(1)">▶</button>
                 </div>
 
-                @if (IsAdmin)
+                @if (CurrentUser?.CanViewAll == true)
                 {
                     <select class="form-select ledger-input w-auto fw-bold" @onchange="OnDeptChanged" value="@SelectedDepartmentId">
                         <option value="0">전체 부서</option>
@@ -520,7 +520,7 @@
                 </h4>
 
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    @if (CanEditLedger)
+                    @if (CurrentUser?.CanEditLedger == true)
                     {
                         <button class="ledger-gold-btn" @onclick="ToggleBatchEditMode">
                             <i class="bi bi-pencil-square me-1"></i> @(isBatchEditMode ? "수정 취소" : "일괄 수정")
@@ -532,7 +532,7 @@
                     <button class="ledger-secondary-btn" @onclick="DownloadExcel" disabled="@(!FilteredEntries.Any())">
                         <i class="bi bi-file-earmark-excel me-1"></i> 엑셀
                     </button>
-                    @if (CanEditLedger)
+                    @if (CurrentUser?.CanEditLedger == true)
                     {
                         <button class="ledger-gold-btn" @onclick="ToggleAddForm">
                             <i class="bi @(isAddingNew ? "bi-dash-lg" : "bi-plus-lg") me-1"></i> @(isAddingNew ? "입력 취소" : "새 항목 입력")
@@ -541,7 +541,7 @@
                 </div>
             </div>
 
-            @if (isBatchEditMode && CanEditLedger)
+            @if (isBatchEditMode && CurrentUser?.CanEditLedger == true)
             {
                 <div class="ledger-card-warm p-2 mb-3 d-flex flex-wrap align-items-center gap-2" style="background-color:rgba(23, 69, 119, 0.05); border: 1px solid rgba(23, 69, 119, 0.1);">
                     <span class="fw-bold ms-2" style="color: #174577; font-size: 0.9rem;"><i class="bi bi-check-all me-1"></i> @editSelectedIds.Count 건 선택됨</span>
@@ -587,11 +587,11 @@
                             <col style="width: 9%;" />
                             <col style="width: 9%;" />
                             <col style="width: 10%;" />
-                            @if (IsAdmin)
+                            @if (CurrentUser?.CanViewAll == true)
                             {
                                 <col style="width: 6%;" />
                             }
-                            @if (CanEditLedger)
+                            @if (CurrentUser?.CanEditLedger == true)
                             {
                                 <col style="width: 6%;" />
                             }
@@ -612,11 +612,11 @@
                                 <th>수입</th>
                                 <th>지출</th>
                                 <th>잔액</th>
-                                @if (IsAdmin)
+                                @if (CurrentUser?.CanViewAll == true)
                                 {
                                     <th>부서</th>
                                 }
-                                @if (CanEditLedger)
+                                @if (CurrentUser?.CanEditLedger == true)
                                 {
                                     <th>관리</th>
                                 }
@@ -642,11 +642,11 @@
                                 <th></th>
                                 <th></th>
                                 <th></th>
-                                @if (IsAdmin)
+                                @if (CurrentUser?.CanViewAll == true)
                                 {
                                     <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="filterDepartment" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 }
-                                @if (CanEditLedger)
+                                @if (CurrentUser?.CanEditLedger == true)
                                 {
                                     <th></th>
                                 }
@@ -697,11 +697,11 @@
                                             }
                                         </td>
                                         <td></td>
-                                        @if (IsAdmin)
+                                        @if (CurrentUser?.CanViewAll == true)
                                         {
                                             <td></td>
                                         }
-                                        @if (CanEditLedger)
+                                        @if (CurrentUser?.CanEditLedger == true)
                                         {
                                             <td>
                                                 <div class="d-flex gap-1 justify-content-center">
@@ -739,11 +739,11 @@
                                         <td class="text-end ledger-tabular fw-bold" style="color: #785600;">@(t.Income > 0 ? t.Income.ToString("N0") : "")</td>
                                         <td class="text-end ledger-tabular fw-bold" style="color: #ba1a1a;">@(t.Expense > 0 ? t.Expense.ToString("N0") : "")</td>
                                         <td class="text-end ledger-tabular fw-bold" style="color: #1b1c15;">@(entryBalances.TryGetValue(t.Id, out var b) ? b.ToString("N0") : "-")</td>
-                                        @if (IsAdmin)
+                                        @if (CurrentUser?.CanViewAll == true)
                                         {
                                             <td style="font-size: 0.8rem; color: #807666;">@Departments.FirstOrDefault(d => d.Id == t.DepartmentId)?.Name</td>
                                         }
-                                        @if (CanEditLedger)
+                                        @if (CurrentUser?.CanEditLedger == true)
                                         {
                                             <td>
                                                 <div class="d-flex justify-content-center gap-1">
@@ -757,12 +757,12 @@
                                                 @if (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))
                                                 {
                                                     <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath! : t.ReceiptUrl!)"><i class="bi bi-receipt-cutoff"></i></button>
-                                                    @if (CanEditLedger)
+                                                    @if (CurrentUser?.CanEditLedger == true)
                                                     {
                                                         <button class="icon-btn delete" style="width:24px; height:24px; font-size:0.75rem;" title="영수증 분리" @onclick="() => RemoveReceiptOnly(t.Id)"><i class="bi bi-x-circle-fill"></i></button>
                                                     }
                                                 }
-                                                else if (CanEditLedger)
+                                                else if (CurrentUser?.CanEditLedger == true)
                                                 {
                                                     <button class="icon-btn upload" title="업로드" @onclick="() => TriggerPcUpload(t.Id)"><i class="bi bi-folder-plus fs-5"></i></button>
                                                 }
@@ -776,7 +776,7 @@
                                 </tr>
                             }
 
-                            @if (CanEditLedger && isAddingNew)
+                            @if (CurrentUser?.CanEditLedger == true && isAddingNew)
                             {
                                 <tr style="background-color: #fbfcfa; border-top: 2px solid #785600;">
                                     @if (isBatchEditMode)
@@ -812,7 +812,7 @@
                                         }
                                     </td>
                                     <td class="text-end ledger-tabular fw-bold" style="color: #807666; font-size: 0.75rem;">자동계산</td>
-                                    @if (IsAdmin)
+                                    @if (CurrentUser?.CanViewAll == true)
                                     {
                                         <td>
                                             <select class="form-select ledger-input fw-bold" style="font-size: 0.75rem; padding: 0.2rem 0.5rem; color: #785600;" @bind="newItem.DepartmentId">
@@ -824,7 +824,7 @@
                                             </select>
                                         </td>
                                     }
-                                    @if (CanEditLedger)
+                                    @if (CurrentUser?.CanEditLedger == true)
                                     {
                                         <td>
                                             <div class="d-flex justify-content-center gap-1">
@@ -846,11 +846,11 @@
                                 <td class="text-end ledger-tabular fw-bold" style="color: #785600; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Income).ToString("N0")</td>
                                 <td class="text-end ledger-tabular fw-bold" style="color: #ba1a1a; padding: 1rem 0.5rem;">₩@FilteredEntries.Sum(t => t.Expense).ToString("N0")</td>
                                 <td class="text-end ledger-tabular fw-bold" style="color: #1b1c15; padding: 1rem 0.5rem;">₩@CurrentBalance.ToString("N0")</td>
-                                @if (IsAdmin)
+                                @if (CurrentUser?.CanViewAll == true)
                                 {
                                     <td></td>
                                 }
-                                @if (CanEditLedger)
+                                @if (CurrentUser?.CanEditLedger == true)
                                 {
                                     <td></td>
                                 }
@@ -1103,8 +1103,6 @@
     private int CurrentMonth = DateTime.Now.Month;
     private int CurrentQuarter = 0;
     private int SelectedDepartmentId = 0;
-    private bool IsAdmin => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Auditor";
-    private bool CanEditLedger => CurrentUser?.Role == "Admin" || CurrentUser?.Role == "Manager";
     private List<Department> Departments = new();
     private List<LedgerEntry> Entries = new();
     private List<LedgerEntry> FilteredEntries = new();
@@ -1151,7 +1149,7 @@
         Departments = await Accounting.GetDepartmentsAsync();
         if (CurrentUser?.Department != null)
         {
-            SelectedDepartmentId = IsAdmin ? 0 : CurrentUser.DepartmentId;
+            SelectedDepartmentId = CurrentUser?.CanViewAll == true ? 0 : CurrentUser.DepartmentId;
             await LoadData();
         }
     }
@@ -1267,7 +1265,7 @@
         if (!string.IsNullOrEmpty(filterDate)) temp = temp.Where(x => x.Date.ToString("MM.dd").Contains(filterDate) || x.Date.ToString("yyyy-MM-dd").Contains(filterDate));
         if (!string.IsNullOrEmpty(filterDescription)) temp = temp.Where(x => x.Description != null && x.Description.Contains(filterDescription, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(filterNote)) temp = temp.Where(x => x.Note != null && x.Note.Contains(filterNote, StringComparison.OrdinalIgnoreCase));
-        if (IsAdmin && !string.IsNullOrEmpty(filterDepartment)) temp = temp.Where(x => Departments.FirstOrDefault(d => d.Id == x.DepartmentId)?.Name?.Contains(filterDepartment, StringComparison.OrdinalIgnoreCase) == true);
+        if (CurrentUser?.CanViewAll == true && !string.IsNullOrEmpty(filterDepartment)) temp = temp.Where(x => Departments.FirstOrDefault(d => d.Id == x.DepartmentId)?.Name?.Contains(filterDepartment, StringComparison.OrdinalIgnoreCase) == true);
         FilteredEntries = temp.ToList();
 
         entryBalances.Clear();
@@ -1392,10 +1390,10 @@
     {
         using var DbContext = DbContextFactory.CreateDbContext();
         if (string.IsNullOrWhiteSpace(newItem.Description)) { await JSRuntime.InvokeVoidAsync("alert", "내역을 입력해주세요."); return; }
-        if (IsAdmin && newItem.DepartmentId == 0) { await JSRuntime.InvokeVoidAsync("alert", "부서를 선택해주세요."); return; }
+        if (CurrentUser?.CanViewAll == true && newItem.DepartmentId == 0) { await JSRuntime.InvokeVoidAsync("alert", "부서를 선택해주세요."); return; }
         if (string.IsNullOrWhiteSpace(newItem.Category)) newItem.Category = "미분류";
 
-        newItem.DepartmentId = IsAdmin ? newItem.DepartmentId : (SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId);
+        newItem.DepartmentId = CurrentUser?.CanViewAll == true ? newItem.DepartmentId : (SelectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : SelectedDepartmentId);
 
         int calculatedYear = newItem.Date.Year;
         if (newItem.Date.Month == 11 || newItem.Date.Month == 12)

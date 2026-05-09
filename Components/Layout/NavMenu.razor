@@ -18,13 +18,16 @@
         <span class="nav-label">대시보드</span>
     </NavLink>
 
-    @if (CanEdit)
+    @if (CurrentUser?.CanEdit == true)
     {
         <NavLink class="stitch-nav-item" href="expense-report-quarterly">
             <span class="nav-icon-wrap"><i class="bi bi-file-earmark-text-fill"></i></span>
             <span class="nav-label">지출결의서</span>
         </NavLink>
+    }
 
+    @if (CurrentUser?.CanAccessDataCollection == true)
+    {
         <NavLink class="stitch-nav-item" href="data-collection">
             <span class="nav-icon-wrap"><i class="bi bi-receipt-cutoff"></i></span>
             <span class="nav-label">수집 및 정리</span>
@@ -41,7 +44,7 @@
         <span class="nav-label">환경설정</span>
     </NavLink>
 
-    @if (CanEdit)
+    @if (CurrentUser?.CanEdit == true)
     {
         <NavLink class="stitch-nav-item" href="manual">
             <span class="nav-icon-wrap"><i class="bi bi-info-circle-fill"></i></span>
@@ -52,10 +55,4 @@
 
 @code {
     [Parameter] public User? CurrentUser { get; set; }
-
-    private bool IsAdmin => CurrentUser?.Role == "Admin";
-    private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
-
-    // 작성 및 편집 권한이 있는 경우에만 영수증/결의서 메뉴 표시
-    private bool CanEdit => IsManager;
 }

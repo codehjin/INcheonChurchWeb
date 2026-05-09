@@ -126,13 +126,16 @@
                     <span>홈</span>
                 </NavLink>
 
-                @if (CanEdit)
+                @if (CurrentUser?.CanEdit == true)
                 {
                     <NavLink class="mobile-tab-item" href="expense-report-quarterly">
                         <i class="bi bi-file-earmark-text-fill tab-icon"></i>
                         <span>결의서</span>
                     </NavLink>
+                }
 
+                @if (CurrentUser?.CanAccessDataCollection == true)
+                {
                     <NavLink class="mobile-tab-item" href="data-collection">
                         <i class="bi bi-receipt-cutoff tab-icon"></i>
                         <span>수집정리</span>
@@ -222,8 +225,6 @@
 @code {
     private User? CurrentUser;
     private bool isLoaded = false;
-
-    private bool CanEdit => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

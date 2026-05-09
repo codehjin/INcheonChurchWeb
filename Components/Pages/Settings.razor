@@ -41,7 +41,7 @@
     .settings-secondary-btn:hover { background-color: #e4e3d7; color: #5a4000; }
     .settings-secondary-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .settings-danger-btn { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.4rem 1rem; font-size: 1rem; transition: all 0.2s ease-out; }
+    .settings-danger-btn { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; font-weight: 700, border: none; border-radius: 0.375rem; padding: 0.4rem 1rem; font-size: 1rem; transition: all 0.2s ease-out; }
     .settings-danger-btn:hover { background-color: rgba(186, 26, 26, 0.2); color: #ba1a1a; }
 
     /* 입력창 (Input & Select) */
@@ -82,10 +82,10 @@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
             <div>
                 <h2 class="fw-bold mb-1" style="color: #1b1c15; font-family: 'Manrope', sans-serif; letter-spacing: -0.02em;">환경 설정</h2>
-                <p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">@(CurrentUser?.Department?.Name ?? (IsSystemAdmin ? "시스템 관리자" : "부서미정")) 권한으로 접속 중입니다.</p>
+                <p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">@(CurrentUser?.Department?.Name ?? (CurrentUser?.IsSystemAdmin == true ? "시스템 관리자" : "부서미정")) 권한으로 접속 중입니다.</p>
             </div>
 
-            @if (IsManager)
+            @if (CurrentUser?.IsManager == true)
             {
                 <div class="d-flex flex-wrap align-items-center gap-2 p-2 rounded" style="background-color: #f5f4e8;">
                     <span class="fw-bold" style="font-size: 0.75rem; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;">작업 연도</span>
@@ -115,11 +115,11 @@
 
         @* 🚀 탭 메뉴 분리 *@
         <div class="settings-tab-bar mb-4">
-            @if (IsSystemAdmin)
+            @if (CurrentUser?.IsSystemAdmin == true)
             {
                 <button class="settings-tab @(activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'>👥 사용자 관리</button>
             }
-            @if (IsManager)
+            @if (CurrentUser?.IsManager == true)
             {
                 <button class="settings-tab @(activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'>📥 수입 예산</button>
                 <button class="settings-tab @(activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'>📤 지출 예산</button>
@@ -129,7 +129,7 @@
                 <button class="settings-tab @(activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'>📂 데이터 백업</button>
             }
             <button class="settings-tab @(activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'>🔒 보안 및 암호</button>
-            @if (IsManager || IsAuditor)
+            @if (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true)
             {
                 <button class="settings-tab @(activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'>💼 부서 임원 정보</button>
                 <button class="settings-tab @(activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'>🏦 부서 계좌번호</button>
@@ -141,7 +141,7 @@
             @* ──────────────────────────────
                [1] 탭: 예산 관리 (수입/지출)
             ────────────────────────────── *@
-            @if ((activeTab == "Income" || activeTab == "Expense") && IsManager)
+            @if ((activeTab == "Income" || activeTab == "Expense") && CurrentUser?.IsManager == true)
             {
                 var currentCats = activeTab == "Income" ? IncomeCats : ExpenseCats;
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)년도 @(activeTab == "Income" ? "수입" : "지출") 예산 편집</h4>
@@ -154,7 +154,7 @@
                     </div>
                 </div>
 
-                @if (!IsSystemAdmin)
+                @if (!(CurrentUser?.IsSystemAdmin == true))
                 {
                     <div class="settings-card-warm mb-4">
                         <div class="row g-2 align-items-end">
@@ -343,7 +343,7 @@
             @* ──────────────────────────────
                [2] 탭: 자동분류 설정 (수입/지출 분리형)
             ────────────────────────────── *@
-            else if (activeTab == "Mapping" && IsManager)
+            else if (activeTab == "Mapping" && CurrentUser?.IsManager == true)
             {
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">엑셀 장부 자동분류 설정</h4>
 
@@ -425,7 +425,7 @@
             @* ──────────────────────────────
                [3] 탭: 분기 설정
             ────────────────────────────── *@
-            else if (activeTab == "Quarter" && IsManager)
+            else if (activeTab == "Quarter" && CurrentUser?.IsManager == true)
             {
                 <div class="col-12">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)년도 분기 날짜 설정</h4>
@@ -486,9 +486,9 @@
             @* ──────────────────────────────
                [4] 탭: 데이터 백업/복구
             ────────────────────────────── *@
-            else if (activeTab == "Backup" && IsManager)
+            else if (activeTab == "Backup" && CurrentUser?.IsManager == true)
             {
-                @if (IsSystemAdmin)
+                @if (CurrentUser?.IsSystemAdmin == true)
                 {
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">전체 시스템 데이터 백업 및 복원</h4>
                     <div class="settings-card-warm mb-4 text-center py-5">
@@ -567,7 +567,7 @@
             @* ──────────────────────────────
                [5] 탭: 사용자 관리 (시스템 관리자용)
             ────────────────────────────── *@
-            else if (activeTab == "Users" && IsSystemAdmin)
+            else if (activeTab == "Users" && CurrentUser?.IsSystemAdmin == true)
             {
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">부서 계정 관리</h4>
                 <div class="settings-card-warm mb-4">
@@ -584,7 +584,7 @@
                             <select class="settings-input" @bind="newUser.Role">
                                 <option value="Manager">부서운영자 (전도사/부장/회계)</option>
                                 <option value="Auditor">감사/국장 (목사/장로/감사)</option>
-                                <option value="Viewer">일반조회 (교사)</option>
+                                <option value="User">일반조회 (교사)</option>
                                 <option value="Admin">최고관리자 (시스템 통제)</option>
                             </select>
                         </div>
@@ -603,7 +603,7 @@
                                     <td>@u.FullName</td>
                                     <td class="fw-bold" style="color: #5a4000;">@(adminDeptList.FirstOrDefault(d => d.Id == u.DepartmentId)?.Name ?? "미정")</td>
                                     <td class="fw-bold text-muted">
-                                        @(u.Role == "Admin" ? "최고관리자" : (u.Role == "Manager" || u.Role == "DeptAdmin") ? "부서운영자" : (u.Role == "Auditor" || u.Role == "Director") ? "감사/국장" : "일반조회")
+                                        @(u.Role == "Admin" ? "최고관리자" : u.Role == "Manager" ? "부서운영자" : u.Role == "Auditor" ? "감사/국장" : "일반조회")
                                     </td>
                                     <td>
                                         @if (u.IsActive) { <span class="badge bg-white border" style="color: #198754;">활성</span> } 
@@ -924,9 +924,6 @@
     // 특정 연도의 11월 4째주 주일(마감일)을 구하는 로직
     private DateTime GetFiscalYearEndDate(int year) => AccountingService.GetFourthSundayOfMonth(year, 11);
     // 권한 체크
-    private bool IsSystemAdmin => CurrentUser?.Role == "Admin";
-    private bool IsManager => CurrentUser?.Role == "Manager" || CurrentUser?.Role == "Admin";
-    private bool IsAuditor => CurrentUser?.Role == "Auditor" || CurrentUser?.Role == "Director";
     private bool showNewPassword = false;
     private bool showConfirmPassword = false;
    
@@ -1014,8 +1011,8 @@
     {
         if (CurrentUser == null) return;
         
-        if (IsSystemAdmin) activeTab = "Users";
-        else if (IsManager) activeTab = "Income";
+        if (CurrentUser?.IsSystemAdmin == true) activeTab = "Users";
+        else if (CurrentUser?.IsManager == true) activeTab = "Income";
         else activeTab = "MyInfo";
        
         TargetYear = Math.Max(2024, DateTime.Now.Year);
@@ -1055,7 +1052,7 @@
             QuarterEndDates[i - 1] = range.End;
         }
 
-        if (IsSystemAdmin && activeTab == "Users")
+        if (CurrentUser?.IsSystemAdmin == true && activeTab == "Users")
         {
             adminUserList = await AccService.GetAllUsersAsync();
             adminDeptList = await AccService.GetDepartmentsAsync();
@@ -1064,7 +1061,7 @@
 
         if (activeTab == "Income" || activeTab == "Expense")
         {
-            if (IsSystemAdmin)
+            if (CurrentUser?.IsSystemAdmin == true)
             {
                 // Admin: 모든 부서 예산 로드
                 var allDepts = await DbContext.Departments.AsNoTracking().Where(d => d.Name != "관리자").OrderBy(d => d.Id).ToListAsync();
@@ -1103,7 +1100,7 @@
         else if (activeTab == "Officers" || activeTab == "Account")
         {
             var allDepts = await DbContext.Departments.Where(d => d.Name != "관리자" && d.Name != "시스템").OrderBy(d => d.Id).ToListAsync();
-            if (IsSystemAdmin || CurrentUser.Role == "Auditor" || CurrentUser.Role == "Director" || CurrentUser.Department?.Name == "교육국")
+            if (CurrentUser?.IsSystemAdmin == true || CurrentUser?.IsAuditor == true || CurrentUser?.Department?.Name == "교육국")
             {
                 visibleDepartments = allDepts;
             }
@@ -1327,8 +1324,8 @@
             foreach (var plan in prevPlans) DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
             await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "✅ 직전년도 예산 불러오기 완료!");
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 오류: {ex.Message}"); }
-        finally { isImporting = false; }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"❌ 엑셀 처리 중 오류: {ex.Message}"); }
+        finally { isImporting = false; bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
     private async Task DownloadBulkTemplate()
