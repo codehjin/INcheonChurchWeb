@@ -1,4 +1,4 @@
-ï»¿@page "/settings"
+@page "/settings"
 @using INcheonChurchWeb.Models
 @using INcheonChurchWeb.Services
 @using INcheonChurchWeb.Data
@@ -16,23 +16,23 @@
 @inject TwoFactorAuthService TotpService
 @rendermode InteractiveServer
 
-<PageTitle>í™˜ê²½ ì„¤ì •</PageTitle>
+<PageTitle>È¯°æ ¼³Á¤</PageTitle>
 
 <style>
     /* =======================================================
-       ğŸ¨ DESIGN SYSTEM: The Tactile Ledger
+       ?? DESIGN SYSTEM: The Tactile Ledger
     ======================================================= */
     .settings-surface { background-color: #fbfaee; min-height: 100vh; padding-bottom: 5rem; }
     .settings-card { background-color: #ffffff; border-radius: 0.5rem; border: none; box-shadow: 0 2px 8px rgba(48, 49, 41, 0.04); transition: all 0.2s ease-out; }
     .settings-card-warm { background-color: #f5f4e8; border-radius: 0.5rem; border: none; padding: 1.25rem; }
     
-    /* íƒ­ ë©”ë‰´ ë””ìì¸ */
+    /* ÅÇ ¸Ş´º µğÀÚÀÎ */
     .settings-tab-bar { background-color: #f5f4e8; border-radius: 0.75rem; padding: 0.375rem; display: flex; flex-wrap: wrap; gap: 0.25rem; }
     .settings-tab { padding: 0.625rem 1rem; font-size: 1rem; font-weight: 600; border-radius: 0.5rem; border: none; background: transparent; color: #4e4637; cursor: pointer; transition: all 0.2s ease-out; }
     .settings-tab:hover { background-color: #eae9dd; }
     .settings-tab.active { background-color: #ffffff; color: #5a4000; box-shadow: 0 2px 6px rgba(48, 49, 41, 0.06); font-weight: 800; }
     
-    /* ë²„íŠ¼ ë””ìì¸ */
+    /* ¹öÆ° µğÀÚÀÎ */
     .settings-gold-btn { background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #ffffff; font-weight: 700; border: none; border-radius: 0.375rem; padding: 0.5rem 1.25rem; font-size: 1rem; transition: all 0.15s ease-out; }
     .settings-gold-btn:hover { transform: translateY(-1px); color: #ffffff; box-shadow: 0 4px 10px rgba(120, 86, 0, 0.2); }
     .settings-gold-btn:disabled { opacity: 0.6; transform: none; box-shadow: none; cursor: not-allowed; }
@@ -44,16 +44,16 @@
     .settings-danger-btn { background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; font-weight: 700, border: none; border-radius: 0.375rem; padding: 0.4rem 1rem; font-size: 1rem; transition: all 0.2s ease-out; }
     .settings-danger-btn:hover { background-color: rgba(186, 26, 26, 0.2); color: #ba1a1a; }
 
-    /* ì…ë ¥ì°½ (Input & Select) */
+    /* ÀÔ·ÂÃ¢ (Input & Select) */
     .settings-input { background-color: #ffffff; border: 1px solid #e4e3d7; border-radius: 0.375rem; padding: 0.5rem 0.75rem; font-size: 1rem; color: #1b1c15; transition: border-color 0.2s, box-shadow 0.2s; width: 100%; }
     .settings-input:focus { outline: none; border-color: #785600; box-shadow: 0 0 0 2px rgba(120, 86, 0, 0.1); }
     select.settings-input { padding-right: 2.25rem !important; }
 
-    /* ì•ˆë‚´ ë°•ìŠ¤ */
+    /* ¾È³» ¹Ú½º */
     .settings-info-box { background-color: #f5f4e8; border-radius: 0.375rem; padding: 1rem 1.25rem; display: flex; align-items: flex-start; gap: 1rem; border-left: 4px solid #785600; }
     .settings-info-box.danger { border-left-color: #ba1a1a; background-color: rgba(186, 26, 26, 0.05); }
 
-    /* í…Œì´ë¸” ë””ìì¸ */
+    /* Å×ÀÌºí µğÀÚÀÎ */
     .settings-table-container { overflow-x: auto; border-radius: 0.5rem; background-color: #ffffff; border: 1px solid #eae9dd; }
     .settings-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
     .settings-table th { background-color: rgba(234, 233, 221, 0.6); color: #4e4637; font-weight: 700; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.875rem 1rem; border-bottom: 2px solid #d2c5b2; white-space: nowrap; text-align: center; }
@@ -62,12 +62,12 @@
     .settings-table tbody tr:hover { background-color: #fbfcfa; }
     .settings-tabular { font-variant-numeric: tabular-nums; }
 
-    /* ì•„ì½”ë””ì–¸ ì˜¤ë²„ë¼ì´ë“œ (ë¶€ì„œ ì„ì›/ê³„ì¢Œìš©) */
+    /* ¾ÆÄÚµğ¾ğ ¿À¹ö¶óÀÌµå (ºÎ¼­ ÀÓ¿ø/°èÁÂ¿ë) */
     .accordion-button:not(.collapsed) { background-color: #f5f4e8; color: #5a4000; box-shadow: inset 0 -1px 0 rgba(0,0,0,.125); font-weight: 800; }
     .accordion-button:focus { box-shadow: 0 0 0 0.25rem rgba(120, 86, 0, 0.25); }
     .accordion-item { border-color: #eae9dd; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.5rem; }
 
-    /* ì—°ë„ ì„ íƒê¸° */
+    /* ¿¬µµ ¼±ÅÃ±â */
     .year-selector { display: inline-flex; align-items: center; background-color: #ffffff; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #eae9dd; }
     .year-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 0.25rem; color: #785600; border: none; background: transparent; cursor: pointer; transition: background 0.2s; font-size: 1rem; font-weight: bold; }
     .year-btn:hover { background-color: #f5f4e8; }
@@ -78,79 +78,79 @@
 <div class="settings-surface">
     <div class="container-fluid px-3 px-md-4 pt-4">
 
-        @* ìƒë‹¨ í—¤ë” & ì»¨íŠ¸ë¡¤ ë°” *@
+        @* »ó´Ü Çì´õ & ÄÁÆ®·Ñ ¹Ù *@
         <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
             <div>
-                <h2 class="fw-bold mb-1" style="color: #1b1c15; font-family: 'Manrope', sans-serif; letter-spacing: -0.02em;">í™˜ê²½ ì„¤ì •</h2>
-                <p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">@(CurrentUser?.Department?.Name ?? (CurrentUser?.IsSystemAdmin == true ? "ì‹œìŠ¤í…œ ê´€ë¦¬ì" : "ë¶€ì„œë¯¸ì •")) ê¶Œí•œìœ¼ë¡œ ì ‘ì† ì¤‘ì…ë‹ˆë‹¤.</p>
+                <h2 class="fw-bold mb-1" style="color: #1b1c15; font-family: 'Manrope', sans-serif; letter-spacing: -0.02em;">È¯°æ ¼³Á¤</h2>
+                <p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">@(CurrentUser?.Department?.Name ?? (CurrentUser?.IsSystemAdmin == true ? "½Ã½ºÅÛ °ü¸®ÀÚ" : "ºÎ¼­¹ÌÁ¤")) ±ÇÇÑÀ¸·Î Á¢¼Ó ÁßÀÔ´Ï´Ù.</p>
             </div>
 
             @if (CurrentUser?.IsManager == true)
             {
                 <div class="d-flex flex-wrap align-items-center gap-2 p-2 rounded" style="background-color: #f5f4e8;">
-                    <span class="fw-bold" style="font-size: 0.75rem; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;">ì‘ì—… ì—°ë„</span>
+                    <span class="fw-bold" style="font-size: 0.75rem; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;">ÀÛ¾÷ ¿¬µµ</span>
                     <div class="year-selector me-2">
-                        <button class="year-btn" @onclick="() => ChangeYear(-1)" disabled="@(TargetYear <= 2024)">â—€</button>
-                        <span class="year-value">@(TargetYear)ë…„</span>
-                        <button class="year-btn" @onclick="() => ChangeYear(1)" disabled="@(TargetYear >= DateTime.Now.Year + 1)">â–¶</button>
+                        <button class="year-btn" @onclick="() => ChangeYear(-1)" disabled="@(TargetYear <= 2024)">¢¸</button>
+                        <span class="year-value">@(TargetYear)³â</span>
+                        <button class="year-btn" @onclick="() => ChangeYear(1)" disabled="@(TargetYear >= DateTime.Now.Year + 1)">¢º</button>
                     </div>
 
                     <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.8rem;" @onclick="SafeImportPreviousYearBudget" disabled="@isImporting">
                         @if (isImporting) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        else { <i class="bi bi-arrow-clockwise me-1"></i><span>ì§ì „ë…„ë„ ì˜ˆì‚° ë¶ˆëŸ¬ì˜¤ê¸°</span> }
+                        else { <i class="bi bi-arrow-clockwise me-1"></i><span>Á÷Àü³âµµ ¿¹»ê ºÒ·¯¿À±â</span> }
                     </button>
                     <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.8rem; background-color: #ffffff; border: 1px solid #d2c5b2;" @onclick="DownloadBulkTemplate">
-                        <i class="bi bi-file-earmark-excel me-1"></i>ì—‘ì…€ì–‘ì‹ ë‹¤ìš´ë¡œë“œ
+                        <i class="bi bi-file-earmark-excel me-1"></i>¿¢¼¿¾ç½Ä ´Ù¿î·Îµå
                     </button>
                     <button class="settings-gold-btn py-1 px-3" style="font-size: 0.8rem;" @onclick="TriggerBulkImport" disabled="@isImporting">
-                        <i class="bi bi-upload me-1"></i>ì¼ê´„ì…ë ¥ (ì—‘ì…€)
+                        <i class="bi bi-upload me-1"></i>ÀÏ°ıÀÔ·Â (¿¢¼¿)
                     </button>
                 </div>
             }
         </div>
 
-        @* ìˆ¨ê²¨ì§„ íŒŒì¼ ì—…ë¡œë“œ Input *@
+        @* ¼û°ÜÁø ÆÄÀÏ ¾÷·Îµå Input *@
         <InputFile @key="bulkImportKey" id="bulkImportInput" OnChange="HandleBulkImport" style="display:none;" accept=".xlsx,.xls" />
         <InputFile @key="systemRestoreKey" id="systemRestoreInput" OnChange="HandleSystemRestore" style="display:none;" accept=".json" />
 
-        @* ğŸš€ íƒ­ ë©”ë‰´ ë¶„ë¦¬ *@
+        @* ?? ÅÇ ¸Ş´º ºĞ¸® *@
         <div class="settings-tab-bar mb-4">
             @if (CurrentUser?.IsSystemAdmin == true)
             {
-                <button class="settings-tab @(activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'>ğŸ‘¥ ì‚¬ìš©ì ê´€ë¦¬</button>
+                <button class="settings-tab @(activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'>?? »ç¿ëÀÚ °ü¸®</button>
             }
             @if (CurrentUser?.IsManager == true)
             {
-                <button class="settings-tab @(activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'>ğŸ“¥ ìˆ˜ì… ì˜ˆì‚°</button>
-                <button class="settings-tab @(activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'>ğŸ“¤ ì§€ì¶œ ì˜ˆì‚°</button>
-                <button class="settings-tab @(activeTab == "Mapping" ? "active" : "")" @onclick='() => ChangeTab("Mapping")'>ğŸ·ï¸ ìë™ë¶„ë¥˜ ì„¤ì •</button>
-                <button class="settings-tab @(activeTab == "Quarter" ? "active" : "")" @onclick='() => ChangeTab("Quarter")'>ğŸ“… ë¶„ê¸° ì„¤ì •</button>
+                <button class="settings-tab @(activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'>?? ¼öÀÔ ¿¹»ê</button>
+                <button class="settings-tab @(activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'>?? ÁöÃâ ¿¹»ê</button>
+                <button class="settings-tab @(activeTab == "Mapping" ? "active" : "")" @onclick='() => ChangeTab("Mapping")'>??? ÀÚµ¿ºĞ·ù ¼³Á¤</button>
+                <button class="settings-tab @(activeTab == "Quarter" ? "active" : "")" @onclick='() => ChangeTab("Quarter")'>?? ºĞ±â ¼³Á¤</button>
                 
-                <button class="settings-tab @(activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'>ğŸ“‚ ë°ì´í„° ë°±ì—…</button>
+                <button class="settings-tab @(activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'>?? µ¥ÀÌÅÍ ¹é¾÷</button>
             }
-            <button class="settings-tab @(activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'>ğŸ”’ ë³´ì•ˆ ë° ì•”í˜¸</button>
+            <button class="settings-tab @(activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'>?? º¸¾È ¹× ¾ÏÈ£</button>
             @if (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true)
             {
-                <button class="settings-tab @(activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'>ğŸ’¼ ë¶€ì„œ ì„ì› ì •ë³´</button>
-                <button class="settings-tab @(activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'>ğŸ¦ ë¶€ì„œ ê³„ì¢Œë²ˆí˜¸</button>
+                <button class="settings-tab @(activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'>?? ºÎ¼­ ÀÓ¿ø Á¤º¸</button>
+                <button class="settings-tab @(activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'>?? ºÎ¼­ °èÁÂ¹øÈ£</button>
             }
         </div>
 
         <div class="settings-card p-4 p-md-5">
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [1] íƒ­: ì˜ˆì‚° ê´€ë¦¬ (ìˆ˜ì…/ì§€ì¶œ)
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [1] ÅÇ: ¿¹»ê °ü¸® (¼öÀÔ/ÁöÃâ)
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             @if ((activeTab == "Income" || activeTab == "Expense") && CurrentUser?.IsManager == true)
             {
                 var currentCats = activeTab == "Income" ? IncomeCats : ExpenseCats;
-                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)ë…„ë„ @(activeTab == "Income" ? "ìˆ˜ì…" : "ì§€ì¶œ") ì˜ˆì‚° í¸ì§‘</h4>
+                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)³âµµ @(activeTab == "Income" ? "¼öÀÔ" : "ÁöÃâ") ¿¹»ê ÆíÁı</h4>
 
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-info-circle-fill fs-5 mt-1" style="color: #785600;"></i>
                     <div>
-                        <div class="fw-bold mb-1" style="color: #1b1c15;">ì‚¬ìš©ë²• ì•ˆë‚´</div>
-                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">1ë…„ ë™ì•ˆ ì‚¬ìš©í•  ìˆ˜ì…/ì§€ì¶œ ì˜ˆì‚°ì„ í•­ëª©ë³„ë¡œ ë“±ë¡í•©ë‹ˆë‹¤. ìƒë‹¨ì˜ <b>[ì—‘ì…€ì–‘ì‹ ë‹¤ìš´ë¡œë“œ]</b> í›„ <b>[ì¼ê´„ì…ë ¥]</b>ì„ ì‚¬ìš©í•˜ì‹œë©´ ë§¤ìš° í¸ë¦¬í•©ë‹ˆë‹¤.</p>
+                        <div class="fw-bold mb-1" style="color: #1b1c15;">»ç¿ë¹ı ¾È³»</div>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">1³â µ¿¾È »ç¿ëÇÒ ¼öÀÔ/ÁöÃâ ¿¹»êÀ» Ç×¸ñº°·Î µî·ÏÇÕ´Ï´Ù. »ó´ÜÀÇ <b>[¿¢¼¿¾ç½Ä ´Ù¿î·Îµå]</b> ÈÄ <b>[ÀÏ°ıÀÔ·Â]</b>À» »ç¿ëÇÏ½Ã¸é ¸Å¿ì Æí¸®ÇÕ´Ï´Ù.</p>
                     </div>
                 </div>
 
@@ -159,39 +159,39 @@
                     <div class="settings-card-warm mb-4">
                         <div class="row g-2 align-items-end">
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1 text-muted">í•­ëª© (ì§ì ‘ì…ë ¥/ì„ íƒ)</label>
+                                <label class="form-label small fw-bold mb-1 text-muted">Ç×¸ñ (Á÷Á¢ÀÔ·Â/¼±ÅÃ)</label>
                                 <div class="position-relative">
-                                    <input class="settings-input" list="catList" @bind="newPlan.Category" placeholder="ì˜ˆ: í–‰ì‚¬ë¹„, ì£¼ì¼í—Œê¸ˆ" style="padding-right: 2rem;" />
+                                    <input class="settings-input" list="catList" @bind="newPlan.Category" placeholder="¿¹: Çà»çºñ, ÁÖÀÏÇå±İ" style="padding-right: 2rem;" />
                                     <datalist id="catList">@foreach (var c in currentCats) { <option value="@c"></option> }</datalist>
                                     @if (!string.IsNullOrEmpty(newPlan.Category))
                                     {
-                                        <button class="position-absolute end-0 top-50 translate-middle-y btn btn-sm border-0" style="color: #ba1a1a;" @onclick="@(() => newPlan.Category = string.Empty)" title="ì§€ìš°ê¸°"><i class="bi bi-x-circle-fill"></i></button>
+                                        <button class="position-absolute end-0 top-50 translate-middle-y btn btn-sm border-0" style="color: #ba1a1a;" @onclick="@(() => newPlan.Category = string.Empty)" title="Áö¿ì±â"><i class="bi bi-x-circle-fill"></i></button>
                                     }
                                 </div>
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small fw-bold mb-1 text-muted">ìƒì„¸ë‚´ì—­</label>
-                                <input class="settings-input" @bind="newPlan.SubCategory" placeholder="ìƒì„¸ë‚´ì—­" />
+                                <label class="form-label small fw-bold mb-1 text-muted">»ó¼¼³»¿ª</label>
+                                <input class="settings-input" @bind="newPlan.SubCategory" placeholder="»ó¼¼³»¿ª" />
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label small fw-bold mb-1 text-muted">ì‚°ì¶œê·¼ê±°</label>
-                                <input class="settings-input" @bind="newPlan.CalcDetail" placeholder="ì‚°ì¶œê·¼ê±°" />
+                                <label class="form-label small fw-bold mb-1 text-muted">»êÃâ±Ù°Å</label>
+                                <input class="settings-input" @bind="newPlan.CalcDetail" placeholder="»êÃâ±Ù°Å" />
                             </div>
                             <div class="col-md-2">
-                                <label class="form-label small fw-bold mb-1 text-muted">ê¸ˆì•¡</label>
+                                <label class="form-label small fw-bold mb-1 text-muted">±İ¾×</label>
                                 <input type="number" class="settings-input text-end fw-bold settings-tabular" style="color: #785600;" @bind="newPlan.Amount" placeholder="0" />
                             </div>
                             <div class="col-md-2">
-                                <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan">@((newPlan.Id == 0) ? "â• ì¶”ê°€" : "ğŸ’¾ ìˆ˜ì •")</button>
+                                <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan">@((newPlan.Id == 0) ? "? Ãß°¡" : "?? ¼öÁ¤")</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fw-bold" style="color: #4e4637;">ì´ @(budgetList.Count(b => b.Year == TargetYear && b.Type == activeTab))ê±´ì˜ ì˜ˆì‚° ë‚´ì—­</span>
+                        <span class="fw-bold" style="color: #4e4637;">ÃÑ @(budgetList.Count(b => b.Year == TargetYear && b.Type == activeTab))°ÇÀÇ ¿¹»ê ³»¿ª</span>
                         <div class="d-flex gap-2">
-                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> ì „ì²´ ë‚˜ì—´</button>
-                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> ì „ì²´ ì¶•ì†Œ</button>
+                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> ÀüÃ¼ ³ª¿­</button>
+                            <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> ÀüÃ¼ Ãà¼Ò</button>
                         </div>
                     </div>
 
@@ -199,17 +199,17 @@
                         <table class="settings-table">
                             <thead>
                                 <tr>
-                                    <th class="text-start ps-4">í•­ëª©</th>
-                                    <th>ìƒì„¸ë‚´ì—­</th>
-                                    <th>ì‚°ì¶œê·¼ê±°</th>
-                                    <th class="text-end pe-4">ê¸ˆì•¡</th>
-                                    <th width="140">ê´€ë¦¬</th>
+                                    <th class="text-start ps-4">Ç×¸ñ</th>
+                                    <th>»ó¼¼³»¿ª</th>
+                                    <th>»êÃâ±Ù°Å</th>
+                                    <th class="text-end pe-4">±İ¾×</th>
+                                    <th width="140">°ü¸®</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @if (!CurrentYearBudgets.Any())
                                 {
-                                    <tr><td colspan="5" class="text-center py-5 text-muted">ë“±ë¡ëœ ì˜ˆì‚°ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr>
+                                    <tr><td colspan="5" class="text-center py-5 text-muted">µî·ÏµÈ ¿¹»êÀÌ ¾ø½À´Ï´Ù.</td></tr>
                                 }
                                 else
                                 {
@@ -224,7 +224,7 @@
                                             </td>
                                             <td></td><td></td>
                                             <td class="text-end fw-bold settings-tabular pe-4" style="color: #1b1c15; font-size: 1rem;">@groupTotal.ToString("N0")</td>
-                                            <td class="text-center"><span class="badge bg-white text-secondary border px-2 py-1">@(group.Count())ê±´</span></td>
+                                            <td class="text-center"><span class="badge bg-white text-secondary border px-2 py-1">@(group.Count())°Ç</span></td>
                                         </tr>
 
                                         @if (isExpanded)
@@ -237,8 +237,8 @@
                                                     <td class="text-muted" style="font-size: 0.85rem;">@item.CalcDetail</td>
                                                     <td class="text-end settings-tabular pe-4 fw-bold" style="color: #785600;">@item.Amount.ToString("N0")</td>
                                                     <td class="text-center">
-                                                        <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => EditPlan(item)">ìˆ˜ì •</button>
-                                                        <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => SafeDeletePlan(item.Id)">ì‚­ì œ</button>
+                                                        <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => EditPlan(item)">¼öÁ¤</button>
+                                                        <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick:stopPropagation="true" @onclick="() => SafeDeletePlan(item.Id)">»èÁ¦</button>
                                                     </td>
                                                 </tr>
                                             }
@@ -250,7 +250,7 @@
                             {
                                 <tfoot style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
                                     <tr>
-                                        <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">ì´ í•©ê³„</td>
+                                        <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">ÃÑ ÇÕ°è</td>
                                         <td class="text-end fw-bold settings-tabular pe-4" style="color: #5a4000; font-size: 1.1rem;">@CurrentYearBudgets.Sum(b => b.Amount).ToString("N0")</td>
                                         <td></td>
                                     </tr>
@@ -261,7 +261,7 @@
                 }
                 else
                 {
-                    @* Admin ì „ìš©: ë¶€ì„œë³„ ì•„ì½”ë””ì–¸ *@
+                    @* Admin Àü¿ë: ºÎ¼­º° ¾ÆÄÚµğ¾ğ *@
                     <div class="accordion shadow-sm" id="adminBudgetAccordion">
                         @foreach (var dept in visibleDepartments)
                         {
@@ -273,15 +273,15 @@
                                 <h2 class="accordion-header" id="heading-budget-@dept.Id">
                                     <button class="accordion-button @(isDeptExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
                                         @dept.Name
-                                        <span class="badge bg-white text-muted border ms-2">@deptBudgets.Count ê±´</span>
-                                        <span class="ms-3 fw-bold settings-tabular" style="color: #5a4000; font-size: 0.9rem;">â‚© @deptTotal.ToString("N0")</span>
+                                        <span class="badge bg-white text-muted border ms-2">@deptBudgets.Count °Ç</span>
+                                        <span class="ms-3 fw-bold settings-tabular" style="color: #5a4000; font-size: 0.9rem;">\ @deptTotal.ToString("N0")</span>
                                     </button>
                                 </h2>
                                 <div class="accordion-collapse collapse @(isDeptExpanded ? "show" : "")">
                                     <div class="accordion-body bg-white p-0">
                                         @if (!deptBudgets.Any())
                                         {
-                                            <div class="text-center py-4 text-muted">ë“±ë¡ëœ ì˜ˆì‚°ì´ ì—†ìŠµë‹ˆë‹¤.</div>
+                                            <div class="text-center py-4 text-muted">µî·ÏµÈ ¿¹»êÀÌ ¾ø½À´Ï´Ù.</div>
                                         }
                                         else
                                         {
@@ -289,10 +289,10 @@
                                                 <table class="settings-table">
                                                     <thead>
                                                         <tr>
-                                                            <th class="text-start ps-4">í•­ëª©</th>
-                                                            <th>ìƒì„¸ë‚´ì—­</th>
-                                                            <th>ì‚°ì¶œê·¼ê±°</th>
-                                                            <th class="text-end pe-4">ê¸ˆì•¡</th>
+                                                            <th class="text-start ps-4">Ç×¸ñ</th>
+                                                            <th>»ó¼¼³»¿ª</th>
+                                                            <th>»êÃâ±Ù°Å</th>
+                                                            <th class="text-end pe-4">±İ¾×</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -325,7 +325,7 @@
                                                     </tbody>
                                                     <tfoot style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
                                                         <tr>
-                                                            <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">í•©ê³„</td>
+                                                            <td colspan="3" class="text-end fw-bold" style="color: #4e4637;">ÇÕ°è</td>
                                                             <td class="text-end fw-bold settings-tabular pe-4" style="color: #5a4000;">@deptTotal.ToString("N0")</td>
                                                         </tr>
                                                     </tfoot>
@@ -340,81 +340,81 @@
                 }
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [2] íƒ­: ìë™ë¶„ë¥˜ ì„¤ì • (ìˆ˜ì…/ì§€ì¶œ ë¶„ë¦¬í˜•)
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [2] ÅÇ: ÀÚµ¿ºĞ·ù ¼³Á¤ (¼öÀÔ/ÁöÃâ ºĞ¸®Çü)
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Mapping" && CurrentUser?.IsManager == true)
             {
-                <h4 class="fw-bold mb-4" style="color: #1b1c15;">ì—‘ì…€ ì¥ë¶€ ìë™ë¶„ë¥˜ ì„¤ì •</h4>
+                <h4 class="fw-bold mb-4" style="color: #1b1c15;">¿¢¼¿ ÀåºÎ ÀÚµ¿ºĞ·ù ¼³Á¤</h4>
 
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-magic fs-5 mt-1" style="color: #785600;"></i>
                     <div>
-                        <div class="fw-bold mb-1" style="color: #1b1c15;">ìë™ë¶„ë¥˜ë€?</div>
-                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">ì€í–‰ ì—‘ì…€ì˜ 'ì ìš”' ì¹¸ì— í¬í•¨ëœ ë‹¨ì–´ë¥¼ ì¸ì‹í•˜ì—¬ ì§€ì •ëœ í•­ëª©ìœ¼ë¡œ ìë™ ë¶„ë¥˜í•©ë‹ˆë‹¤.</p>
+                        <div class="fw-bold mb-1" style="color: #1b1c15;">ÀÚµ¿ºĞ·ù¶õ?</div>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">ÀºÇà ¿¢¼¿ÀÇ 'Àû¿ä' Ä­¿¡ Æ÷ÇÔµÈ ´Ü¾î¸¦ ÀÎ½ÄÇÏ¿© ÁöÁ¤µÈ Ç×¸ñÀ¸·Î ÀÚµ¿ ºĞ·ùÇÕ´Ï´Ù.</p>
                     </div>
                 </div>
 
                 <div class="settings-card-warm mb-5">
                     <div class="row g-2 align-items-end">
                         <div class="col-md-2">
-                            <label class="form-label small fw-bold mb-1 text-muted">êµ¬ë¶„</label>
+                            <label class="form-label small fw-bold mb-1 text-muted">±¸ºĞ</label>
                             <select class="settings-input fw-bold" @bind="mappingType" style="color: #785600;">
-                                <option value="ìˆ˜ì…">ìˆ˜ì…ìš©</option>
-                                <option value="ì§€ì¶œ">ì§€ì¶œìš©</option>
+                                <option value="¼öÀÔ">¼öÀÔ¿ë</option>
+                                <option value="ÁöÃâ">ÁöÃâ¿ë</option>
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold mb-1 text-muted">í‚¤ì›Œë“œ</label>
-                            <input class="settings-input" @bind="newMapping.Keyword" placeholder="ì ìš” í‚¤ì›Œë“œ (ì˜ˆ: ë‹¤ì´ì†Œ)" />
+                            <label class="form-label small fw-bold mb-1 text-muted">Å°¿öµå</label>
+                            <input class="settings-input" @bind="newMapping.Keyword" placeholder="Àû¿ä Å°¿öµå (¿¹: ´ÙÀÌ¼Ò)" />
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label small fw-bold mb-1 text-muted">ë¶„ë¥˜ë  í•­ëª©</label>
-                            <input class="settings-input" list="mapCatList" @bind="newMapping.Category" placeholder="í•­ëª© ì„ íƒ" />
+                            <label class="form-label small fw-bold mb-1 text-muted">ºĞ·ùµÉ Ç×¸ñ</label>
+                            <input class="settings-input" list="mapCatList" @bind="newMapping.Category" placeholder="Ç×¸ñ ¼±ÅÃ" />
                             <datalist id="mapCatList">
-                                @if (mappingType == "ìˆ˜ì…") { @foreach (var c in IncomeCats) { <option value="@c"></option> } }
+                                @if (mappingType == "¼öÀÔ") { @foreach (var c in IncomeCats) { <option value="@c"></option> } }
                                 else { @foreach (var c in ExpenseCats) { <option value="@c"></option> } }
                             </datalist>
                         </div>
                         <div class="col-md-2">
-                            <button class="settings-gold-btn w-100 py-2" @onclick="AddMapping">ê·œì¹™ ë“±ë¡</button>
+                            <button class="settings-gold-btn w-100 py-2" @onclick="AddMapping">±ÔÄ¢ µî·Ï</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #5a4000;">ğŸ“¥ ìˆ˜ì… í•­ëª© ìë™ë¶„ë¥˜ ê·œì¹™</h6>
+                        <h6 class="fw-bold mb-3" style="color: #5a4000;">?? ¼öÀÔ Ç×¸ñ ÀÚµ¿ºĞ·ù ±ÔÄ¢</h6>
                         <div class="settings-table-container">
                             <table class="settings-table">
-                                <thead><tr><th width="40%">í‚¤ì›Œë“œ(ì ìš”)</th><th width="40%">ë¶„ë¥˜ë  í•­ëª©</th><th width="20%">ê´€ë¦¬</th></tr></thead>
+                                <thead><tr><th width="40%">Å°¿öµå(Àû¿ä)</th><th width="40%">ºĞ·ùµÉ Ç×¸ñ</th><th width="20%">°ü¸®</th></tr></thead>
                                 <tbody>
                                     @foreach (var m in mappingList.Where(x => IncomeCats.Contains(x.Category ?? "")))
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #785600;">@m.Category</td>
-                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">ì‚­ì œ</button></td>
+                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">»èÁ¦</button></td>
                                         </tr>
                                     }
-                                    @if (!mappingList.Any(x => IncomeCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">ë“±ë¡ëœ ìˆ˜ì… ê·œì¹™ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr> }
+                                    @if (!mappingList.Any(x => IncomeCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">µî·ÏµÈ ¼öÀÔ ±ÔÄ¢ÀÌ ¾ø½À´Ï´Ù.</td></tr> }
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #ba1a1a;">ğŸ“¤ ì§€ì¶œ í•­ëª© ìë™ë¶„ë¥˜ ê·œì¹™</h6>
+                        <h6 class="fw-bold mb-3" style="color: #ba1a1a;">?? ÁöÃâ Ç×¸ñ ÀÚµ¿ºĞ·ù ±ÔÄ¢</h6>
                         <div class="settings-table-container">
                             <table class="settings-table">
-                                <thead><tr><th width="40%">í‚¤ì›Œë“œ(ì ìš”)</th><th width="40%">ë¶„ë¥˜ë  í•­ëª©</th><th width="20%">ê´€ë¦¬</th></tr></thead>
+                                <thead><tr><th width="40%">Å°¿öµå(Àû¿ä)</th><th width="40%">ºĞ·ùµÉ Ç×¸ñ</th><th width="20%">°ü¸®</th></tr></thead>
                                 <tbody>
                                     @foreach (var m in mappingList.Where(x => ExpenseCats.Contains(x.Category ?? "")))
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #ba1a1a;">@m.Category</td>
-                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">ì‚­ì œ</button></td>
+                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">»èÁ¦</button></td>
                                         </tr>
                                     }
-                                    @if (!mappingList.Any(x => ExpenseCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">ë“±ë¡ëœ ì§€ì¶œ ê·œì¹™ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr> }
+                                    @if (!mappingList.Any(x => ExpenseCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">µî·ÏµÈ ÁöÃâ ±ÔÄ¢ÀÌ ¾ø½À´Ï´Ù.</td></tr> }
                                 </tbody>
                             </table>
                         </div>
@@ -422,32 +422,32 @@
                 </div>
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [3] íƒ­: ë¶„ê¸° ì„¤ì •
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [3] ÅÇ: ºĞ±â ¼³Á¤
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Quarter" && CurrentUser?.IsManager == true)
             {
                 <div class="col-12">
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)ë…„ë„ ë¶„ê¸° ë‚ ì§œ ì„¤ì •</h4>
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)³âµµ ºĞ±â ³¯Â¥ ¼³Á¤</h4>
 
                     <div class="settings-info-box mb-4">
                         <i class="bi bi-calendar-range fs-5 mt-1" style="color: #785600;"></i>
                         <div>
-                            <div class="fw-bold mb-1" style="color: #1b1c15;">ë¶„ê¸° ì„¤ì • ê·œì¹™ ì•ˆë‚´</div>
+                            <div class="fw-bold mb-1" style="color: #1b1c15;">ºĞ±â ¼³Á¤ ±ÔÄ¢ ¾È³»</div>
                             <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">
-                                <b>ê¸°ë³¸ ê·œì¹™:</b> ë§¤ 3ê°œì›”ë§ˆë‹¤ <b>4ì£¼ì°¨ ì£¼ì¼(ì¼ìš”ì¼)</b>ì´ ë¶„ê¸° ë§ˆê°ì¼ì´ë©°, ë‹¤ìŒ ë‚  ì›”ìš”ì¼ì´ ìƒˆ ë¶„ê¸° ì‹œì‘ì¼ì…ë‹ˆë‹¤. ë§¤ë¶„ê¸°ë§ˆë‹¤ í™•ì¸í•´ì„œ ìˆ˜ì •í•˜ì„¸ìš”<br/>
-                                ë¶„ê¸° ì„¤ì •ì— ë”°ë¼ ëŒ€ì‹œë³´ë“œì˜ í†µê³„ì™€ ì›”ë³„ì¥ë¶€ì˜ ë¶„ê¸°ì„¤ì •ì´ ë‹¬ë¼ì§‘ë‹ˆë‹¤, <br/>
-                                <b>[ê¸°ë³¸ê°’ ìë™ ì ìš©]</b> ë²„íŠ¼ì„ ëˆ„ë¥´ë©´ ìœ„ ê·œì¹™ìœ¼ë¡œ ìë™ ê³„ì‚°ë˜ê³ , í•„ìš” ì‹œ ìˆ˜ë™ìœ¼ë¡œ ìˆ˜ì •í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤. ë¶€ì„œë³„ë¡œ í•„íˆ í™•ì¸í•´ì„œ ì„¤ì •í•˜ì…”ì•¼ í•©ë‹ˆë‹¤. 
+                                <b>±âº» ±ÔÄ¢:</b> ¸Å 3°³¿ù¸¶´Ù <b>4ÁÖÂ÷ ÁÖÀÏ(ÀÏ¿äÀÏ)</b>ÀÌ ºĞ±â ¸¶°¨ÀÏÀÌ¸ç, ´ÙÀ½ ³¯ ¿ù¿äÀÏÀÌ »õ ºĞ±â ½ÃÀÛÀÏÀÔ´Ï´Ù. ¸ÅºĞ±â¸¶´Ù È®ÀÎÇØ¼­ ¼öÁ¤ÇÏ¼¼¿ä<br/>
+                                ºĞ±â ¼³Á¤¿¡ µû¶ó ´ë½Ãº¸µåÀÇ Åë°è¿Í ¿ùº°ÀåºÎÀÇ ºĞ±â¼³Á¤ÀÌ ´Ş¶óÁı´Ï´Ù, <br/>
+                                <b>[±âº»°ª ÀÚµ¿ Àû¿ë]</b> ¹öÆ°À» ´©¸£¸é À§ ±ÔÄ¢À¸·Î ÀÚµ¿ °è»êµÇ°í, ÇÊ¿ä ½Ã ¼öµ¿À¸·Î ¼öÁ¤ÇÒ ¼ö ÀÖ½À´Ï´Ù. ºÎ¼­º°·Î ÇÊÈ÷ È®ÀÎÇØ¼­ ¼³Á¤ÇÏ¼Å¾ß ÇÕ´Ï´Ù. 
                             </p>
                         </div>
                     </div>
 
                     <div class="d-flex flex-wrap gap-2 mb-4">
                         <button class="settings-gold-btn" @onclick="ApplyDefaultQuarters">
-                            <i class="bi bi-magic me-1"></i>ê¸°ë³¸ê°’ ìë™ ì ìš©
+                            <i class="bi bi-magic me-1"></i>±âº»°ª ÀÚµ¿ Àû¿ë
                         </button>
                         <button class="settings-secondary-btn" @onclick="SaveAllQuarters">
-                            <i class="bi bi-save me-1"></i>ì „ì²´ ë¶„ê¸° ì €ì¥
+                            <i class="bi bi-save me-1"></i>ÀüÃ¼ ºĞ±â ÀúÀå
                         </button>
                     </div>
 
@@ -463,159 +463,159 @@
                             int localQ = q;
                             var defRange = defaultRanges[localQ - 1];
                             <div class="mb-3 row align-items-center bg-white p-3 rounded shadow-sm border border-light">
-                                <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q ë¶„ê¸°</label>
+                                <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q ºĞ±â</label>
                                 <div class="col d-flex flex-column gap-1">
                                     <div class="d-flex gap-2 align-items-center">
-                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="ì´ì „ ë¶„ê¸° ì¢…ë£Œì¼ +1ì¼ ì ìš©" @onclick="() => SyncWithPreviousQuarter(localQ)">ğŸ”— ì—°ì†ì„± ë§ì¶¤</button>
+                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="ÀÌÀü ºĞ±â Á¾·áÀÏ +1ÀÏ Àû¿ë" @onclick="() => SyncWithPreviousQuarter(localQ)">?? ¿¬¼Ó¼º ¸ÂÃã</button>
                                         <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterStartDates[localQ - 1]" />
                                         <span style="color: #d2c5b2;">~</span>
                                         <input type="date" class="settings-input settings-tabular fw-bold" @bind="QuarterEndDates[localQ - 1]" />
                                     </div>
                                     <div style="font-size: 0.75rem; color: #807666; padding-left: 6rem;">
-                                        ê¸°ë³¸ê°’: @defRange.Start.ToString("yyyy-MM-dd") ~ @defRange.End.ToString("yyyy-MM-dd")
-                                        (@defRange.End.ToString("Mì›” dì¼") ì£¼ì¼ ë§ˆê°)
+                                        ±âº»°ª: @defRange.Start.ToString("yyyy-MM-dd") ~ @defRange.End.ToString("yyyy-MM-dd")
+                                        (@defRange.End.ToString("M¿ù dÀÏ") ÁÖÀÏ ¸¶°¨)
                                     </div>
                                 </div>
-                                <div class="col-sm-2"><button class="settings-gold-btn w-100 py-2" @onclick="() => SaveQuarter(localQ)">ì €ì¥</button></div>
+                                <div class="col-sm-2"><button class="settings-gold-btn w-100 py-2" @onclick="() => SaveQuarter(localQ)">ÀúÀå</button></div>
                             </div>
                         }
                     </div>
                 </div>
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [4] íƒ­: ë°ì´í„° ë°±ì—…/ë³µêµ¬
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [4] ÅÇ: µ¥ÀÌÅÍ ¹é¾÷/º¹±¸
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Backup" && CurrentUser?.IsManager == true)
             {
                 @if (CurrentUser?.IsSystemAdmin == true)
                 {
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ì „ì²´ ì‹œìŠ¤í…œ ë°ì´í„° ë°±ì—… ë° ë³µì›</h4>
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ÀüÃ¼ ½Ã½ºÅÛ µ¥ÀÌÅÍ ¹é¾÷ ¹× º¹¿ø</h4>
                     <div class="settings-card-warm mb-4 text-center py-5">
                         <div class="d-flex flex-wrap justify-content-center gap-3">
-                            <button class="settings-secondary-btn px-4 py-3 fs-6" @onclick="DownloadAllDataExcel"><i class="bi bi-file-earmark-excel me-2"></i>ëª¨ë“  ë¶€ì„œ ì—‘ì…€ ë‹¤ìš´ë¡œë“œ</button>
-                            <button class="settings-gold-btn px-4 py-3 fs-6" @onclick="DownloadAllDataJson"><i class="bi bi-filetype-json me-2"></i>ì‹œìŠ¤í…œ JSON ë°±ì—…</button>
+                            <button class="settings-secondary-btn px-4 py-3 fs-6" @onclick="DownloadAllDataExcel"><i class="bi bi-file-earmark-excel me-2"></i>¸ğµç ºÎ¼­ ¿¢¼¿ ´Ù¿î·Îµå</button>
+                            <button class="settings-gold-btn px-4 py-3 fs-6" @onclick="DownloadAllDataJson"><i class="bi bi-filetype-json me-2"></i>½Ã½ºÅÛ JSON ¹é¾÷</button>
                             <button class="settings-danger-btn px-4 py-3 fs-6" style="background-color: #ba1a1a; color: white;" @onclick="TriggerSystemRestore" disabled="@isRestoring">
-                                @if (isRestoring) { <span class="spinner-border spinner-border-sm me-2"></span><span>ë³µì› ì¤‘...</span> }
-                                else { <i class="bi bi-arrow-counterclockwise me-2"></i><span>ì‹œìŠ¤í…œ JSON ë³µì› (ìœ„í—˜)</span> }
+                                @if (isRestoring) { <span class="spinner-border spinner-border-sm me-2"></span><span>º¹¿ø Áß...</span> }
+                                else { <i class="bi bi-arrow-counterclockwise me-2"></i><span>½Ã½ºÅÛ JSON º¹¿ø (À§Çè)</span> }
                             </button>
                         </div>
                     </div>
                 }
                 else
                 {
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ì¥ë¶€ ë°±ì—… ê´€ë¦¬</h4>
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ÀåºÎ ¹é¾÷ °ü¸®</h4>
                     <div class="settings-card-warm d-flex flex-wrap justify-content-between align-items-center mb-5">
                         <div class="flex-grow-1 me-4">
-                            <strong style="color: #5a4000; font-size: 1.1rem;">ìˆ˜ë™ ë°±ì—… ë§Œë“¤ê¸°</strong>
-                            <p class="mb-2 mt-1 text-muted small">í˜„ì¬ ì¥ë¶€ ìƒíƒœë¥¼ ì•ˆì „í•˜ê²Œ ì €ì¥í•´ ë‘¡ë‹ˆë‹¤.</p>
-                            <input type="text" class="settings-input" style="max-width: 400px;" placeholder="ë°±ì—… ë©”ëª¨ (ì˜ˆ: 1ë¶„ê¸° ê²°ì‚° ì™„ë£Œ)" @bind="customBackupMemo" />
+                            <strong style="color: #5a4000; font-size: 1.1rem;">¼öµ¿ ¹é¾÷ ¸¸µé±â</strong>
+                            <p class="mb-2 mt-1 text-muted small">ÇöÀç ÀåºÎ »óÅÂ¸¦ ¾ÈÀüÇÏ°Ô ÀúÀåÇØ µÓ´Ï´Ù.</p>
+                            <input type="text" class="settings-input" style="max-width: 400px;" placeholder="¹é¾÷ ¸Ş¸ğ (¿¹: 1ºĞ±â °á»ê ¿Ï·á)" @bind="customBackupMemo" />
                         </div>
                         <div class="mt-3 mt-md-0">
-                            <button class="settings-gold-btn py-3 px-4" @onclick='() => SafeBackup("Manual")'><i class="bi bi-download me-2"></i>ì§€ê¸ˆ ë°±ì—…í•˜ê¸°</button>
+                            <button class="settings-gold-btn py-3 px-4" @onclick='() => SafeBackup("Manual")'><i class="bi bi-download me-2"></i>Áö±İ ¹é¾÷ÇÏ±â</button>
                         </div>
                     </div>
 
-                    <h5 class="fw-bold mb-3" style="color: #5a4000;">ìˆ˜ë™ ë°±ì—… ë‚´ì—­</h5>
+                    <h5 class="fw-bold mb-3" style="color: #5a4000;">¼öµ¿ ¹é¾÷ ³»¿ª</h5>
                     <div class="settings-table-container mb-5">
                         <table class="settings-table">
-                            <thead><tr><th>ë°±ì—… ì¼ì‹œ</th><th>êµ¬ë¶„</th><th class="text-start">ë©”ëª¨</th><th width="250">ê´€ë¦¬</th></tr></thead>
+                            <thead><tr><th>¹é¾÷ ÀÏ½Ã</th><th>±¸ºĞ</th><th class="text-start">¸Ş¸ğ</th><th width="250">°ü¸®</th></tr></thead>
                             <tbody>
                                 @foreach (var b in ManualBackups)
                                 {
                                     <tr>
                                         <td class="settings-tabular fw-bold text-muted">@b.BackupDate.ToString("yyyy-MM-dd HH:mm")</td>
-                                        <td><span class="badge bg-white text-dark border">ìˆ˜ë™</span></td>
+                                        <td><span class="badge bg-white text-dark border">¼öµ¿</span></td>
                                         <td class="text-start fw-bold" style="color: #1b1c15;">@b.Memo</td>
                                         <td>
-                                            <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => RestoreData(b)">ë³µêµ¬</button>
-                                            <button class="settings-gold-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => DownloadBackupFile(b)">ë‹¤ìš´ë¡œë“œ</button>
-                                            <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => DeleteBackup(b.Id)">ì‚­ì œ</button>
+                                            <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => RestoreData(b)">º¹±¸</button>
+                                            <button class="settings-gold-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => DownloadBackupFile(b)">´Ù¿î·Îµå</button>
+                                            <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => DeleteBackup(b.Id)">»èÁ¦</button>
                                         </td>
                                     </tr>
                                 }
-                                @if (!ManualBackups.Any()) { <tr><td colspan="4" class="py-4 text-muted">ìˆ˜ë™ ë°±ì—… ë‚´ì—­ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr> }
+                                @if (!ManualBackups.Any()) { <tr><td colspan="4" class="py-4 text-muted">¼öµ¿ ¹é¾÷ ³»¿ªÀÌ ¾ø½À´Ï´Ù.</td></tr> }
                             </tbody>
                         </table>
                     </div>
 
-                    <h5 class="fw-bold mb-3 text-muted">ìë™ ë°±ì—… ë‚´ì—­</h5>
+                    <h5 class="fw-bold mb-3 text-muted">ÀÚµ¿ ¹é¾÷ ³»¿ª</h5>
                     <div class="settings-table-container">
                         <table class="settings-table">
-                            <thead><tr><th>ë°±ì—… ì¼ì‹œ</th><th>êµ¬ë¶„</th><th class="text-start">ë©”ëª¨</th><th width="250">ê´€ë¦¬</th></tr></thead>
+                            <thead><tr><th>¹é¾÷ ÀÏ½Ã</th><th>±¸ºĞ</th><th class="text-start">¸Ş¸ğ</th><th width="250">°ü¸®</th></tr></thead>
                             <tbody>
                                 @foreach (var b in AutoBackups)
                                 {
                                     <tr>
                                         <td class="settings-tabular fw-bold text-muted">@b.BackupDate.ToString("yyyy-MM-dd HH:mm")</td>
-                                        <td><span class="badge bg-light text-muted border">ìë™</span></td>
+                                        <td><span class="badge bg-light text-muted border">ÀÚµ¿</span></td>
                                         <td class="text-start text-muted">@b.Memo</td>
                                         <td>
-                                            <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => RestoreData(b)">ë³µêµ¬</button>
-                                            <button class="settings-gold-btn py-1 px-2 me-1" style="font-size: 0.75rem; opacity: 0.8;" @onclick="() => DownloadBackupFile(b)">ë‹¤ìš´ë¡œë“œ</button>
-                                            <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem; opacity: 0.5;" @onclick="() => DeleteBackup(b.Id)">ì‚­ì œ</button>
+                                            <button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => RestoreData(b)">º¹±¸</button>
+                                            <button class="settings-gold-btn py-1 px-2 me-1" style="font-size: 0.75rem; opacity: 0.8;" @onclick="() => DownloadBackupFile(b)">´Ù¿î·Îµå</button>
+                                            <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem; opacity: 0.5;" @onclick="() => DeleteBackup(b.Id)">»èÁ¦</button>
                                         </td>
                                     </tr>
                                 }
-                                @if (!AutoBackups.Any()) { <tr><td colspan="4" class="py-4 text-muted">ìë™ ë°±ì—… ë‚´ì—­ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr> }
+                                @if (!AutoBackups.Any()) { <tr><td colspan="4" class="py-4 text-muted">ÀÚµ¿ ¹é¾÷ ³»¿ªÀÌ ¾ø½À´Ï´Ù.</td></tr> }
                             </tbody>
                         </table>
                     </div>
                 }
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [5] íƒ­: ì‚¬ìš©ì ê´€ë¦¬ (ì‹œìŠ¤í…œ ê´€ë¦¬ììš©)
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [5] ÅÇ: »ç¿ëÀÚ °ü¸® (½Ã½ºÅÛ °ü¸®ÀÚ¿ë)
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Users" && CurrentUser?.IsSystemAdmin == true)
             {
-                <h4 class="fw-bold mb-4" style="color: #1b1c15;">ë¶€ì„œ ê³„ì • ê´€ë¦¬</h4>
+                <h4 class="fw-bold mb-4" style="color: #1b1c15;">ºÎ¼­ °èÁ¤ °ü¸®</h4>
                 <div class="settings-card-warm mb-4">
                     <div class="row g-2">
-                        <div class="col-md-2"><input class="settings-input" @bind="newUser.Username" placeholder="ìƒˆë¡œìš´ ID" /></div>
-                        <div class="col-md-2"><input class="settings-input" @bind="newUser.FullName" placeholder="ì´ë¦„(ì„ íƒ)" /></div>
+                        <div class="col-md-2"><input class="settings-input" @bind="newUser.Username" placeholder="»õ·Î¿î ID" /></div>
+                        <div class="col-md-2"><input class="settings-input" @bind="newUser.FullName" placeholder="ÀÌ¸§(¼±ÅÃ)" /></div>
                         <div class="col-md-3">
                             <select class="settings-input fw-bold" @bind="newUser.DepartmentId" style="color: #785600;">
-                                <option value="0">ë¶€ì„œ ì„ íƒ</option>
-                                @foreach (var d in adminDeptList.Where(d => d.Name != "ê´€ë¦¬ì")) { <option value="@d.Id">@d.Name</option> }
+                                <option value="0">ºÎ¼­ ¼±ÅÃ</option>
+                                @foreach (var d in adminDeptList.Where(d => d.Name != "°ü¸®ÀÚ")) { <option value="@d.Id">@d.Name</option> }
                             </select>
                         </div>
                         <div class="col-md-3">
                             <select class="settings-input" @bind="newUser.Role">
-                                <option value="Manager">ë¶€ì„œìš´ì˜ì (ì „ë„ì‚¬/ë¶€ì¥/íšŒê³„)</option>
-                                <option value="Auditor">ê°ì‚¬/êµ­ì¥ (ëª©ì‚¬/ì¥ë¡œ/ê°ì‚¬)</option>
-                                <option value="User">ì¼ë°˜ì¡°íšŒ (êµì‚¬)</option>
-                                <option value="Admin">ìµœê³ ê´€ë¦¬ì (ì‹œìŠ¤í…œ í†µì œ)</option>
+                                <option value="Manager">ºÎ¼­¿î¿µÀÚ (Àüµµ»ç/ºÎÀå/È¸°è)</option>
+                                <option value="Auditor">°¨»ç/±¹Àå (¸ñ»ç/Àå·Î/°¨»ç)</option>
+                                <option value="User">ÀÏ¹İÁ¶È¸ (±³»ç)</option>
+                                <option value="Admin">ÃÖ°í°ü¸®ÀÚ (½Ã½ºÅÛ ÅëÁ¦)</option>
                             </select>
                         </div>
-                        <div class="col-md-2"><button class="settings-gold-btn w-100 py-2" @onclick="AddUser">ê³„ì • ë“±ë¡</button></div>
+                        <div class="col-md-2"><button class="settings-gold-btn w-100 py-2" @onclick="AddUser">°èÁ¤ µî·Ï</button></div>
                     </div>
                 </div>
 
                 <div class="settings-table-container">
                     <table class="settings-table">
-                        <thead><tr><th>ì•„ì´ë””</th><th>ì´ë¦„</th><th>ë¶€ì„œ</th><th>ê¶Œí•œ</th><th>ìƒíƒœ</th><th width="200">ê´€ë¦¬</th></tr></thead>
+                        <thead><tr><th>¾ÆÀÌµğ</th><th>ÀÌ¸§</th><th>ºÎ¼­</th><th>±ÇÇÑ</th><th>»óÅÂ</th><th width="200">°ü¸®</th></tr></thead>
                         <tbody>
                             @foreach (var u in adminUserList)
                             {
                                 <tr>
                                     <td class="fw-bold">@u.Username</td>
                                     <td>@u.FullName</td>
-                                    <td class="fw-bold" style="color: #5a4000;">@(adminDeptList.FirstOrDefault(d => d.Id == u.DepartmentId)?.Name ?? "ë¯¸ì •")</td>
+                                    <td class="fw-bold" style="color: #5a4000;">@(adminDeptList.FirstOrDefault(d => d.Id == u.DepartmentId)?.Name ?? "¹ÌÁ¤")</td>
                                     <td class="fw-bold text-muted">
-                                        @(u.Role == "Admin" ? "ìµœê³ ê´€ë¦¬ì" : u.Role == "Manager" ? "ë¶€ì„œìš´ì˜ì" : u.Role == "Auditor" ? "ê°ì‚¬/êµ­ì¥" : "ì¼ë°˜ì¡°íšŒ")
+                                        @(u.Role == "Admin" ? "ÃÖ°í°ü¸®ÀÚ" : u.Role == "Manager" ? "ºÎ¼­¿î¿µÀÚ" : u.Role == "Auditor" ? "°¨»ç/±¹Àå" : "ÀÏ¹İÁ¶È¸")
                                     </td>
                                     <td>
-                                        @if (u.IsActive) { <span class="badge bg-white border" style="color: #198754;">í™œì„±</span> } 
-                                        else { <span class="badge bg-light text-muted border">ë¹„í™œì„±</span> }
+                                        @if (u.IsActive) { <span class="badge bg-white border" style="color: #198754;">È°¼º</span> } 
+                                        else { <span class="badge bg-light text-muted border">ºñÈ°¼º</span> }
                                     </td>
                                     <td>
     <div class="d-flex justify-content-center align-items-center gap-1 flex-nowrap">
-        <button class="settings-secondary-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => ResetPassword(u.Username)">ë¹„ë²ˆì´ˆê¸°í™”</button>
+        <button class="settings-secondary-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => ResetPassword(u.Username)">ºñ¹øÃÊ±âÈ­</button>
         @if (u.Username != "admin")
         {
-            <button class="btn btn-sm py-1 px-2 @(u.IsActive ? "settings-danger-btn" : "btn-success text-white") fw-bold" style="font-size: 0.75rem;" @onclick="() => ToggleUserStatus(u)">@(u.IsActive ? "ì •ì§€" : "ë³µêµ¬")</button>
-            <button class="btn btn-sm py-1 px-2 fw-bold" style="font-size: 0.75rem; background-color: #ba1a1a; color: white;" @onclick="() => DeleteUser(u.Username)">ì‚­ì œ</button>
+            <button class="btn btn-sm py-1 px-2 @(u.IsActive ? "settings-danger-btn" : "btn-success text-white") fw-bold" style="font-size: 0.75rem;" @onclick="() => ToggleUserStatus(u)">@(u.IsActive ? "Á¤Áö" : "º¹±¸")</button>
+            <button class="btn btn-sm py-1 px-2 fw-bold" style="font-size: 0.75rem; background-color: #ba1a1a; color: white;" @onclick="() => DeleteUser(u.Username)">»èÁ¦</button>
         }
     </div>
 </td>
@@ -626,65 +626,65 @@
                 </div>
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [6] íƒ­: ë³´ì•ˆ ë° ì•”í˜¸ (êµ¬ê¸€ OTP ì—°ë™)
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [6] ÅÇ: º¸¾È ¹× ¾ÏÈ£ (±¸±Û OTP ¿¬µ¿)
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "MyInfo")
             {
                 <div class="row g-4 justify-content-center">
                     <div class="col-md-5">
                         <div class="settings-card border border-light p-4 h-100">
-                            <h5 class="fw-bold mb-4 text-center" style="color: #1b1c15;">ğŸ”’ ë¹„ë°€ë²ˆí˜¸ ë³€ê²½</h5>
+                            <h5 class="fw-bold mb-4 text-center" style="color: #1b1c15;">?? ºñ¹Ğ¹øÈ£ º¯°æ</h5>
                             
                             <div class="p-3 text-center mb-4 rounded" style="background-color: #f5f4e8; color: #4e4637;">
-                                í˜„ì¬ ë¹„ë°€ë²ˆí˜¸: <strong class="fs-5 ms-2" style="color: #1b1c15;">[ @currentVisiblePassword ]</strong>
+                                ÇöÀç ºñ¹Ğ¹øÈ£: <strong class="fs-5 ms-2" style="color: #1b1c15;">[ @currentVisiblePassword ]</strong>
                             </div>
                             
                             <div class="mb-4">
-                                <label class="form-label fw-bold small" style="color: #ba1a1a;">ìƒˆë¡œìš´ ë¹„ë°€ë²ˆí˜¸ ì…ë ¥</label>
+                                <label class="form-label fw-bold small" style="color: #ba1a1a;">»õ·Î¿î ºñ¹Ğ¹øÈ£ ÀÔ·Â</label>
                                 <div class="position-relative mb-2">
-                                    <input type="@(showNewPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="newSelfPassword" placeholder="ë³€ê²½í•  ë¹„ë°€ë²ˆí˜¸ ì…ë ¥" />
+                                    <input type="@(showNewPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="newSelfPassword" placeholder="º¯°æÇÒ ºñ¹Ğ¹øÈ£ ÀÔ·Â" />
                                     <button type="button" class="btn border-0 position-absolute end-0 top-50 translate-middle-y text-muted" style="padding: 0 0.5rem;" @onclick="() => showNewPassword = !showNewPassword" tabindex="-1">
                                         <i class="bi @(showNewPassword ? "bi-eye-slash" : "bi-eye")"></i>
                                     </button>
                                 </div>
                                 <div class="position-relative">
-                                    <input type="@(showConfirmPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="confirmSelfPassword" placeholder="ë¹„ë°€ë²ˆí˜¸ ì¬ì…ë ¥" @onkeyup="HandlePasswordKey" />
+                                    <input type="@(showConfirmPassword ? "text" : "password")" class="settings-input" style="border-color: rgba(186, 26, 26, 0.3); padding-right: 2.5rem;" @bind="confirmSelfPassword" placeholder="ºñ¹Ğ¹øÈ£ ÀçÀÔ·Â" @onkeyup="HandlePasswordKey" />
                                     <button type="button" class="btn border-0 position-absolute end-0 top-50 translate-middle-y text-muted" style="padding: 0 0.5rem;" @onclick="() => showConfirmPassword = !showConfirmPassword" tabindex="-1">
                                         <i class="bi @(showConfirmPassword ? "bi-eye-slash" : "bi-eye")"></i>
                                     </button>
                                 </div>
                             </div>
-                            <button class="settings-gold-btn w-100 py-3 fs-6" @onclick="ChangeMyPassword">ë¹„ë°€ë²ˆí˜¸ ë³€ê²½ ì €ì¥</button>
+                            <button class="settings-gold-btn w-100 py-3 fs-6" @onclick="ChangeMyPassword">ºñ¹Ğ¹øÈ£ º¯°æ ÀúÀå</button>
                         </div>
                     </div>
 
                     <div class="col-md-6">
                         <div class="settings-card border border-light p-4 h-100" style="border-top: 4px solid #785600 !important;">
-                            <h5 class="fw-bold mb-4" style="color: #1b1c15;"><i class="bi bi-shield-lock me-2" style="color: #785600;"></i>2ë‹¨ê³„ ë³´ì•ˆ ì¸ì¦ (êµ¬ê¸€ OTP)</h5>
+                            <h5 class="fw-bold mb-4" style="color: #1b1c15;"><i class="bi bi-shield-lock me-2" style="color: #785600;"></i>2´Ü°è º¸¾È ÀÎÁõ (±¸±Û OTP)</h5>
                             
                             @if (CurrentUser != null && !CurrentUser.IsTwoFactorEnabled)
                             {
                                 <div class="settings-info-box mb-4 py-2 px-3">
-                                    <p class="mb-0 small text-muted">ì•„ë˜ ë²„íŠ¼ì„ ëˆŒëŸ¬ QR ì½”ë“œë¥¼ ìŠ¤ìº”í•˜ì—¬ ë³´ì•ˆì„ ê°•í™”í•˜ì„¸ìš”.</p>
+                                    <p class="mb-0 small text-muted">¾Æ·¡ ¹öÆ°À» ´­·¯ QR ÄÚµå¸¦ ½ºÄµÇÏ¿© º¸¾ÈÀ» °­È­ÇÏ¼¼¿ä.</p>
                                 </div>
                                 
                                 @if (string.IsNullOrEmpty(tempSecret))
                                 {
-                                    <button class="settings-secondary-btn w-100 py-3 fs-6" @onclick="Prepare2FA"><i class="bi bi-shield-check me-2"></i>ë³´ì•ˆ ì„¤ì • ì‹œì‘í•˜ê¸°</button>
+                                    <button class="settings-secondary-btn w-100 py-3 fs-6" @onclick="Prepare2FA"><i class="bi bi-shield-check me-2"></i>º¸¾È ¼³Á¤ ½ÃÀÛÇÏ±â</button>
                                 }
                                 else
                                 {
                                     <div class="text-center bg-light p-4 rounded border">
-                                        <p class="mb-3 fw-bold text-dark"><span class="badge bg-dark me-2">Step 1</span> QR ì½”ë“œë¥¼ ìŠ¤ìº”í•˜ì„¸ìš”</p>
+                                        <p class="mb-3 fw-bold text-dark"><span class="badge bg-dark me-2">Step 1</span> QR ÄÚµå¸¦ ½ºÄµÇÏ¼¼¿ä</p>
                                         <img src="@qrCodeImageUrl" style="width: 180px; height: 180px; border: 1px solid #d2c5b2;" class="p-2 bg-white rounded shadow-sm mb-4" alt="QR Code" />
                                         
-                                        <p class="fw-bold" style="color: #ba1a1a;"><span class="badge" style="background-color: #ba1a1a;">Step 2</span> ì•±ì— í‘œì‹œëœ 6ìë¦¬ ë²ˆí˜¸ ì…ë ¥</p>
+                                        <p class="fw-bold" style="color: #ba1a1a;"><span class="badge" style="background-color: #ba1a1a;">Step 2</span> ¾Û¿¡ Ç¥½ÃµÈ 6ÀÚ¸® ¹øÈ£ ÀÔ·Â</p>
                                         <div class="input-group mb-3 w-75 mx-auto">
                                             <input type="text" class="form-control text-center fs-4 fw-bold settings-tabular" style="border-color: #785600; color: #5a4000;" maxlength="6" @bind="setupOtpCode" placeholder="000000" @onkeyup="HandleOtpKey" />
-                                            <button class="settings-gold-btn rounded-start-0" @onclick="Enable2FA">í™œì„±í™”</button>
+                                            <button class="settings-gold-btn rounded-start-0" @onclick="Enable2FA">È°¼ºÈ­</button>
                                         </div>
-                                        <button class="btn btn-sm text-muted fw-bold" @onclick="@(() => { tempSecret = string.Empty; setupOtpCode = string.Empty; })">ë‹¤ì‹œ ì‹œì‘</button>
+                                        <button class="btn btn-sm text-muted fw-bold" @onclick="@(() => { tempSecret = string.Empty; setupOtpCode = string.Empty; })">´Ù½Ã ½ÃÀÛ</button>
                                     </div>
                                 }
                             }
@@ -692,8 +692,8 @@
                             {
                                 <div class="p-4 rounded text-center" style="background-color: rgba(25, 135, 84, 0.05); border: 1px solid rgba(25, 135, 84, 0.2);">
                                     <i class="bi bi-shield-check" style="font-size: 3rem; color: #198754;"></i>
-                                    <h5 class="fw-bold mt-3 mb-4" style="color: #198754;">OTP ì¸ì¦ì´ í™œì„±í™”ë˜ì–´ ì•ˆì „í•©ë‹ˆë‹¤.</h5>
-                                    <button class="settings-danger-btn py-2 px-4" @onclick="Disable2FA"><i class="bi bi-shield-x me-2"></i>ë³´ì•ˆ ì¼ì‹œ í•´ì œ</button>
+                                    <h5 class="fw-bold mt-3 mb-4" style="color: #198754;">OTP ÀÎÁõÀÌ È°¼ºÈ­µÇ¾î ¾ÈÀüÇÕ´Ï´Ù.</h5>
+                                    <button class="settings-danger-btn py-2 px-4" @onclick="Disable2FA"><i class="bi bi-shield-x me-2"></i>º¸¾È ÀÏ½Ã ÇØÁ¦</button>
                                 </div>
                             }
                         </div>
@@ -701,18 +701,18 @@
                 </div>
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [7] íƒ­: ë¶€ì„œ ì„ì› ì •ë³´
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [7] ÅÇ: ºÎ¼­ ÀÓ¿ø Á¤º¸
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Officers")
             {
                 <div class="col-md-10 mx-auto">
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)ë…„ë„ ë¶€ì„œ ì„ì› ê´€ë¦¬</h4>
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(TargetYear)³âµµ ºÎ¼­ ÀÓ¿ø °ü¸®</h4>
                     
                     @if (visibleDepartments.Count > 1)
                     {
                         <div class="settings-info-box mb-4">
-                            <p class="mb-0 text-muted small fw-bold">ë¶€ì„œëª…ì„ í´ë¦­í•˜ì—¬ í•´ë‹¹ ë¶€ì„œì˜ ì„ì› ì •ë³´ë¥¼ ê´€ë¦¬í•©ë‹ˆë‹¤.</p>
+                            <p class="mb-0 text-muted small fw-bold">ºÎ¼­¸íÀ» Å¬¸¯ÇÏ¿© ÇØ´ç ºÎ¼­ÀÇ ÀÓ¿ø Á¤º¸¸¦ °ü¸®ÇÕ´Ï´Ù.</p>
                         </div>
                     }
 
@@ -730,39 +730,39 @@
                                 {
                                     <h2 class="accordion-header" id="heading-off-@dept.Id">
                                         <button class="accordion-button @(isExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
-                                            ğŸ‘¨â€ğŸ’¼ @dept.Name <span class="badge bg-white text-muted border ms-2">ì´ @oList.Count ëª…</span>
+                                            ????? @dept.Name <span class="badge bg-white text-muted border ms-2">ÃÑ @oList.Count ¸í</span>
                                         </button>
                                     </h2>
                                 }
                                 else
                                 {
-                                    <h5 class="fw-bold text-dark mb-4">ğŸ‘¨â€ğŸ’¼ @dept.Name ì„ì› ê´€ë¦¬ <span class="badge bg-light text-muted border ms-2 fs-6">ì´ @oList.Count ëª…</span></h5>
+                                    <h5 class="fw-bold text-dark mb-4">????? @dept.Name ÀÓ¿ø °ü¸® <span class="badge bg-light text-muted border ms-2 fs-6">ÃÑ @oList.Count ¸í</span></h5>
                                 }
 
                                 <div id="collapse-off-@dept.Id" class="@(useAccordion ? $"accordion-collapse collapse {(isExpanded ? "show" : "")}" : "")">
                                     <div class="@(useAccordion ? "accordion-body bg-white" : "")">
                                         <div class="text-end mb-3">
                                             <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.8rem;" @onclick="() => ImportPreviousYearOfficers(dept.Id)">
-                                                <i class="bi bi-arrow-clockwise me-1"></i>ì§ì „ë…„ë„ ì„ì› ë¶ˆëŸ¬ì˜¤ê¸°
+                                                <i class="bi bi-arrow-clockwise me-1"></i>Á÷Àü³âµµ ÀÓ¿ø ºÒ·¯¿À±â
                                             </button>
                                         </div>
 
                                         @if (isReplacing && officerToReplace != null && replacingDeptId == dept.Id)
                                         {
                                             <div class="settings-card-warm border border-danger mb-4" style="background-color: rgba(186, 26, 26, 0.03);">
-                                                <h6 class="fw-bold mb-3" style="color: #ba1a1a;">[@(officerToReplace?.Role)] ì¸ìˆ˜ì¸ê³„ êµì²´ ì‘ì„±</h6>
+                                                <h6 class="fw-bold mb-3" style="color: #ba1a1a;">[@(officerToReplace?.Role)] ÀÎ¼öÀÎ°è ±³Ã¼ ÀÛ¼º</h6>
                                                 <div class="row g-2 align-items-end">
                                                     <div class="col-md-4">
-                                                        <label class="form-label small fw-bold mb-1 text-muted">ìƒˆ ì„ì› ì´ë¦„</label>
+                                                        <label class="form-label small fw-bold mb-1 text-muted">»õ ÀÓ¿ø ÀÌ¸§</label>
                                                         <input class="settings-input" style="border-color: #ba1a1a;" @bind="replaceNewName" />
                                                     </div>
                                                     <div class="col-md-4">
-                                                        <label class="form-label small fw-bold mb-1" style="color: #ba1a1a;">ìƒˆ ì„ì› ì‹œì‘ì¼</label>
+                                                        <label class="form-label small fw-bold mb-1" style="color: #ba1a1a;">»õ ÀÓ¿ø ½ÃÀÛÀÏ</label>
                                                         <input type="date" class="settings-input settings-tabular" style="border-color: #ba1a1a;" @bind="replaceStartDate" />
                                                     </div>
                                                     <div class="col-md-4 d-flex gap-2">
-                                                        <button class="btn btn-danger flex-grow-1 fw-bold shadow-sm" @onclick="ConfirmReplaceOfficer">êµì²´ ì™„ë£Œ</button>
-                                                        <button class="btn btn-light fw-bold border text-muted" @onclick="CancelReplace">ì·¨ì†Œ</button>
+                                                        <button class="btn btn-danger flex-grow-1 fw-bold shadow-sm" @onclick="ConfirmReplaceOfficer">±³Ã¼ ¿Ï·á</button>
+                                                        <button class="btn btn-light fw-bold border text-muted" @onclick="CancelReplace">Ãë¼Ò</button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -772,21 +772,21 @@
                                             <div class="settings-card-warm mb-4">
                                                 <div class="row g-2 align-items-end">
                                                     <div class="col-md-2">
-                                                        <label class="form-label small fw-bold mb-1 text-muted">ì§ë¶„</label>
+                                                        <label class="form-label small fw-bold mb-1 text-muted">Á÷ºĞ</label>
                                                         <select class="settings-input fw-bold" @bind="nOff.Role" style="color: #5a4000;">
-                                                            <option value="">-ì„ íƒ-</option>
-                                                            <option value="êµì—­ì">êµì—­ì</option>
-                                                            <option value="ë¶€ì¥(íŒ€ì¥)">ë¶€ì¥(íŒ€ì¥)</option>
-                                                            <option value="ì´ë¬´">ì´ë¬´</option>
-                                                            <option value="íšŒê³„">íšŒê³„</option>
+                                                            <option value="">-¼±ÅÃ-</option>
+                                                            <option value="±³¿ªÀÚ">±³¿ªÀÚ</option>
+                                                            <option value="ºÎÀå(ÆÀÀå)">ºÎÀå(ÆÀÀå)</option>
+                                                            <option value="ÃÑ¹«">ÃÑ¹«</option>
+                                                            <option value="È¸°è">È¸°è</option>
                                                         </select>
                                                     </div>
                                                     <div class="col-md-2">
-                                                        <label class="form-label small fw-bold mb-1 text-muted">ì´ë¦„</label>
-                                                        <input class="settings-input" @bind="nOff.Name" placeholder="ì´ë¦„" />
+                                                        <label class="form-label small fw-bold mb-1 text-muted">ÀÌ¸§</label>
+                                                        <input class="settings-input" @bind="nOff.Name" placeholder="ÀÌ¸§" />
                                                     </div>
                                                     <div class="col-md-5">
-                                                        <label class="form-label small fw-bold mb-1 text-muted">ì„ê¸° (ì‹œì‘ ~ ì¢…ë£Œ)</label>
+                                                        <label class="form-label small fw-bold mb-1 text-muted">ÀÓ±â (½ÃÀÛ ~ Á¾·á)</label>
                                                         <div class="d-flex align-items-center gap-2">
                                                             <input type="date" class="settings-input settings-tabular" @bind="nOff.StartDate" />
                                                             <span style="color: #d2c5b2;">~</span>
@@ -795,9 +795,9 @@
                                                     </div>
                                                     <div class="col-md-3 d-flex gap-1">
                                                         <button class="settings-gold-btn flex-grow-1" @onclick="() => SaveOfficer(dept.Id)">
-                                                            @(isEditing ? "ìˆ˜ì • ì €ì¥" : "ì„ì› ë“±ë¡")
+                                                            @(isEditing ? "¼öÁ¤ ÀúÀå" : "ÀÓ¿ø µî·Ï")
                                                         </button>
-                                                        @if (isEditing) { <button class="settings-secondary-btn px-3" @onclick="() => CancelOfficerEdit(dept.Id)">âŒ</button> }
+                                                        @if (isEditing) { <button class="settings-secondary-btn px-3" @onclick="() => CancelOfficerEdit(dept.Id)">?</button> }
                                                     </div>
                                                 </div>
                                             </div>
@@ -805,7 +805,7 @@
 
                                         <div class="settings-table-container">
                                             <table class="settings-table">
-                                                <thead><tr><th>ì§ë¶„</th><th>ì´ë¦„</th><th>ì„ê¸° ì‹œì‘ì¼</th><th>ì„ê¸° ì¢…ë£Œì¼</th><th width="150">ê´€ë¦¬</th></tr></thead>
+                                                <thead><tr><th>Á÷ºĞ</th><th>ÀÌ¸§</th><th>ÀÓ±â ½ÃÀÛÀÏ</th><th>ÀÓ±â Á¾·áÀÏ</th><th width="150">°ü¸®</th></tr></thead>
                                                 <tbody>
                                                     @foreach (var o in oList.OrderBy(x => x.Role).ThenBy(x => x.StartDate))
                                                     {
@@ -815,13 +815,13 @@
                                                             <td class="settings-tabular text-muted">@o.StartDate.ToString("yyyy.MM.dd")</td>
                                                             <td class="settings-tabular text-muted">@o.EndDate.ToString("yyyy.MM.dd")</td>
                                                             <td>
-                                                                <button class="settings-secondary-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => EditOfficer(dept.Id, o)">ìˆ˜ì •</button>
-                                                                <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem; background-color: #ffffff; border: 1px solid #ba1a1a;" @onclick="() => StartReplaceOfficer(dept.Id, o)">êµì²´</button>
+                                                                <button class="settings-secondary-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => EditOfficer(dept.Id, o)">¼öÁ¤</button>
+                                                                <button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem; background-color: #ffffff; border: 1px solid #ba1a1a;" @onclick="() => StartReplaceOfficer(dept.Id, o)">±³Ã¼</button>
                                                                 <button class="settings-danger-btn py-1 px-2 ms-1" style="font-size: 0.75rem;" @onclick="() => DeleteOfficerData(dept.Id, o.Id)"><i class="bi bi-trash"></i></button>
                                                             </td>
                                                         </tr>
                                                     }
-                                                    @if (!oList.Any()) { <tr><td colspan="5" class="py-5 text-muted">ë“±ë¡ëœ ì„ì› ì •ë³´ê°€ ì—†ìŠµë‹ˆë‹¤.</td></tr> }
+                                                    @if (!oList.Any()) { <tr><td colspan="5" class="py-5 text-muted">µî·ÏµÈ ÀÓ¿ø Á¤º¸°¡ ¾ø½À´Ï´Ù.</td></tr> }
                                                 </tbody>
                                             </table>
                                         </div>
@@ -833,13 +833,13 @@
                 </div>
             }
 
-            @* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-               [8] íƒ­: ë¶€ì„œ ê³„ì¢Œë²ˆí˜¸ ì„¤ì •
-            â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+            @* ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+               [8] ÅÇ: ºÎ¼­ °èÁÂ¹øÈ£ ¼³Á¤
+            ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡ *@
             else if (activeTab == "Account")
             {
                 <div class="col-md-9 mx-auto mt-2">
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ë¶€ì„œ ê³„ì¢Œë²ˆí˜¸ ì„¤ì •</h4>
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">ºÎ¼­ °èÁÂ¹øÈ£ ¼³Á¤</h4>
 
                     <div class="@(visibleDepartments.Count > 1 ? "accordion shadow-sm" : "")" id="accountAccordion">
                         @foreach (var dept in visibleDepartments)
@@ -852,15 +852,15 @@
                                 {
                                     <h2 class="accordion-header" id="heading-acc-@dept.Id">
                                         <button class="accordion-button @(isExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
-                                            ğŸ’³ @dept.Name ê³„ì¢Œ 
-                                            @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-white text-muted border ms-3">@dept.BankName ë“±ë¡ë¨</span> }
+                                            ?? @dept.Name °èÁÂ 
+                                            @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-white text-muted border ms-3">@dept.BankName µî·ÏµÊ</span> }
                                         </button>
                                     </h2>
                                 }
                                 else
                                 {
-                                    <h5 class="fw-bold text-dark mb-4">ğŸ’³ @dept.Name ê³„ì¢Œ 
-                                        @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-light text-muted border ms-2 fs-6">@dept.BankName ë“±ë¡ë¨</span> }
+                                    <h5 class="fw-bold text-dark mb-4">?? @dept.Name °èÁÂ 
+                                        @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-light text-muted border ms-2 fs-6">@dept.BankName µî·ÏµÊ</span> }
                                     </h5>
                                 }
 
@@ -868,21 +868,21 @@
                                     <div class="@(useAccordion ? "accordion-body bg-white p-4" : "")">
                                         <div class="row g-3 align-items-end">
                                             <div class="col-md-4">
-                                                <label class="form-label fw-bold small text-muted">ì€í–‰ëª…</label>
-                                                <input type="text" class="settings-input fw-bold" @bind="dept.BankName" placeholder="ì˜ˆ: í•˜ë‚˜ì€í–‰" style="color: #785600;" />
+                                                <label class="form-label fw-bold small text-muted">ÀºÇà¸í</label>
+                                                <input type="text" class="settings-input fw-bold" @bind="dept.BankName" placeholder="¿¹: ÇÏ³ªÀºÇà" style="color: #785600;" />
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label fw-bold small text-muted">ê³„ì¢Œë²ˆí˜¸</label>
-                                                <input type="text" class="settings-input settings-tabular" @bind="dept.AccountNumber" placeholder="'-' í¬í•¨ ì…ë ¥" />
+                                                <label class="form-label fw-bold small text-muted">°èÁÂ¹øÈ£</label>
+                                                <input type="text" class="settings-input settings-tabular" @bind="dept.AccountNumber" placeholder="'-' Æ÷ÇÔ ÀÔ·Â" />
                                             </div>
                                             <div class="col-md-4">
-                                                <label class="form-label fw-bold small text-muted">ì˜ˆê¸ˆì£¼</label>
-                                                <input type="text" class="settings-input" @bind="dept.AccountHolder" placeholder="ì˜ˆ: ì¸ì²œì¤‘ì•™êµíšŒ" />
+                                                <label class="form-label fw-bold small text-muted">¿¹±İÁÖ</label>
+                                                <input type="text" class="settings-input" @bind="dept.AccountHolder" placeholder="¿¹: ÀÎÃµÁß¾Ó±³È¸" />
                                             </div>
                                         </div>
                                         <div class="mt-4 text-end">
                                             <button class="settings-gold-btn px-5 py-3" @onclick="() => SaveAccountInfo(dept)">
-                                                <i class="bi bi-save me-2"></i> ì•ˆì „í•˜ê²Œ ì €ì¥
+                                                <i class="bi bi-save me-2"></i> ¾ÈÀüÇÏ°Ô ÀúÀå
                                             </button>
                                         </div>
                                     </div>
@@ -916,14 +916,14 @@
 
     private Guid bulkImportKey = Guid.NewGuid();
     private Guid systemRestoreKey = Guid.NewGuid();
-    private string mappingType = "ì§€ì¶œ";
+    private string mappingType = "ÁöÃâ";
     private string activeTab = "Income";
     private int TargetYear = DateTime.Now.Year;
     private bool isImporting = false;
     private bool isRestoring = false;
-    // íŠ¹ì • ì—°ë„ì˜ 11ì›” 4ì§¸ì£¼ ì£¼ì¼(ë§ˆê°ì¼)ì„ êµ¬í•˜ëŠ” ë¡œì§
+    // Æ¯Á¤ ¿¬µµÀÇ 11¿ù 4Â°ÁÖ ÁÖÀÏ(¸¶°¨ÀÏ)À» ±¸ÇÏ´Â ·ÎÁ÷
     private DateTime GetFiscalYearEndDate(int year) => AccountingService.GetFourthSundayOfMonth(year, 11);
-    // ê¶Œí•œ ì²´í¬
+    // ±ÇÇÑ Ã¼Å©
     private bool showNewPassword = false;
     private bool showConfirmPassword = false;
    
@@ -996,14 +996,14 @@
 
     private async Task SaveAllQuarters()
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}ë…„ë„ ì „ì²´ ë¶„ê¸° ê¸°ê°„ì„ ì €ì¥í•˜ì‹œê² ìŠµë‹ˆê¹Œ?") != true) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}³âµµ ÀüÃ¼ ºĞ±â ±â°£À» ÀúÀåÇÏ½Ã°Ú½À´Ï±î?") != true) return;
         for (int q = 1; q <= 4; q++)
         {
             await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]);
         }
         int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, TargetYear);
-        string msg = $"{TargetYear}ë…„ë„ ì „ì²´ ë¶„ê¸° ê¸°ê°„ì´ ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤.";
-        if (updated > 0) msg += $"\nì¥ë¶€ ë°ì´í„° {updated}ê±´ì˜ íšŒê³„ì—°ë„/ë¶„ê¸°ê°€ ì¬ê³„ì‚°ë˜ì—ˆìŠµë‹ˆë‹¤.";
+        string msg = $"{TargetYear}³âµµ ÀüÃ¼ ºĞ±â ±â°£ÀÌ ÀúÀåµÇ¾ú½À´Ï´Ù.";
+        if (updated > 0) msg += $"\nÀåºÎ µ¥ÀÌÅÍ {updated}°ÇÀÇ È¸°è¿¬µµ/ºĞ±â°¡ Àç°è»êµÇ¾ú½À´Ï´Ù.";
         await JSRuntime.InvokeVoidAsync("alert", msg);
     }
 
@@ -1063,8 +1063,8 @@
         {
             if (CurrentUser?.IsSystemAdmin == true)
             {
-                // Admin: ëª¨ë“  ë¶€ì„œ ì˜ˆì‚° ë¡œë“œ
-                var allDepts = await DbContext.Departments.AsNoTracking().Where(d => d.Name != "ê´€ë¦¬ì").OrderBy(d => d.Id).ToListAsync();
+                // Admin: ¸ğµç ºÎ¼­ ¿¹»ê ·Îµå
+                var allDepts = await DbContext.Departments.AsNoTracking().Where(d => d.Name != "°ü¸®ÀÚ").OrderBy(d => d.Id).ToListAsync();
                 visibleDepartments = allDepts;
                 var allPlansForTab = await DbContext.BudgetPlans.AsNoTracking()
                     .Where(b => b.Type == activeTab)
@@ -1073,8 +1073,8 @@
                 budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
                 var allCurrentYearPlans = await DbContext.BudgetPlans.AsNoTracking()
                     .Where(b => b.Year == TargetYear).ToListAsync();
-                IncomeCats = allCurrentYearPlans.Where(b => b.Type == "Income" || b.Type == "ìˆ˜ì…").Select(b => b.Category).Distinct().ToList();
-                ExpenseCats = allCurrentYearPlans.Where(b => b.Type == "Expense" || b.Type == "ì§€ì¶œ").Select(b => b.Category).Distinct().ToList();
+                IncomeCats = allCurrentYearPlans.Where(b => b.Type == "Income" || b.Type == "¼öÀÔ").Select(b => b.Category).Distinct().ToList();
+                ExpenseCats = allCurrentYearPlans.Where(b => b.Type == "Expense" || b.Type == "ÁöÃâ").Select(b => b.Category).Distinct().ToList();
             }
             else
             {
@@ -1082,16 +1082,16 @@
                 budgetList = allPlansForTab;
                 budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
                 var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
-                IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "ìˆ˜ì…").Select(b => b.Category).Distinct().ToList();
-                ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "ì§€ì¶œ").Select(b => b.Category).Distinct().ToList();
+                IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "¼öÀÔ").Select(b => b.Category).Distinct().ToList();
+                ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "ÁöÃâ").Select(b => b.Category).Distinct().ToList();
             }
         }
         else if (activeTab == "Mapping")
         {
             mappingList = await AccService.GetMappingsAsync(myDeptId);
             var currentYearAllPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == TargetYear).ToListAsync();
-            ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "ì§€ì¶œ").Select(b => b.Category).Distinct().ToList();
-            IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "ìˆ˜ì…").Select(b => b.Category).Distinct().ToList();
+            ExpenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "ÁöÃâ").Select(b => b.Category).Distinct().ToList();
+            IncomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "¼öÀÔ").Select(b => b.Category).Distinct().ToList();
         }
         else if (activeTab == "Backup") 
         { 
@@ -1099,8 +1099,8 @@
         }
         else if (activeTab == "Officers" || activeTab == "Account")
         {
-            var allDepts = await DbContext.Departments.Where(d => d.Name != "ê´€ë¦¬ì" && d.Name != "ì‹œìŠ¤í…œ").OrderBy(d => d.Id).ToListAsync();
-            if (CurrentUser?.IsSystemAdmin == true || CurrentUser?.IsAuditor == true || CurrentUser?.Department?.Name == "êµìœ¡êµ­")
+            var allDepts = await DbContext.Departments.Where(d => d.Name != "°ü¸®ÀÚ" && d.Name != "½Ã½ºÅÛ").OrderBy(d => d.Id).ToListAsync();
+            if (CurrentUser?.IsSystemAdmin == true || CurrentUser?.IsAuditor == true || CurrentUser?.Department?.Name == "±³À°±¹")
             {
                 visibleDepartments = allDepts;
             }
@@ -1146,7 +1146,7 @@
         var nOff = newOfficers[deptId];
         if (string.IsNullOrWhiteSpace(nOff.Name) || string.IsNullOrWhiteSpace(nOff.Role))
         {
-            await JSRuntime.InvokeVoidAsync("alert", "ì§ë¶„ê³¼ ì´ë¦„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”.");
+            await JSRuntime.InvokeVoidAsync("alert", "Á÷ºĞ°ú ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä.");
             return;
         }
         if (nOff.Id == 0) { nOff.DepartmentId = deptId; nOff.Year = TargetYear; DbContext.DepartmentOfficers.Add(nOff); }
@@ -1166,7 +1166,7 @@
     
     private async Task DeleteOfficerData(int deptId, int id)
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", "ì™„ì „íˆ ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true) { var o = await DbContext.DepartmentOfficers.FindAsync(id); if (o != null) { DbContext.DepartmentOfficers.Remove(o); await DbContext.SaveChangesAsync(); await LoadData(); } }
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "¿ÏÀüÈ÷ »èÁ¦ÇÏ½Ã°Ú½À´Ï±î?") == true) { var o = await DbContext.DepartmentOfficers.FindAsync(id); if (o != null) { DbContext.DepartmentOfficers.Remove(o); await DbContext.SaveChangesAsync(); await LoadData(); } }
     }
     
     private void StartReplaceOfficer(int deptId, DepartmentOfficer o) { CancelOfficerEdit(deptId); officerToReplace = o; replaceNewName = ""; replaceStartDate = DateTime.Now; replacingDeptId = deptId; isReplacing = true; }
@@ -1174,29 +1174,29 @@
     
     private async Task ConfirmReplaceOfficer()
     {
-        if (officerToReplace == null || string.IsNullOrWhiteSpace(replaceNewName)) { await JSRuntime.InvokeVoidAsync("alert", "ìƒˆë¡œìš´ ì„ì›ì˜ ì´ë¦„ì„ ì…ë ¥í•´ì£¼ì„¸ìš”."); return; }
+        if (officerToReplace == null || string.IsNullOrWhiteSpace(replaceNewName)) { await JSRuntime.InvokeVoidAsync("alert", "»õ·Î¿î ÀÓ¿øÀÇ ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä."); return; }
         officerToReplace.EndDate = replaceStartDate.AddDays(-1); var ex = await DbContext.DepartmentOfficers.FindAsync(officerToReplace.Id);
         if (ex != null) DbContext.Entry(ex).CurrentValues.SetValues(officerToReplace);
         DbContext.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = officerToReplace.DepartmentId, Year = TargetYear, Role = officerToReplace.Role, Name = replaceNewName, StartDate = replaceStartDate, EndDate = QuarterEndDates[3] });
-        await DbContext.SaveChangesAsync(); await LoadData(); CancelReplace(); await JSRuntime.InvokeVoidAsync("alert", "ì„±ê³µì ìœ¼ë¡œ êµì²´ë˜ì—ˆìŠµë‹ˆë‹¤!");
+        await DbContext.SaveChangesAsync(); await LoadData(); CancelReplace(); await JSRuntime.InvokeVoidAsync("alert", "¼º°øÀûÀ¸·Î ±³Ã¼µÇ¾ú½À´Ï´Ù!");
     }
     
     private async Task ImportPreviousYearOfficers(int deptId)
     {
         var prevOfficers = await DbContext.DepartmentOfficers.AsNoTracking().Where(o => o.DepartmentId == deptId && o.Year == TargetYear - 1).ToListAsync();
-        if (!prevOfficers.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear - 1}ë…„ë„ ì •ë³´ê°€ ì—†ìŠµë‹ˆë‹¤."); return; }
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"ì§ì „ë…„ë„ ëª…ë‹¨ì„ ë¶ˆëŸ¬ì˜¤ì‹œê² ìŠµë‹ˆê¹Œ?") != true) return;
+        if (!prevOfficers.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"{TargetYear - 1}³âµµ Á¤º¸°¡ ¾ø½À´Ï´Ù."); return; }
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"Á÷Àü³âµµ ¸í´ÜÀ» ºÒ·¯¿À½Ã°Ú½À´Ï±î?") != true) return;
         var latestPrevOfficers = prevOfficers.GroupBy(o => o.Role).Select(g => g.OrderByDescending(o => o.EndDate).First()).ToList();
         foreach (var o in latestPrevOfficers) DbContext.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = deptId, Year = TargetYear, Role = o.Role, Name = o.Name, StartDate = QuarterStartDates[0], EndDate = QuarterEndDates[3] });
-        await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "ë¶ˆëŸ¬ì™”ìŠµë‹ˆë‹¤.");
+        await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "ºÒ·¯¿Ô½À´Ï´Ù.");
     }
     
     private async Task SaveAccountInfo(Department targetDept)
     {
-        if (string.IsNullOrWhiteSpace(targetDept.BankName) || string.IsNullOrWhiteSpace(targetDept.AccountNumber)) { await JSRuntime.InvokeVoidAsync("alert", "ì€í–‰ëª…ê³¼ ê³„ì¢Œë²ˆí˜¸ë¥¼ ì…ë ¥í•´ì£¼ì„¸ìš”."); return; }
+        if (string.IsNullOrWhiteSpace(targetDept.BankName) || string.IsNullOrWhiteSpace(targetDept.AccountNumber)) { await JSRuntime.InvokeVoidAsync("alert", "ÀºÇà¸í°ú °èÁÂ¹øÈ£¸¦ ÀÔ·ÂÇØÁÖ¼¼¿ä."); return; }
         await AccService.UpdateDepartmentAsync(targetDept);
         if (CurrentUser?.DepartmentId == targetDept.Id && CurrentUser?.Department != null) { CurrentUser.Department.BankName = targetDept.BankName; CurrentUser.Department.AccountNumber = targetDept.AccountNumber; CurrentUser.Department.AccountHolder = targetDept.AccountHolder; }
-        await JSRuntime.InvokeVoidAsync("alert", "ì €ì¥ë˜ì—ˆìŠµë‹ˆë‹¤!");
+        await JSRuntime.InvokeVoidAsync("alert", "ÀúÀåµÇ¾ú½À´Ï´Ù!");
     }
 
     private async Task DownloadAllDataJson()
@@ -1206,9 +1206,9 @@
             var allData = new SystemBackupDto { ExportDate = DateTime.Now, Departments = await DbContext.Departments.AsNoTracking().ToListAsync(), Users = await DbContext.Users.AsNoTracking().ToListAsync(), Transactions = await DbContext.Transactions.AsNoTracking().ToListAsync(), BudgetPlans = await DbContext.BudgetPlans.AsNoTracking().ToListAsync(), CategoryMappings = await DbContext.CategoryMappings.AsNoTracking().ToListAsync() };
             var jsonOptions = new JsonSerializerOptions { WriteIndented = true, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
             var json = JsonSerializer.Serialize(allData, jsonOptions);
-            await JSRuntime.InvokeVoidAsync("downloadJsonFile", $"ì „ì²´ì‹œìŠ¤í…œë°±ì—…_{DateTime.Now:yyyyMMdd_HHmm}.json", json);
+            await JSRuntime.InvokeVoidAsync("downloadJsonFile", $"ÀüÃ¼½Ã½ºÅÛ¹é¾÷_{DateTime.Now:yyyyMMdd_HHmm}.json", json);
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"ë°±ì—… ì¤‘ ì˜¤ë¥˜ ë°œìƒ: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"¹é¾÷ Áß ¿À·ù ¹ß»ı: {ex.Message}"); }
     }
 
     private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('systemRestoreInput').click()"); }
@@ -1217,7 +1217,7 @@
     {
         var file = e.File;
         if (file == null) return;
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", "âš ï¸ í˜„ì¬ ì‹œìŠ¤í…œì˜ ëª¨ë“  ë°ì´í„°ê°€ ì‚­ì œë©ë‹ˆë‹¤. ì§„í–‰í•˜ì‹œê² ìŠµë‹ˆê¹Œ?") != true) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "?? ÇöÀç ½Ã½ºÅÛÀÇ ¸ğµç µ¥ÀÌÅÍ°¡ »èÁ¦µË´Ï´Ù. ÁøÇàÇÏ½Ã°Ú½À´Ï±î?") != true) return;
         isRestoring = true; StateHasChanged();
         try
         {
@@ -1225,7 +1225,7 @@
             using var reader = new StreamReader(stream);
             var json = await reader.ReadToEndAsync();
             var backupData = JsonSerializer.Deserialize<SystemBackupDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (backupData == null || backupData.Departments == null || backupData.Users == null) { await JSRuntime.InvokeVoidAsync("alert", "ìœ íš¨í•˜ì§€ ì•Šì€ ë°±ì—… íŒŒì¼ì…ë‹ˆë‹¤."); return; }
+            if (backupData == null || backupData.Departments == null || backupData.Users == null) { await JSRuntime.InvokeVoidAsync("alert", "À¯È¿ÇÏÁö ¾ÊÀº ¹é¾÷ ÆÄÀÏÀÔ´Ï´Ù."); return; }
 
             DbContext.CategoryMappings.RemoveRange(DbContext.CategoryMappings); DbContext.BudgetPlans.RemoveRange(DbContext.BudgetPlans); DbContext.Transactions.RemoveRange(DbContext.Transactions); DbContext.Users.RemoveRange(DbContext.Users); DbContext.Departments.RemoveRange(DbContext.Departments);
             await DbContext.SaveChangesAsync();
@@ -1235,9 +1235,9 @@
             if (backupData.BudgetPlans.Any()) DbContext.BudgetPlans.AddRange(backupData.BudgetPlans);
             if (backupData.CategoryMappings.Any()) DbContext.CategoryMappings.AddRange(backupData.CategoryMappings);
             await DbContext.SaveChangesAsync(); await LoadData();
-            await JSRuntime.InvokeVoidAsync("alert", "âœ… ì‹œìŠ¤í…œ ë³µì›ì´ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤."); Nav.NavigateTo("/", forceLoad: true);
+            await JSRuntime.InvokeVoidAsync("alert", "? ½Ã½ºÅÛ º¹¿øÀÌ ¿Ï·áµÇ¾ú½À´Ï´Ù."); Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"âŒ ë³µì› ì¤‘ ì˜¤ë¥˜ ë°œìƒ: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"? º¹¿ø Áß ¿À·ù ¹ß»ı: {ex.Message}"); }
         finally { isRestoring = false; systemRestoreKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
@@ -1248,53 +1248,53 @@
             var depts = await DbContext.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name);
             var allLedgers = await DbContext.Transactions.AsNoTracking().OrderBy(t => t.Date).ToListAsync(); var allBudgets = await DbContext.BudgetPlans.AsNoTracking().OrderBy(b => b.Year).ThenBy(b => b.DepartmentId).ToListAsync();
             using var workbook = new XLWorkbook();
-            var wsLedger = workbook.Worksheets.Add("í†µí•©ì¥ë¶€");
-            var headers = new[] { "ë¶€ì„œëª…", "íšŒê³„ì—°ë„", "ë‚ ì§œ", "êµ¬ë¶„", "í•­ëª©", "ì ìš”", "ë¹„ê³ ", "ìˆ˜ì…", "ì§€ì¶œ" };
+            var wsLedger = workbook.Worksheets.Add("ÅëÇÕÀåºÎ");
+            var headers = new[] { "ºÎ¼­¸í", "È¸°è¿¬µµ", "³¯Â¥", "±¸ºĞ", "Ç×¸ñ", "Àû¿ä", "ºñ°í", "¼öÀÔ", "ÁöÃâ" };
             for (int i = 0; i < headers.Length; i++) { wsLedger.Cell(1, i + 1).Value = headers[i]; wsLedger.Cell(1, i + 1).Style.Font.Bold = true; wsLedger.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; }
             int row = 2;
             foreach (var item in allLedgers) 
             { 
-                string translatedType = item.Type == "Income" ? "ìˆ˜ì…" : (item.Type == "Expense" ? "ì§€ì¶œ" : item.Type);
-                wsLedger.Cell(row, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "ì•Œìˆ˜ì—†ìŒ";
+                string translatedType = item.Type == "Income" ? "¼öÀÔ" : (item.Type == "Expense" ? "ÁöÃâ" : item.Type);
+                wsLedger.Cell(row, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "¾Ë¼ö¾øÀ½";
                 wsLedger.Cell(row, 2).Value = item.FiscalYear; wsLedger.Cell(row, 3).Value = item.Date.ToString("yyyy-MM-dd"); wsLedger.Cell(row, 4).Value = translatedType; wsLedger.Cell(row, 5).Value = item.Category; wsLedger.Cell(row, 6).Value = item.Description;
                 wsLedger.Cell(row, 7).Value = item.Note; wsLedger.Cell(row, 8).Value = item.Income == 0 ? "" : item.Income; wsLedger.Cell(row, 9).Value = item.Expense == 0 ? "" : item.Expense; row++;
             }
             wsLedger.Columns().AdjustToContents();
 
-            var wsBudget = workbook.Worksheets.Add("í†µí•©ì˜ˆì‚°");
-            var bHeaders = new[] { "ë¶€ì„œëª…", "ì—°ë„", "êµ¬ë¶„", "í•­ëª©", "ìƒì„¸ë‚´ì—­", "ì‚°ì¶œê·¼ê±°", "ê¸ˆì•¡" };
+            var wsBudget = workbook.Worksheets.Add("ÅëÇÕ¿¹»ê");
+            var bHeaders = new[] { "ºÎ¼­¸í", "¿¬µµ", "±¸ºĞ", "Ç×¸ñ", "»ó¼¼³»¿ª", "»êÃâ±Ù°Å", "±İ¾×" };
             for (int i = 0; i < bHeaders.Length; i++) { wsBudget.Cell(1, i + 1).Value = bHeaders[i]; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; }
             int bRow = 2;
             foreach (var item in allBudgets) 
             { 
-                string translatedType = item.Type == "Income" ? "ìˆ˜ì…" : (item.Type == "Expense" ? "ì§€ì¶œ" : item.Type);
-                wsBudget.Cell(bRow, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "ì•Œìˆ˜ì—†ìŒ";
+                string translatedType = item.Type == "Income" ? "¼öÀÔ" : (item.Type == "Expense" ? "ÁöÃâ" : item.Type);
+                wsBudget.Cell(bRow, 1).Value = depts.ContainsKey(item.DepartmentId) ? depts[item.DepartmentId] : "¾Ë¼ö¾øÀ½";
                 wsBudget.Cell(bRow, 2).Value = item.Year; wsBudget.Cell(bRow, 3).Value = translatedType; wsBudget.Cell(bRow, 4).Value = item.Category; wsBudget.Cell(bRow, 5).Value = item.SubCategory; wsBudget.Cell(bRow, 6).Value = item.CalcDetail;
                 wsBudget.Cell(bRow, 7).Value = item.Amount; bRow++; 
             }
             wsBudget.Columns().AdjustToContents();
             using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"ì „ì²´ë¶€ì„œ_í†µí•©ë°±ì—…_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"ÀüÃ¼ºÎ¼­_ÅëÇÕ¹é¾÷_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"ì—‘ì…€ ë°±ì—… ì¤‘ ì˜¤ë¥˜: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"¿¢¼¿ ¹é¾÷ Áß ¿À·ù: {ex.Message}"); }
     }
 
     private async Task SavePlan() { if (string.IsNullOrWhiteSpace(newPlan.Category)) return; newPlan.Year = TargetYear; newPlan.Type = activeTab; newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(newPlan); newPlan = new(); await LoadData(); }
     private async Task SaveQuarter(int q)
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}ë…„ë„ {q}ë¶„ê¸° ê¸°ê°„ì„ ë³€ê²½í•˜ì‹œê² ìŠµë‹ˆê¹Œ?") != true) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{TargetYear}³âµµ {q}ºĞ±â ±â°£À» º¯°æÇÏ½Ã°Ú½À´Ï±î?") != true) return;
         await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, TargetYear, q, QuarterStartDates[q - 1], QuarterEndDates[q - 1]);
         int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, TargetYear);
-        string msg = $"{TargetYear}ë…„ë„ {q}ë¶„ê¸° ê¸°ê°„ì´ ì„¤ì •ë˜ì—ˆìŠµë‹ˆë‹¤.";
-        if (updated > 0) msg += $"\nì¥ë¶€ ë°ì´í„° {updated}ê±´ì˜ íšŒê³„ì—°ë„/ë¶„ê¸°ê°€ ì¬ê³„ì‚°ë˜ì—ˆìŠµë‹ˆë‹¤.";
+        string msg = $"{TargetYear}³âµµ {q}ºĞ±â ±â°£ÀÌ ¼³Á¤µÇ¾ú½À´Ï´Ù.";
+        if (updated > 0) msg += $"\nÀåºÎ µ¥ÀÌÅÍ {updated}°ÇÀÇ È¸°è¿¬µµ/ºĞ±â°¡ Àç°è»êµÇ¾ú½À´Ï´Ù.";
         await JSRuntime.InvokeVoidAsync("alert", msg);
     }
-    private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true) { await AccService.DeleteBudgetPlanAsync(id); await LoadData(); } }
+    private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "»èÁ¦ÇÏ½Ã°Ú½À´Ï±î?") == true) { await AccService.DeleteBudgetPlanAsync(id); await LoadData(); } }
     
    private async Task AddUser() 
     { 
         if (string.IsNullOrWhiteSpace(newUser.Username) || newUser.DepartmentId == 0) { 
-            await JSRuntime.InvokeVoidAsync("alert", "ì•„ì´ë””ì™€ ë¶€ì„œë¥¼ ì„ íƒí•˜ì„¸ìš”."); 
+            await JSRuntime.InvokeVoidAsync("alert", "¾ÆÀÌµğ¿Í ºÎ¼­¸¦ ¼±ÅÃÇÏ¼¼¿ä."); 
             return; 
         } 
         newUser.Username = newUser.Username.Replace(" ", "");
@@ -1305,14 +1305,14 @@
         await LoadData();
     }
     
-    private async Task ResetPassword(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ë¹„ë°€ë²ˆí˜¸ë¥¼ '1234'ë¡œ ì´ˆê¸°í™”í•©ë‹ˆê¹Œ?") == true) { await AccService.ResetPasswordAsync(un); await LoadData(); } }
-    private async Task DeleteUser(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ê³„ì •ì„ ì˜êµ¬ ì‚­ì œí•©ë‹ˆê¹Œ?") == true) { await AccService.DeleteUserAsync(un); await LoadData(); } }
+    private async Task ResetPassword(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ºñ¹Ğ¹øÈ£¸¦ '1234'·Î ÃÊ±âÈ­ÇÕ´Ï±î?") == true) { await AccService.ResetPasswordAsync(un); await LoadData(); } }
+    private async Task DeleteUser(string un) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "°èÁ¤À» ¿µ±¸ »èÁ¦ÇÕ´Ï±î?") == true) { await AccService.DeleteUserAsync(un); await LoadData(); } }
     private async Task ToggleUserStatus(User u) { u.IsActive = !u.IsActive; await AccService.UpdateUserAsync(u); await LoadData(); }
 
     private async Task SafeImportPreviousYearBudget()
     {
         if (isImporting || CurrentUser == null) return;
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"[{TargetYear}ë…„ë„] ì˜ˆì‚°ì„ ì§ì „ë…„ë„ ì˜ˆì‚°ìœ¼ë¡œ ë®ì–´ì“°ì‹œê² ìŠµë‹ˆê¹Œ?") != true) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"[{TargetYear}³âµµ] ¿¹»êÀ» Á÷Àü³âµµ ¿¹»êÀ¸·Î µ¤¾î¾²½Ã°Ú½À´Ï±î?") != true) return;
         isImporting = true; StateHasChanged();
         try
         {
@@ -1320,11 +1320,11 @@
             var currentPlans = await DbContext.BudgetPlans.Where(b => b.DepartmentId == deptId && b.Year == TargetYear).ToListAsync();
             if (currentPlans.Any()) DbContext.BudgetPlans.RemoveRange(currentPlans);
             var prevPlans = await DbContext.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == TargetYear - 1).ToListAsync();
-            if (!prevPlans.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"âš ï¸ {TargetYear - 1}ë…„ë„ ì˜ˆì‚°ì´ ì—†ìŠµë‹ˆë‹¤."); return; }
+            if (!prevPlans.Any()) { await JSRuntime.InvokeVoidAsync("alert", $"?? {TargetYear - 1}³âµµ ¿¹»êÀÌ ¾ø½À´Ï´Ù."); return; }
             foreach (var plan in prevPlans) DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
-            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "âœ… ì§ì „ë…„ë„ ì˜ˆì‚° ë¶ˆëŸ¬ì˜¤ê¸° ì™„ë£Œ!");
+            await DbContext.SaveChangesAsync(); await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "? Á÷Àü³âµµ ¿¹»ê ºÒ·¯¿À±â ¿Ï·á!");
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"âŒ ì—‘ì…€ ì²˜ë¦¬ ì¤‘ ì˜¤ë¥˜: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"¿¢¼¿ Ã³¸® Áß ¿À·ù: {ex.Message}"); }
         finally { isImporting = false; bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
@@ -1333,50 +1333,50 @@
         try
         {
             using var workbook = new XLWorkbook();
-            var wsBudget = workbook.Worksheets.Add("ì˜ˆì‚°ì¼ê´„ì…ë ¥");
-            var headers1 = new[] { "êµ¬ë¶„", "í•­ëª©", "ìƒì„¸ë‚´ì—­", "ì‚°ì¶œê·¼ê±°", "ê¸ˆì•¡" };
+            var wsBudget = workbook.Worksheets.Add("¿¹»êÀÏ°ıÀÔ·Â");
+            var headers1 = new[] { "±¸ºĞ", "Ç×¸ñ", "»ó¼¼³»¿ª", "»êÃâ±Ù°Å", "±İ¾×" };
             for (int i = 0; i < headers1.Length; i++) { wsBudget.Cell(1, i + 1).Value = headers1[i]; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; }
 
-            wsBudget.Cell(2, 1).Value = "â€»ì—…ë¡œë“œ ì „ì— ì˜ˆì‹œ(3ë²ˆ í–‰ê¹Œì§€)ëŠ” ì—‘ì…€ì—ì„œ ë°˜ë“œì‹œ ì‚­ì œí•˜ì„¸ìš”!";
+            wsBudget.Cell(2, 1).Value = "¡Ø¾÷·Îµå Àü¿¡ ¿¹½Ã(3¹ø Çà±îÁö)´Â ¿¢¼¿¿¡¼­ ¹İµå½Ã »èÁ¦ÇÏ¼¼¿ä!";
             wsBudget.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
             wsBudget.Range(2, 1, 2, 5).Merge(); 
 
-            wsBudget.Cell(3, 1).Value = "ìˆ˜ì…"; wsBudget.Cell(3, 2).Value = "ì£¼ì¼í—Œê¸ˆ"; wsBudget.Cell(3, 3).Value = "ì˜ˆë°°"; wsBudget.Cell(3, 5).Value = 2600000;
-            wsBudget.Cell(4, 1).Value = "ì§€ì¶œ"; wsBudget.Cell(4, 2).Value = "í–‰ì‚¬ë¹„"; wsBudget.Cell(4, 3).Value = "ì„±ê²½í•™êµ"; wsBudget.Cell(4, 5).Value = 200000;
+            wsBudget.Cell(3, 1).Value = "¼öÀÔ"; wsBudget.Cell(3, 2).Value = "ÁÖÀÏÇå±İ"; wsBudget.Cell(3, 3).Value = "¿¹¹è"; wsBudget.Cell(3, 5).Value = 2600000;
+            wsBudget.Cell(4, 1).Value = "ÁöÃâ"; wsBudget.Cell(4, 2).Value = "Çà»çºñ"; wsBudget.Cell(4, 3).Value = "¼º°æÇĞ±³"; wsBudget.Cell(4, 5).Value = 200000;
             
-            // ğŸš€ ìˆ˜ì •: ì˜ˆì‚° ì–‘ì‹ ì¹¸ ë„ˆë¹„ë¥¼ ì›¹í˜ì´ì§€ì™€ ìœ ì‚¬í•œ ë¹„ìœ¨ë¡œ ê³ ì •
-            wsBudget.Column(1).Width = 10; // êµ¬ë¶„
-            wsBudget.Column(2).Width = 20; // í•­ëª©
-            wsBudget.Column(3).Width = 30; // ìƒì„¸ë‚´ì—­
-            wsBudget.Column(4).Width = 35; // ì‚°ì¶œê·¼ê±°
-            wsBudget.Column(5).Width = 15; // ê¸ˆì•¡
+            // ?? ¼öÁ¤: ¿¹»ê ¾ç½Ä Ä­ ³Êºñ¸¦ À¥ÆäÀÌÁö¿Í À¯»çÇÑ ºñÀ²·Î °íÁ¤
+            wsBudget.Column(1).Width = 10; // ±¸ºĞ
+            wsBudget.Column(2).Width = 20; // Ç×¸ñ
+            wsBudget.Column(3).Width = 30; // »ó¼¼³»¿ª
+            wsBudget.Column(4).Width = 35; // »êÃâ±Ù°Å
+            wsBudget.Column(5).Width = 15; // ±İ¾×
 
-            var wsMapping = workbook.Worksheets.Add("ìë™ë¶„ë¥˜ì¼ê´„ì…ë ¥");
-            var headers2 = new[] { "êµ¬ë¶„", "í‚¤ì›Œë“œ", "ë¶„ë¥˜ë í•­ëª©" };
+            var wsMapping = workbook.Worksheets.Add("ÀÚµ¿ºĞ·ùÀÏ°ıÀÔ·Â");
+            var headers2 = new[] { "±¸ºĞ", "Å°¿öµå", "ºĞ·ùµÉÇ×¸ñ" };
             for (int i = 0; i < headers2.Length; i++) { wsMapping.Cell(1, i + 1).Value = headers2[i]; wsMapping.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsMapping.Cell(1, i + 1).Style.Font.Bold = true; }
 
-            wsMapping.Cell(2, 1).Value = "â€»ì—…ë¡œë“œ ì „ì— ì˜ˆì‹œ(3ë²ˆ í–‰ê¹Œì§€)ëŠ” ì—‘ì…€ì—ì„œ ë°˜ë“œì‹œ ì‚­ì œí•˜ì„¸ìš”!";
+            wsMapping.Cell(2, 1).Value = "¡Ø¾÷·Îµå Àü¿¡ ¿¹½Ã(3¹ø Çà±îÁö)´Â ¿¢¼¿¿¡¼­ ¹İµå½Ã »èÁ¦ÇÏ¼¼¿ä!";
             wsMapping.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
             wsMapping.Range(2, 1, 2, 3).Merge();
 
-            wsMapping.Cell(3, 1).Value = "ìˆ˜ì…"; wsMapping.Cell(3, 2).Value = "ì¸ì²œì¤‘ì•™êµíšŒ"; wsMapping.Cell(3, 3).Value = "êµíšŒë³´ì¡°ê¸ˆ";
-            wsMapping.Cell(4, 1).Value = "ì§€ì¶œ"; wsMapping.Cell(4, 2).Value = "ë‹¤ì´ì†Œ"; wsMapping.Cell(4, 3).Value = "í–‰ì‚¬ë¹„";
+            wsMapping.Cell(3, 1).Value = "¼öÀÔ"; wsMapping.Cell(3, 2).Value = "ÀÎÃµÁß¾Ó±³È¸"; wsMapping.Cell(3, 3).Value = "±³È¸º¸Á¶±İ";
+            wsMapping.Cell(4, 1).Value = "ÁöÃâ"; wsMapping.Cell(4, 2).Value = "´ÙÀÌ¼Ò"; wsMapping.Cell(4, 3).Value = "Çà»çºñ";
             
-            // ğŸš€ ìˆ˜ì •: ìë™ë¶„ë¥˜ ì–‘ì‹ ì¹¸ ë„ˆë¹„ ë¹„ìœ¨ ê³ ì •
-            wsMapping.Column(1).Width = 10; // êµ¬ë¶„
-            wsMapping.Column(2).Width = 40; // í‚¤ì›Œë“œ
-            wsMapping.Column(3).Width = 40; // ë¶„ë¥˜ë  í•­ëª©
+            // ?? ¼öÁ¤: ÀÚµ¿ºĞ·ù ¾ç½Ä Ä­ ³Êºñ ºñÀ² °íÁ¤
+            wsMapping.Column(1).Width = 10; // ±¸ºĞ
+            wsMapping.Column(2).Width = 40; // Å°¿öµå
+            wsMapping.Column(3).Width = 40; // ºĞ·ùµÉ Ç×¸ñ
 
             using var stream = new MemoryStream(); workbook.SaveAs(stream);
             var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "ì¼ê´„ì…ë ¥ì–‘ì‹_í†µí•©.xlsx", base64);
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "ÀÏ°ıÀÔ·Â¾ç½Ä_ÅëÇÕ.xlsx", base64);
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"ì—‘ì…€ ì–‘ì‹ ìƒì„± ì˜¤ë¥˜: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"¿¢¼¿ ¾ç½Ä »ı¼º ¿À·ù: {ex.Message}"); }
     }
     
     private async Task TriggerBulkImport() 
     { 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "âš ï¸ ì£¼ì˜: ë‹¤ìš´ë¡œë“œí•˜ì‹  ì—‘ì…€ íŒŒì¼ ë‚´ì˜ 'ë¹¨ê°„ìƒ‰ ê¸€ì”¨ë¡œ ëœ ì˜ˆì‹œ í–‰'ì€ ì—‘ì…€ì—ì„œ ë¯¸ë¦¬ ë‹¤ ì§€ìš°ì…¨ë‚˜ìš”?\n\nì§€ìš°ì§€ ì•Šê³  ì˜¬ë¦¬ë©´ ì˜¤ë¥˜ê°€ ë°œìƒí•  ìˆ˜ ìˆìŠµë‹ˆë‹¤. ê³„ì† ì§„í–‰í•˜ì‹œê² ìŠµë‹ˆê¹Œ?");
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "?? ´Ù¿î·ÎµåÇÏ½Å ¿¢¼¿ ÆÄÀÏ ³»ÀÇ '»¡°£»ö ±Û¾¾·Î µÈ ¿¹½Ã Çà'Àº ¿¢¼¿¿¡¼­ ¹Ì¸® ´Ù Áö¿ì¼Ì³ª¿ä?\n\nÁö¿ìÁö ¾Ê°í ¿Ã¸®¸é ¿À·ù°¡ ¹ß»ıÇÒ ¼ö ÀÖ½À´Ï´Ù. °è¼Ó ÁøÇàÇÏ½Ã°Ú½À´Ï±î?");
         if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); }
     }
 
@@ -1396,30 +1396,30 @@
 
             foreach (DataTable table in result.Tables)
             {
-                if (table.TableName == "ì˜ˆì‚°ì¼ê´„ì…ë ¥")
+                if (table.TableName == "¿¹»êÀÏ°ıÀÔ·Â")
                 {
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
                         var row = table.Rows[i];
                         string type = row[0]?.ToString()?.Trim() ?? ""; 
-                        if (type.Contains("ì‚­ì œí•˜ì„¸ìš”")) continue; 
+                        if (type.Contains("»èÁ¦ÇÏ¼¼¿ä")) continue; 
 
                         string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? ""; string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
                         if (string.IsNullOrEmpty(cat)) continue;
-                        if (type == "ìˆ˜ì…") type = "Income"; if (type == "ì§€ì¶œ") type = "Expense";
+                        if (type == "¼öÀÔ") type = "Income"; if (type == "ÁöÃâ") type = "Expense";
                         if (type != "Income" && type != "Expense") continue;
                         decimal.TryParse(amtStr, out decimal amt);
                         DbContext.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = TargetYear, Type = type, Category = cat, SubCategory = sub, CalcDetail = calc, Amount = amt });
                         budgetCount++;
                     }
                 }
-                else if (table.TableName == "ìë™ë¶„ë¥˜ì¼ê´„ì…ë ¥")
+                else if (table.TableName == "ÀÚµ¿ºĞ·ùÀÏ°ıÀÔ·Â")
                 {
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
                         var row = table.Rows[i];
                         string type = row[0]?.ToString()?.Trim() ?? "";
-                        if (type.Contains("ì‚­ì œí•˜ì„¸ìš”")) continue; 
+                        if (type.Contains("»èÁ¦ÇÏ¼¼¿ä")) continue; 
 
                         string keyword = row[1]?.ToString()?.Trim() ?? ""; string cat = row[2]?.ToString()?.Trim() ?? "";
                         if (string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
@@ -1429,31 +1429,56 @@
             }
             await DbContext.SaveChangesAsync();
             await LoadData(); 
-            await JSRuntime.InvokeVoidAsync("alert", $"âœ… ì¼ê´„ ì…ë ¥ ì™„ë£Œ!\n- ì˜ˆì‚°: {budgetCount}ê±´\n- ìë™ë¶„ë¥˜: {mappingCount}ê±´");
+            await JSRuntime.InvokeVoidAsync("alert", $"? ÀÏ°ı ÀÔ·Â ¿Ï·á!\n- ¿¹»ê: {budgetCount}°Ç\n- ÀÚµ¿ºĞ·ù: {mappingCount}°Ç");
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"âŒ ì—‘ì…€ ì²˜ë¦¬ ì¤‘ ì˜¤ë¥˜: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"? ¿¢¼¿ Ã³¸® Áß ¿À·ù: {ex.Message}"); }
         finally { isImporting = false; bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
-    private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(customBackupMemo) ? "ì‚¬ìš©ì ìˆ˜ë™ ë°±ì—…" : customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); customBackupMemo = ""; await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "ì„±ê³µì ìœ¼ë¡œ ë°±ì—…ë˜ì—ˆìŠµë‹ˆë‹¤."); }
-    private async Task RestoreData(DataBackup b) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ë³µêµ¬í•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true) { await AccService.RestoreFromBackupAsync(b.Id); await LoadData(); } }
-    private async Task DeleteBackup(int backupId) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "ì‚­ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true) { var target = await DbContext.DataBackups.FindAsync(backupId); if (target != null) { DbContext.DataBackups.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } }
-    private async Task DownloadBackupFile(DataBackup b) { var targetDept = DbContext.Departments.FirstOrDefault(d => d.Id == b.DepartmentId); string deptName = targetDept?.Name ?? "unknown"; string fileName = $"Backup_{deptName}_{b.BackupDate:yyyyMMdd_HHmm}.json"; await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData); }
-    private void EditPlan(BudgetPlan p) { newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; expandedCategories[p.Category] = true; }
-    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(newMapping.Keyword) && !string.IsNullOrWhiteSpace(newMapping.Category)) { newMapping.DepartmentId = CurrentUser.DepartmentId; await AccService.SaveMappingAsync(newMapping); newMapping = new CategoryMapping(); await LoadData(); } else { await JSRuntime.InvokeVoidAsync("alert", "í‚¤ì›Œë“œì™€ í•­ëª©ì„ ì…ë ¥í•˜ì„¸ìš”."); } }
+    private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(customBackupMemo) ? "»ç¿ëÀÚ ¼öµ¿ ¹é¾÷" : customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); customBackupMemo = ""; await LoadData(); await JSRuntime.InvokeVoidAsync("alert", "¼º°øÀûÀ¸·Î ¹é¾÷µÇ¾ú½À´Ï´Ù."); }
+    private async Task RestoreData(DataBackup b)
+    {
+        if (string.IsNullOrWhiteSpace(b.JsonData))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "ÀÌ ¹é¾÷ µ¥ÀÌÅÍ´Â ºñ¾î ÀÖ¾î º¹±¸ÇÒ ¼ö ¾ø½À´Ï´Ù. »õ ¹é¾÷À» »ı¼ºÇØ ÁÖ¼¼¿ä.");
+            return;
+        }
+
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "º¹±¸ÇÏ½Ã°Ú½À´Ï±î?") == true)
+        {
+            await AccService.RestoreFromBackupAsync(b.Id);
+            await LoadData();
+        }
+    }
+    private async Task DeleteBackup(int backupId) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "»èÁ¦ÇÏ½Ã°Ú½À´Ï±î?") == true) { var target = await DbContext.DataBackups.FindAsync(backupId); if (target != null) { DbContext.DataBackups.Remove(target); await DbContext.SaveChangesAsync(); await LoadData(); } } }
+    private async Task DownloadBackupFile(DataBackup b)
+    {
+        if (string.IsNullOrWhiteSpace(b.JsonData))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "ÀÌ ¹é¾÷ µ¥ÀÌÅÍ´Â ºñ¾î ÀÖ¾î ´Ù¿î·ÎµåÇÒ ¼ö ¾ø½À´Ï´Ù. »õ·Î ¹é¾÷À» »ı¼ºÇÑ µÚ ´Ù½Ã ½ÃµµÇØ ÁÖ¼¼¿ä.");
+            return;
+        }
+
+        var targetDept = DbContext.Departments.FirstOrDefault(d => d.Id == b.DepartmentId);
+        string deptName = targetDept?.Name ?? "unknown";
+        string fileName = $"Backup_{deptName}_{b.DataType}_{b.BackupDate:yyyyMMdd_HHmm}.json";
+        await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData);
+    }
+    private async Task EditPlan(BudgetPlan p) { newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; expandedCategories[p.Category] = true; }
+    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(newMapping.Keyword) && !string.IsNullOrWhiteSpace(newMapping.Category)) { newMapping.DepartmentId = CurrentUser.DepartmentId; await AccService.SaveMappingAsync(newMapping); newMapping = new CategoryMapping(); await LoadData(); } else { await JSRuntime.InvokeVoidAsync("alert", "Å°¿öµå¿Í Ç×¸ñÀ» ÀÔ·ÂÇÏ¼¼¿ä."); } }
     private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
 
     private async Task HandlePasswordKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await ChangeMyPassword(); } }
     
     private async Task ChangeMyPassword()
     {
-        if (string.IsNullOrWhiteSpace(newSelfPassword)) { await JSRuntime.InvokeVoidAsync("alert", "ìƒˆ ë¹„ë°€ë²ˆí˜¸ë¥¼ ì…ë ¥í•˜ì„¸ìš”."); return; }
-        if (newSelfPassword != confirmSelfPassword) { await JSRuntime.InvokeVoidAsync("alert", "ì…ë ¥í•˜ì‹  ë‘ ë¹„ë°€ë²ˆí˜¸ê°€ ì„œë¡œ ì¼ì¹˜í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤. ë‹¤ì‹œ í™•ì¸í•´ì£¼ì„¸ìš”."); return; }
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", "ìƒˆë¡œìš´ ë¹„ë°€ë²ˆí˜¸ë¡œ ë³€ê²½í•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true && CurrentUser != null) 
+        if (string.IsNullOrWhiteSpace(newSelfPassword)) { await JSRuntime.InvokeVoidAsync("alert", "»õ ºñ¹Ğ¹øÈ£¸¦ ÀÔ·ÂÇÏ¼¼¿ä."); return; }
+        if (newSelfPassword != confirmSelfPassword) { await JSRuntime.InvokeVoidAsync("alert", "ÀÔ·ÂÇÏ½Å µÎ ºñ¹Ğ¹øÈ£°¡ ¼­·Î ÀÏÄ¡ÇÏÁö ¾Ê½À´Ï´Ù. ´Ù½Ã È®ÀÎÇØÁÖ¼¼¿ä."); return; }
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "»õ·Î¿î ºñ¹Ğ¹øÈ£·Î º¯°æÇÏ½Ã°Ú½À´Ï±î?") == true && CurrentUser != null) 
         { 
             await AccService.ChangePasswordAsync(CurrentUser.Username, newSelfPassword);
             currentVisiblePassword = newSelfPassword; newSelfPassword = ""; confirmSelfPassword = ""; 
-            await JSRuntime.InvokeVoidAsync("alert", "ë¹„ë°€ë²ˆí˜¸ê°€ ì„±ê³µì ìœ¼ë¡œ ë³€ê²½ë˜ì—ˆìŠµë‹ˆë‹¤!");
+            await JSRuntime.InvokeVoidAsync("alert", "ºñ¹Ğ¹øÈ£°¡ ¼º°øÀûÀ¸·Î º¯°æµÇ¾ú½À´Ï´Ù!");
         }
     }
     
@@ -1471,16 +1496,16 @@
                 {
                     user.TwoFactorSecret = tempSecret; user.IsTwoFactorEnabled = true; await DbContext.SaveChangesAsync();
                     CurrentUser.IsTwoFactorEnabled = true; tempSecret = ""; setupOtpCode = "";
-                    await JSRuntime.InvokeVoidAsync("alert", "âœ… ì„±ê³µ! ì´ì œ ë¡œê·¸ì¸ ì‹œ OTP ì¸ì¦ì´ í•„ìš”í•©ë‹ˆë‹¤.");
+                    await JSRuntime.InvokeVoidAsync("alert", "? ¼º°ø! ÀÌÁ¦ ·Î±×ÀÎ ½Ã OTP ÀÎÁõÀÌ ÇÊ¿äÇÕ´Ï´Ù.");
                 }
             }
         } 
-        else { await JSRuntime.InvokeVoidAsync("alert", "âŒ ë²ˆí˜¸ê°€ ì¼ì¹˜í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤. ë‹¤ì‹œ í™•ì¸í•˜ì„¸ìš”."); }
+        else { await JSRuntime.InvokeVoidAsync("alert", "? ¹øÈ£°¡ ÀÏÄ¡ÇÏÁö ¾Ê½À´Ï´Ù. ´Ù½Ã È®ÀÎÇÏ¼¼¿ä."); }
     }
     
     private async Task Disable2FA() 
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", "ë³´ì•ˆ ì¸ì¦ì„ í•´ì œí•˜ì‹œê² ìŠµë‹ˆê¹Œ?") == true) 
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "º¸¾È ÀÎÁõÀ» ÇØÁ¦ÇÏ½Ã°Ú½À´Ï±î?") == true) 
         {
             if (CurrentUser != null)
             {
@@ -1488,7 +1513,7 @@
                 if (user != null)
                 {
                     user.IsTwoFactorEnabled = false; user.TwoFactorSecret = null; await DbContext.SaveChangesAsync();
-                    CurrentUser.IsTwoFactorEnabled = false; await JSRuntime.InvokeVoidAsync("alert", "ë³´ì•ˆ ì¸ì¦ì´ í•´ì œë˜ì—ˆìŠµë‹ˆë‹¤.");
+                    CurrentUser.IsTwoFactorEnabled = false; await JSRuntime.InvokeVoidAsync("alert", "º¸¾È ÀÎÁõÀÌ ÇØÁ¦µÇ¾ú½À´Ï´Ù.");
                 }
             }
         }

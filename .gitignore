@@ -4,3 +4,4 @@ obj/
 # Google Cloud Vision API Key
 google-vision-key.json
 /google-vision-key.json
+/.vs

@@ -26,6 +26,17 @@ namespace INcheonChurchWeb.Services
     // [DTO] 단일 부서 통계용
     public class StatItem { public string Category { get; set; } = ""; public decimal Budget { get; set; } public decimal Spent { get; set; } }
 
+    // [DTO] 부서 단위 장부 백업/복구용
+    public class DepartmentBackupDto
+    {
+        public DateTime ExportDate { get; set; }
+        public int DepartmentId { get; set; }
+        public List<LedgerEntry> Transactions { get; set; } = new();
+        public List<BudgetPlan> BudgetPlans { get; set; } = new();
+        public List<CategoryMapping> CategoryMappings { get; set; } = new();
+        public List<ExpenseReport> ExpenseReports { get; set; } = new();
+    }
+
     // 🚀 1. 기존 public class 대신 public partial class 하나만 남깁니다.
     public partial class AccountingService
     {
@@ -267,10 +278,34 @@ namespace INcheonChurchWeb.Services
 
         public async Task CreateBackupAsync(int deptId, string type, string memo)
         {
-            string jsonData = "";
-            if (type == "Ledger") jsonData = JsonSerializer.Serialize(await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
-            else if (type == "Budget") jsonData = JsonSerializer.Serialize(await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync());
-            else if (type == "Mapping") jsonData = JsonSerializer.Serialize(await _db.CategoryMappings.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
+            string jsonData;
+            if (type == "Ledger")
+            {
+                jsonData = JsonSerializer.Serialize(await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
+            }
+            else if (type == "Budget")
+            {
+                jsonData = JsonSerializer.Serialize(await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync());
+            }
+            else if (type == "Mapping")
+            {
+                jsonData = JsonSerializer.Serialize(await _db.CategoryMappings.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
+            }
+            else
+            {
+                var snapshot = new DepartmentBackupDto
+                {
+                    ExportDate = DateTime.Now,
+                    DepartmentId = deptId,
+                    Transactions = await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync(),
+                    BudgetPlans = await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync(),
+                    CategoryMappings = await _db.CategoryMappings.AsNoTracking().Where(m => m.DepartmentId == deptId).ToListAsync(),
+                    ExpenseReports = await _db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId).ToListAsync()
+                };
+
+                jsonData = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
+            }
+
             _db.DataBackups.Add(new DataBackup { DepartmentId = deptId, DataType = type, Memo = memo, JsonData = jsonData, BackupDate = DateTime.Now });
             await _db.SaveChangesAsync();
         }
@@ -281,8 +316,49 @@ namespace INcheonChurchWeb.Services
         {
             var backup = await _db.DataBackups.FindAsync(backupId);
             if (backup == null) return;
-            if (backup.DataType == "Budget") { var old = await _db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync(); _db.BudgetPlans.RemoveRange(old); var restored = JsonSerializer.Deserialize<List<BudgetPlan>>(backup.JsonData); if (restored != null) _db.BudgetPlans.AddRange(restored); }
-            else if (backup.DataType == "Ledger") { var old = await _db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync(); _db.Transactions.RemoveRange(old); var restored = JsonSerializer.Deserialize<List<LedgerEntry>>(backup.JsonData); if (restored != null) _db.Transactions.AddRange(restored); }
+
+            if (backup.DataType == "Budget")
+            {
+                var old = await _db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
+                _db.BudgetPlans.RemoveRange(old);
+                var restored = JsonSerializer.Deserialize<List<BudgetPlan>>(backup.JsonData);
+                if (restored != null) _db.BudgetPlans.AddRange(restored);
+            }
+            else if (backup.DataType == "Ledger")
+            {
+                var old = await _db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
+                _db.Transactions.RemoveRange(old);
+                var restored = JsonSerializer.Deserialize<List<LedgerEntry>>(backup.JsonData);
+                if (restored != null) _db.Transactions.AddRange(restored);
+            }
+            else if (backup.DataType == "Mapping")
+            {
+                var old = await _db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
+                _db.CategoryMappings.RemoveRange(old);
+                var restored = JsonSerializer.Deserialize<List<CategoryMapping>>(backup.JsonData);
+                if (restored != null) _db.CategoryMappings.AddRange(restored);
+            }
+            else
+            {
+                var snapshot = JsonSerializer.Deserialize<DepartmentBackupDto>(backup.JsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (snapshot == null) return;
+
+                var oldTrans = await _db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldBudgets = await _db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldMappings = await _db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldReports = await _db.ExpenseReports.Where(r => r.DepartmentId == backup.DepartmentId).ToListAsync();
+
+                _db.Transactions.RemoveRange(oldTrans);
+                _db.BudgetPlans.RemoveRange(oldBudgets);
+                _db.CategoryMappings.RemoveRange(oldMappings);
+                _db.ExpenseReports.RemoveRange(oldReports);
+
+                if (snapshot.Transactions.Any()) _db.Transactions.AddRange(snapshot.Transactions);
+                if (snapshot.BudgetPlans.Any()) _db.BudgetPlans.AddRange(snapshot.BudgetPlans);
+                if (snapshot.CategoryMappings.Any()) _db.CategoryMappings.AddRange(snapshot.CategoryMappings);
+                if (snapshot.ExpenseReports.Any()) _db.ExpenseReports.AddRange(snapshot.ExpenseReports);
+            }
+
             await _db.SaveChangesAsync();
         }
 

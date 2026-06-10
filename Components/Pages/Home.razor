@@ -540,7 +540,7 @@
             }
             else { ProgressPercentage = 0; }
 
-            IncomeRate = TotalIncomeBudget > 0 ? (int)Math.Round((TotalIncome / TotalIncomeBudget) * 100) : 0;
+            IncomeRate = SubsidyBudget > 0 ? (int)Math.Round((SubsidyReceived / SubsidyBudget) * 100) : 0;
             if (IncomeRate > 100) IncomeRate = 100;
 
             // 🚀 수입: 예산에 등록된 항목 + 실제 발생한 항목을 모두 합쳐서 계산
