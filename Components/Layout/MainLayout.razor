@@ -4,7 +4,7 @@
 @using INcheonChurchWeb.Models
 @* 🚀 추가된 두 줄: 유저 복구를 위해 DB 컨텍스트 주입 *@
 @using Microsoft.EntityFrameworkCore
-@inject INcheonChurchWeb.Data.AppDbContext DbContext
+@inject IDbContextFactory<INcheonChurchWeb.Data.AppDbContext> DbContextFactory
 @inject IJSRuntime JSRuntime
 
 @* 🎨 레이아웃 정밀 교정 스타일 (부트스트랩/기존 CSS의 중첩 여백 강제 초기화) *@
@@ -238,7 +238,8 @@
                 if (result.Success && !string.IsNullOrEmpty(result.Value))
                 {
                     // 🚀 2. 아이디를 바탕으로 DB에서 부서 정보(Department)까지 포함하여 온전하게 복구합니다.
-                    CurrentUser = await DbContext.Users
+                    using var context = DbContextFactory.CreateDbContext();
+                    CurrentUser = await context.Users
                         .Include(u => u.Department)
                         .AsNoTracking()
                         .FirstOrDefaultAsync(u => u.Username == result.Value);

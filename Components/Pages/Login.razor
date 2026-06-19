@@ -3,7 +3,7 @@
 @using INcheonChurchWeb.Services
 @using INcheonChurchWeb.Data
 @using Microsoft.EntityFrameworkCore
-@inject AppDbContext DbContext
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject NavigationManager Nav
 @inject IJSRuntime JSRuntime
 @inject TwoFactorAuthService TotpService
@@ -93,7 +93,8 @@
         try
         {
             // 🚀 핵심: Department 정보를 함께 로드
-            var user = await DbContext.Users
+            using var context = DbContextFactory.CreateDbContext();
+            var user = await context.Users
                 .Include(u => u.Department)
                 .FirstOrDefaultAsync(u => u.Username == Username && u.Password == Password);
 

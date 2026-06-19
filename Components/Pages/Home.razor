@@ -4,7 +4,7 @@
 @using INcheonChurchWeb.Services
 @using Microsoft.EntityFrameworkCore
 @inject AccountingService Accounting
-@inject AppDbContext DbContext
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @rendermode InteractiveServer
 
 <PageTitle>인천중앙교회 재정 시스템</PageTitle>
@@ -188,7 +188,7 @@
             <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 1.5rem;">
                 <div>
                     <h3 style="font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 900; letter-spacing: -0.02em; color: var(--on-surface); margin-bottom: 0.25rem; line-height: 1.2;">
-                        @CurrentYear 재정 현황 요약
+                        @_currentYear 재정 현황 요약
                     </h3>
                     <p style="color: var(--on-surface-sub); font-size: 1.1rem; font-weight: 400; line-height: 1.5; opacity: 0.85; margin: 0;">
                         현재 회계 기간의 재정 성과 상세 내역입니다.
@@ -199,7 +199,7 @@
                     <div class="dash-filter-chip">
                         <button style="background: none; border: none; color: var(--on-surface-sub); font-weight: 700; padding: 0; cursor: pointer;" @onclick="() => ChangeYear(-1)">◀</button>
                         <span class="dash-filter-chip-label">연도</span>
-                        <span class="dash-filter-chip-value" style="font-variant-numeric: tabular-nums;">@CurrentYear</span>
+                        <span class="dash-filter-chip-value" style="font-variant-numeric: tabular-nums;">@_currentYear</span>
                         <button style="background: none; border: none; color: var(--on-surface-sub); font-weight: 700; padding: 0; cursor: pointer;" @onclick="() => ChangeYear(1)">▶</button>
                     </div>
                     @* 부서 선택 칩 (관리자만) *@
@@ -207,9 +207,9 @@
                     {
                         <div class="dash-filter-chip">
                             <span class="dash-filter-chip-label">부서</span>
-                            <select style="background: none; border: none; font-size: 1.2rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;" @onchange="OnDeptChanged" value="@DashboardDeptId">
+                            <select style="background: none; border: none; font-size: 1.2rem; font-weight: 700; color: var(--on-surface); cursor: pointer; outline: none; padding: 0;" @onchange="OnDeptChanged" value="@_dashboardDeptId">
                                 <option value="0">전체 부서</option>
-                                @foreach (var dept in Departments)
+                                @foreach (var dept in _departments)
                                 {
                                     @if (dept.Name != "관리자" && dept.Name != "교회학교 운영팀" && dept.Name != "감사위원회")
                                     {
@@ -230,19 +230,19 @@
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
                         <p class="dash-label">지출 실적</p>
-                        <h4 class="dash-hero-amount">₩@TotalExpense.ToString("N0")</h4>
+                        <h4 class="dash-hero-amount">₩@_totalExpense.ToString("N0")</h4>
                     </div>
-                    <span class="dash-badge-pct">예산 대비 @ProgressPercentage.ToString("0")%</span>
+                    <span class="dash-badge-pct">예산 대비 @_progressPercentage.ToString("0")%</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
                     <div style="display: flex; justify-content: space-between;">
                         <span class="dash-meta-label">진행률</span>
                         <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">
-                            한도: ₩@TotalBudget.ToString("N0") &nbsp;|&nbsp; 잔여: ₩@RemainingBudget.ToString("N0")
+                            한도: ₩@_totalBudget.ToString("N0") &nbsp;|&nbsp; 잔여: ₩@RemainingBudget.ToString("N0")
                         </span>
                     </div>
                     <div class="dash-progress-bg">
-                        <div class="dash-progress-fill" style="width: @(Math.Min(ProgressPercentage, 100).ToString("0.0"))%;"></div>
+                        <div class="dash-progress-fill" style="width: @(Math.Min(_progressPercentage, 100).ToString("0.0"))%;"></div>
                     </div>
                 </div>
             </article>
@@ -252,17 +252,17 @@
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
                         <p class="dash-label">수입 내역</p>
-                        <h4 class="dash-hero-amount">₩@TotalIncome.ToString("N0")</h4>
+                        <h4 class="dash-hero-amount">₩@_totalIncome.ToString("N0")</h4>
                     </div>
-                    <span class="dash-badge-pct">보조금 수령 @IncomeRate%</span>
+                    <span class="dash-badge-pct">보조금 신청 @_incomeRate%</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
                     <div style="display: flex; justify-content: space-between;">
-                        <span class="dash-meta-label">진행률</span>
-                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">보조금: ₩@SubsidyReceived.ToString("N0")</span>
+                        <span class="dash-meta-label">신청액 / 예산</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">₩@_subsidyRequested.ToString("N0") / ₩@_subsidyBudget.ToString("N0")</span>
                     </div>
                     <div class="dash-progress-bg">
-                        <div class="dash-progress-fill" style="width: @(Math.Min(IncomeRate, 100))%;"></div>
+                        <div class="dash-progress-fill" style="width: @(Math.Min(_incomeRate, 100))%;"></div>
                     </div>
                 </div>
             </article>
@@ -277,9 +277,9 @@
                     <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 예산 집행률</h5>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
-                    @if (ExpenseStats.Any())
+                    @if (_expenseStats.Any())
                     {
-                        @foreach (var stat in ExpenseStats)
+                        @foreach (var stat in _expenseStats)
                         {
                             bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
                             string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
@@ -310,9 +310,9 @@
                     <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 예산 달성률</h5>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
-                    @if (IncomeStats.Any())
+                    @if (_incomeStats.Any())
                     {
-                        @foreach (var stat in IncomeStats)
+                        @foreach (var stat in _incomeStats)
                         {
                             bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
                             string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
@@ -348,7 +348,7 @@
                 <div style="text-align: right;">
                     <p class="dash-label" style="margin-bottom: 0.25rem;">총 신청액 누계</p>
                     <p style="font-size: 1.5rem; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--on-surface); margin: 0;">
-                        ₩@SubsidyRequests.Sum(r => r.Amount).ToString("N0")
+                        ₩@_subsidyRequests.Sum(r => r.Amount).ToString("N0")
                     </p>
                 </div>
             </div>
@@ -365,9 +365,9 @@
                         </tr>
                     </thead>
                     <tbody class="dash-list-body">
-                        @if (SubsidyRequests.Any())
+                        @if (_subsidyRequests.Any())
                         {
-                            @foreach (var req in SubsidyRequests)
+                            @foreach (var req in _subsidyRequests)
                             {
                                 <tr>
                                     <td style="font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.75;">
@@ -411,20 +411,18 @@
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
-    private int CurrentYear = DateTime.Now.Year;
-    private bool IsAdmin = false;
-    private int DashboardDeptId = 0;
-    private List<Department> Departments = new();
+    private int _currentYear = DateTime.Now.Year;
+    private int _dashboardDeptId = 0;
+    private List<Department> _departments = new();
 
-    private decimal TotalBudget = 0;
-    private decimal TotalExpense = 0;
-    private decimal RemainingBudget => TotalBudget - TotalExpense;
-    private double ProgressPercentage = 0;
+    private decimal _totalBudget = 0;
+    private decimal _totalExpense = 0;
+    private decimal RemainingBudget => _totalBudget - _totalExpense;
+    private double _progressPercentage = 0;
 
-    private decimal TotalIncomeBudget = 0;
-    private int IncomeRate = 0;
-    private decimal SubsidyBudget = 0;
-    private decimal SubsidyReceived = 0;
+    private int _incomeRate = 0;
+    private decimal _subsidyBudget = 0;
+    private decimal _subsidyRequested = 0;
 
     public class CategoryStat
     {
@@ -435,9 +433,9 @@
         public int Percentage { get; set; }
     }
 
-    private decimal TotalIncome = 0;
-    private List<CategoryStat> IncomeStats = new();
-    private List<CategoryStat> ExpenseStats = new();
+    private decimal _totalIncome = 0;
+    private List<CategoryStat> _incomeStats = new();
+    private List<CategoryStat> _expenseStats = new();
 
     public class SubsidyRequestItem
     {
@@ -446,36 +444,35 @@
         public decimal Amount { get; set; }
         public DateTime? DepositDate { get; set; }
     }
-    private List<SubsidyRequestItem> SubsidyRequests = new();
+    private List<SubsidyRequestItem> _subsidyRequests = new();
 
     protected override async Task OnInitializedAsync()
     {
-        Departments = await Accounting.GetDepartmentsAsync();
+        _departments = await Accounting.GetDepartmentsAsync();
 
         if (CurrentUser != null && CurrentUser.Department != null)
         {
             if (CurrentUser.Role == "Admin" || CurrentUser.Role == "Auditor")
             {
-                IsAdmin = true;
-                DashboardDeptId = 0;
+                _dashboardDeptId = 0;
             }
             else
             {
-                IsAdmin = false;
-                DashboardDeptId = CurrentUser.DepartmentId;
+                _dashboardDeptId = CurrentUser.DepartmentId;
             }
 
             try
             {
-                var latestBudgetYear = await DbContext.BudgetPlans
-                    .Where(b => DashboardDeptId == 0 || b.DepartmentId == DashboardDeptId)
+                using var context = DbContextFactory.CreateDbContext();
+                var latestBudgetYear = await context.BudgetPlans
+                    .Where(b => _dashboardDeptId == 0 || b.DepartmentId == _dashboardDeptId)
                     .OrderByDescending(b => b.Year)
                     .Select(b => b.Year)
                     .FirstOrDefaultAsync();
 
                 if (latestBudgetYear > 0)
                 {
-                    CurrentYear = latestBudgetYear;
+                    _currentYear = latestBudgetYear;
                 }
             }
             catch { /* ignore */ }
@@ -486,7 +483,7 @@
 
     private async Task ChangeYear(int offset)
     {
-        CurrentYear += offset;
+        _currentYear += offset;
         await LoadDashboardData();
     }
 
@@ -494,7 +491,7 @@
     {
         if (int.TryParse(e.Value?.ToString(), out int deptId))
         {
-            DashboardDeptId = deptId;
+            _dashboardDeptId = deptId;
             await LoadDashboardData();
         }
     }
@@ -507,102 +504,72 @@
         StateHasChanged();
         try
         {
-            var budgetQuery = DbContext.BudgetPlans.AsNoTracking().Where(b => b.Year == CurrentYear);
-            if (DashboardDeptId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == DashboardDeptId);
+            using var context = DbContextFactory.CreateDbContext();
+            var budgetQuery = context.BudgetPlans.AsNoTracking().Where(b => b.Year == _currentYear);
+            if (_dashboardDeptId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == _dashboardDeptId);
             var budgetList = await budgetQuery.ToListAsync();
 
-            TotalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
-            TotalIncomeBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category != "은행이자" && b.Category != "환급금").Sum(b => b.Amount);
-            SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
+            _totalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
+            _subsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
 
-            int queryDeptId = DashboardDeptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : DashboardDeptId;
+            int queryDeptId = _dashboardDeptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : _dashboardDeptId;
 
-            var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 1);
-            var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, CurrentYear, 4);
+            var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, _currentYear, 1);
+            var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, _currentYear, 4);
 
             DateTime dashboardStartDate = q1.Start.Date;
             DateTime dashboardEndDate = q4.End.Date.AddDays(1);
 
-            var transQuery = DbContext.Transactions.AsNoTracking()
-                .Where(t => t.FiscalYear == CurrentYear && t.Date >= dashboardStartDate && t.Date < dashboardEndDate);
-            if (DashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == DashboardDeptId);
+            var transQuery = context.Transactions.AsNoTracking()
+                .Where(t => t.FiscalYear == _currentYear && t.Date >= dashboardStartDate && t.Date < dashboardEndDate);
+            if (_dashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == _dashboardDeptId);
 
             var transactions = await transQuery.ToListAsync();
 
-            TotalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
-            TotalIncome = transactions.Where(t => IsIncomeType(t.Type) && t.Category != "은행이자" && t.Category != "환급금").Sum(t => t.Income);
-            SubsidyReceived = transactions.Where(t => IsIncomeType(t.Type) && t.Category == "교회보조금").Sum(t => t.Income);
+            _totalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
+            _totalIncome = transactions.Where(t => IsIncomeType(t.Type) && t.Category != "은행이자" && t.Category != "환급금").Sum(t => t.Income);
 
-            if (TotalBudget > 0)
+            if (_totalBudget > 0)
             {
-                ProgressPercentage = (double)(TotalExpense / TotalBudget) * 100;
-                if (ProgressPercentage > 100) ProgressPercentage = 100;
+                _progressPercentage = (double)(_totalExpense / _totalBudget) * 100;
+                if (_progressPercentage > 100) _progressPercentage = 100;
             }
-            else { ProgressPercentage = 0; }
+            else { _progressPercentage = 0; }
 
-            IncomeRate = SubsidyBudget > 0 ? (int)Math.Round((SubsidyReceived / SubsidyBudget) * 100) : 0;
-            if (IncomeRate > 100) IncomeRate = 100;
+            // _incomeRate(보조금 수령 비율)는 reports 로드 후 신청액 기준으로 계산 (아래 참조)
 
-            // 🚀 수입: 예산에 등록된 항목 + 실제 발생한 항목을 모두 합쳐서 계산
-            var allIncomeCats = budgetList.Where(b => IsIncomeType(b.Type)).Select(b => b.Category)
-            .Union(transactions.Where(t => IsIncomeType(t.Type) && t.Income > 0).Select(t => t.Category))
-            .Where(c => !string.IsNullOrWhiteSpace(c) && c != "은행이자" && c != "환급금").Distinct();
+            // 🚀 수입/지출: 예산 등록 항목 + 실제 발생 항목을 합쳐 항목별 통계 계산 (은행이자·환급금은 수입에서 제외)
+            _incomeStats = BuildCategoryStats(budgetList, transactions, IsIncomeType, t => t.Income, "은행이자", "환급금");
+            _expenseStats = BuildCategoryStats(budgetList, transactions, IsExpenseType, t => t.Expense);
 
-            IncomeStats = allIncomeCats.Select(cat =>
-            {
-                decimal bAmt = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == cat).Sum(b => b.Amount);
-                decimal tAmt = transactions.Where(t => IsIncomeType(t.Type) && t.Category == cat).Sum(t => t.Income);
-                return new CategoryStat
-                {
-                    Category = cat,
-                    Amount = tAmt,
-                    BudgetAmount = bAmt,
-                    Percentage = bAmt > 0 ? (int)Math.Round((tAmt / bAmt) * 100) : (tAmt > 0 ? 100 : 0)
-                };
-            }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
-
-            // 🚀 지출: 예산에 등록된 항목 + 실제 발생한 항목을 모두 합쳐서 계산
-            var allExpenseCats = budgetList.Where(b => IsExpenseType(b.Type)).Select(b => b.Category)
-                .Union(transactions.Where(t => IsExpenseType(t.Type) && t.Expense > 0).Select(t => t.Category))
-                .Where(c => !string.IsNullOrWhiteSpace(c)).Distinct();
-
-            ExpenseStats = allExpenseCats.Select(cat =>
-            {
-                decimal bAmt = budgetList.Where(b => IsExpenseType(b.Type) && b.Category == cat).Sum(b => b.Amount);
-                decimal tAmt = transactions.Where(t => IsExpenseType(t.Type) && t.Category == cat).Sum(t => t.Expense);
-                return new CategoryStat
-                {
-                    Category = cat,
-                    Amount = tAmt,
-                    BudgetAmount = bAmt,
-                    Percentage = bAmt > 0 ? (int)Math.Round((tAmt / bAmt) * 100) : (tAmt > 0 ? 100 : 0)
-                };
-            }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
-
-            var reportsQuery = DbContext.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == CurrentYear);
-            if (DashboardDeptId != 0) reportsQuery = reportsQuery.Where(r => r.DepartmentId == DashboardDeptId);
+            var reportsQuery = context.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == _currentYear);
+            if (_dashboardDeptId != 0) reportsQuery = reportsQuery.Where(r => r.DepartmentId == _dashboardDeptId);
             var reports = await reportsQuery.OrderByDescending(r => r.Date).ToListAsync();
 
-            var allIncomeQuery = DbContext.Transactions.AsNoTracking().Where(t => t.Type == "수입" || t.Type == "Income");
-            if (DashboardDeptId != 0) allIncomeQuery = allIncomeQuery.Where(t => t.DepartmentId == DashboardDeptId);
+            // 보조금 수령 비율 = 지출결의서 신청액 누계 / 교회보조금 수입예산
+            _subsidyRequested = reports.Sum(r => r.TotalAmount);
+            _incomeRate = _subsidyBudget > 0 ? (int)Math.Round((_subsidyRequested / _subsidyBudget) * 100) : 0;
+
+            var allIncomeQuery = context.Transactions.AsNoTracking().Where(t => t.Type == "수입" || t.Type == "Income");
+            if (_dashboardDeptId != 0) allIncomeQuery = allIncomeQuery.Where(t => t.DepartmentId == _dashboardDeptId);
             var incomeListForMatching = await allIncomeQuery.OrderBy(t => t.Date).ToListAsync();
 
-            SubsidyRequests.Clear();
+            _subsidyRequests.Clear();
             foreach (var rep in reports)
             {
                 var matchedIncome = incomeListForMatching.FirstOrDefault(t =>
                     t.Date.Date >= rep.Date.Date &&
                     t.Income == rep.TotalAmount &&
-                    (DashboardDeptId == 0 || t.DepartmentId == rep.DepartmentId));
+                    (_dashboardDeptId == 0 || t.DepartmentId == rep.DepartmentId));
 
                 string deptPrefix = "";
-                if (DashboardDeptId == 0)
+                if (_dashboardDeptId == 0)
                 {
-                    var repDept = Departments.FirstOrDefault(d => d.Id == rep.DepartmentId);
+                    var repDept = _departments.FirstOrDefault(d => d.Id == rep.DepartmentId);
                     if (repDept != null) deptPrefix = $"[{repDept.Name}] ";
                 }
 
-                SubsidyRequests.Add(new SubsidyRequestItem
+                _subsidyRequests.Add(new SubsidyRequestItem
                 {
                     RequestDate = rep.Date,
                     Title = deptPrefix + rep.Title,
@@ -617,5 +584,33 @@
         {
             System.Diagnostics.Debug.WriteLine($"대시보드 로드 오류: {ex.Message}");
         }
+    }
+
+    // 예산(budgetList)과 실거래(transactions)를 합쳐 항목별 집행/달성 통계를 생성하는 공용 헬퍼
+    // isType: 수입/지출 구분 함수, amount: 거래에서 집계할 금액(수입 또는 지출), excludeCategories: 통계에서 제외할 항목
+    private List<CategoryStat> BuildCategoryStats(
+        List<BudgetPlan> budgetList,
+        List<LedgerEntry> transactions,
+        Func<string, bool> isType,
+        Func<LedgerEntry, decimal> amount,
+        params string[] excludeCategories)
+    {
+        var categories = budgetList.Where(b => isType(b.Type)).Select(b => b.Category)
+            .Union(transactions.Where(t => isType(t.Type) && amount(t) > 0).Select(t => t.Category))
+            .Where(c => !string.IsNullOrWhiteSpace(c) && !excludeCategories.Contains(c))
+            .Distinct();
+
+        return categories.Select(cat =>
+        {
+            decimal budgetAmount = budgetList.Where(b => isType(b.Type) && b.Category == cat).Sum(b => b.Amount);
+            decimal actualAmount = transactions.Where(t => isType(t.Type) && t.Category == cat).Sum(amount);
+            return new CategoryStat
+            {
+                Category = cat,
+                Amount = actualAmount,
+                BudgetAmount = budgetAmount,
+                Percentage = budgetAmount > 0 ? (int)Math.Round((actualAmount / budgetAmount) * 100) : (actualAmount > 0 ? 100 : 0)
+            };
+        }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
     }
 }
