@@ -1,6 +1,12 @@
 ﻿@page "/manual"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
 @inject IJSRuntime JS
 @inject NavigationManager Nav
+@inject AccountingService AccService
+@inject IDbContextFactory<AppDbContext> DbFactory
 @rendermode InteractiveServer
 
 <style>
@@ -122,6 +128,11 @@
                 </button>
             </div>
             <div class="manual-step-body pt-3">
+                @* 🚀 초기 세팅 마법사 시작 버튼 *@
+                <button class="btn w-100 fw-bold mb-3 py-3" style="background: var(--gold-gradient); color: #fff; border: none; border-radius: var(--radius-md); font-size: 1.05rem; box-shadow: var(--shadow-ambient);" @onclick="OpenWizard">
+                    <i class="bi bi-rocket-takeoff-fill me-2"></i>🚀 1분 만에 끝내는 초기 세팅 마법사 시작
+                </button>
+
                 <div class="manual-flow mb-3">
                     <span class="manual-flow-chip"><i class="bi bi-download me-1" style="color: var(--primary-gold);"></i>수입 예산</span>
                     <span class="manual-flow-arrow">→</span>
@@ -347,6 +358,240 @@
     </div>
 </div>
 
+@* ═══════════════ 초기 세팅 마법사 모달 ═══════════════ *@
+@if (_showWizard)
+{
+    <div class="modal show" tabindex="-1" style="display: block; background: rgba(0,0,0,0.5);" @onclick="CloseWizard">
+        <div class="modal-dialog modal-dialog-centered modal-lg" @onclick:stopPropagation="true">
+            <div class="modal-content" style="border: none; border-radius: var(--radius-lg); overflow: hidden;">
+                <div class="modal-header" style="border-bottom: 1px solid var(--surface-low);">
+                    <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
+                        <i class="bi bi-stars me-2" style="color: var(--primary-gold);"></i>초기 세팅 마법사
+                        <span class="text-muted fs-6 ms-1">(@_wizardStep / @WizardTotalSteps 단계)</span>
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseWizard"></button>
+                </div>
+
+                @* 진행 상태바 *@
+                <div class="progress" style="height: 6px; border-radius: 0;">
+                    <div class="progress-bar" role="progressbar" style="width: @(_wizardStep * 100 / WizardTotalSteps)%; background-color: var(--primary-gold); transition: width 0.3s;"></div>
+                </div>
+
+                <div class="modal-body" style="min-height: 290px;">
+                    @if (_wizardStep == 1)
+                    {
+                        <h6 class="fw-bold mb-2" style="color: var(--on-surface);">1단계 · 부서 임원 등록</h6>
+                        <p class="text-muted small mb-3">교역자·부장·총무·회계를 등록하면 지출결의서 결재란에 자동 반영됩니다. <b>비워두면 건너뜁니다.</b></p>
+                        @foreach (var o in _wizardOfficers)
+                        {
+                            <div class="row g-2 mb-2">
+                                <div class="col-5">
+                                    <select class="form-select" @bind="o.Role">
+                                        <option value="">직분 선택</option>
+                                        <option value="교역자">교역자</option>
+                                        <option value="부장(팀장)">부장(팀장)</option>
+                                        <option value="총무">총무</option>
+                                        <option value="회계">회계</option>
+                                    </select>
+                                </div>
+                                <div class="col-7"><input class="form-control" @bind="o.Name" placeholder="이름" /></div>
+                            </div>
+                        }
+                        <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="AddOfficerRow"><i class="bi bi-plus-lg me-1"></i>임원 추가</button>
+                    }
+                    else if (_wizardStep == 2)
+                    {
+                        <h6 class="fw-bold mb-2" style="color: var(--on-surface);">2단계 · 회계 분기 설정</h6>
+                        <p class="text-muted small mb-3">기본값(1·4·7·10월 1일 시작)으로 채워져 있습니다. 필요 시 수정 후 저장하세요.</p>
+                        @for (int q = 1; q <= 4; q++)
+                        {
+                            int lq = q;
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <span class="fw-bold" style="width: 64px; color: #5a4000;">@q 분기</span>
+                                <input type="date" class="form-control" @bind="_wizardQuarterStarts[lq - 1]" />
+                                <span class="text-muted small text-nowrap">시작일</span>
+                            </div>
+                        }
+                    }
+                    else if (_wizardStep == 3)
+                    {
+                        <h6 class="fw-bold mb-2" style="color: var(--on-surface);">3단계 · 기본 예산 항목</h6>
+                        <p class="text-muted small mb-3">자주 쓰는 항목을 골라 체크하세요. 금액(선택)은 나중에 환경설정에서 조정할 수 있습니다.</p>
+                        @foreach (var b in _wizardBudgetPresets)
+                        {
+                            <div class="d-flex align-items-center gap-2 mb-2 p-2 rounded" style="background: var(--surface-low);">
+                                <input type="checkbox" class="form-check-input mt-0" @bind="b.Selected" />
+                                <span class="badge" style="background-color: @(b.Type == "Income" ? "#785600" : "#ba1a1a");">@(b.Type == "Income" ? "수입" : "지출")</span>
+                                <span class="fw-bold flex-grow-1" style="color: var(--on-surface);">@b.Category</span>
+                                <input type="number" class="form-control form-control-sm" style="width: 130px;" @bind="b.Amount" placeholder="금액(선택)" />
+                            </div>
+                        }
+                    }
+                    else if (_wizardStep == 4)
+                    {
+                        <h6 class="fw-bold mb-2" style="color: var(--on-surface);">4단계 · 자동분류 규칙</h6>
+                        <p class="text-muted small mb-3">은행 적요(키워드)를 분류 항목에 연결합니다. <b>비워두면 건너뜁니다.</b></p>
+                        @foreach (var m in _wizardMappings)
+                        {
+                            <div class="row g-2 mb-2">
+                                <div class="col-6"><input class="form-control" @bind="m.Keyword" placeholder="키워드 (예: 다이소)" /></div>
+                                <div class="col-6"><input class="form-control" @bind="m.Category" placeholder="분류 항목 (예: 행사비)" /></div>
+                            </div>
+                        }
+                        <button class="btn btn-sm btn-outline-secondary mt-1" @onclick="AddMappingRow"><i class="bi bi-plus-lg me-1"></i>규칙 추가</button>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-check-circle-fill" style="font-size: 3.5rem; color: #198754;"></i>
+                            <h5 class="fw-bold mt-3" style="color: var(--on-surface);">초기 세팅 완료! 🎉</h5>
+                            <p class="text-muted mb-0">기본 데이터가 등록되었습니다.<br/>세부 내용은 언제든 <b>환경설정</b>에서 수정할 수 있습니다.</p>
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer" style="border-top: 1px solid var(--surface-low);">
+                    @if (_wizardStep == 1)
+                    {
+                        <button class="btn btn-light fw-bold" @onclick="NextStep" disabled="@_wizardSaving">건너뛰기(나중에)</button>
+                        <button class="btn fw-bold" style="background: var(--gold-gradient); color: #fff; border: none;" @onclick="SaveOfficersNext" disabled="@_wizardSaving">@(_wizardSaving ? "저장 중..." : "저장 후 다음 →")</button>
+                    }
+                    else if (_wizardStep == 2)
+                    {
+                        <button class="btn fw-bold" style="background: var(--gold-gradient); color: #fff; border: none;" @onclick="SaveQuartersNext" disabled="@_wizardSaving">@(_wizardSaving ? "저장 중..." : "기본값으로 저장 후 다음 →")</button>
+                    }
+                    else if (_wizardStep == 3)
+                    {
+                        <button class="btn btn-light fw-bold" @onclick="NextStep" disabled="@_wizardSaving">건너뛰기</button>
+                        <button class="btn fw-bold" style="background: var(--gold-gradient); color: #fff; border: none;" @onclick="SaveBudgetsNext" disabled="@_wizardSaving">@(_wizardSaving ? "저장 중..." : "선택 항목 저장 후 다음 →")</button>
+                    }
+                    else if (_wizardStep == 4)
+                    {
+                        <button class="btn btn-light fw-bold" @onclick="NextStep" disabled="@_wizardSaving">건너뛰기</button>
+                        <button class="btn fw-bold" style="background: var(--gold-gradient); color: #fff; border: none;" @onclick="SaveMappingsNext" disabled="@_wizardSaving">@(_wizardSaving ? "저장 중..." : "저장 후 다음 →")</button>
+                    }
+                    else
+                    {
+                        <button class="btn fw-bold px-4" style="background: var(--gold-gradient); color: #fff; border: none;" @onclick="CloseWizard"><i class="bi bi-check-lg me-1"></i>마법사 종료</button>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private void GoToPage(string url) => Nav.NavigateTo(url);
+
+    // ════════════ 초기 세팅 마법사 ════════════
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private bool _showWizard = false;
+    private int _wizardStep = 1;
+    private bool _wizardSaving = false;
+    private const int WizardTotalSteps = 5;
+
+    private int Year => DateTime.Now.Year;
+    private int DeptId => CurrentUser?.DepartmentId ?? 0;
+
+    // 입력 모델
+    public class OfficerInput { public string Role { get; set; } = ""; public string Name { get; set; } = ""; }
+    public class MappingInput { public string Keyword { get; set; } = ""; public string Category { get; set; } = ""; }
+    public class BudgetPreset { public string Type { get; set; } = ""; public string Category { get; set; } = ""; public decimal Amount { get; set; } public bool Selected { get; set; } = true; }
+
+    // 1단계: 임원(기본 빈값)
+    private List<OfficerInput> _wizardOfficers = new() { new OfficerInput() };
+    // 2단계: 분기 시작일 기본값(1/1, 4/1, 7/1, 10/1)
+    private DateTime[] _wizardQuarterStarts = new DateTime[4];
+    // 3단계: 공통 기본 예산 세트(체크박스)
+    private List<BudgetPreset> _wizardBudgetPresets = new();
+    // 4단계: 자동분류(기본 빈값)
+    private List<MappingInput> _wizardMappings = new() { new MappingInput() };
+
+    protected override void OnInitialized()
+    {
+        int y = Year;
+        _wizardQuarterStarts = new[]
+        {
+            new DateTime(y, 1, 1), new DateTime(y, 4, 1), new DateTime(y, 7, 1), new DateTime(y, 10, 1)
+        };
+        _wizardBudgetPresets = new()
+        {
+            new BudgetPreset { Type = "Income", Category = "주일헌금" },
+            new BudgetPreset { Type = "Income", Category = "찬조금" },
+            new BudgetPreset { Type = "Expense", Category = "행사비" },
+            new BudgetPreset { Type = "Expense", Category = "교육비" },
+            new BudgetPreset { Type = "Expense", Category = "소모품비" },
+        };
+    }
+
+    private void OpenWizard() { _wizardStep = 1; _showWizard = true; }
+    private void CloseWizard() { _showWizard = false; }
+    private void NextStep() { if (_wizardStep < WizardTotalSteps) _wizardStep++; }
+    private void AddOfficerRow() => _wizardOfficers.Add(new OfficerInput());
+    private void AddMappingRow() => _wizardMappings.Add(new MappingInput());
+
+    // Step 1: 임원 저장(값 있을 때만) 후 다음
+    private async Task SaveOfficersNext()
+    {
+        var valid = _wizardOfficers.Where(o => !string.IsNullOrWhiteSpace(o.Name) && !string.IsNullOrWhiteSpace(o.Role)).ToList();
+        if (valid.Any())
+        {
+            _wizardSaving = true;
+            using var db = DbFactory.CreateDbContext();
+            foreach (var o in valid)
+            {
+                db.DepartmentOfficers.Add(new DepartmentOfficer
+                {
+                    DepartmentId = DeptId, Year = Year, Role = o.Role, Name = o.Name,
+                    StartDate = new DateTime(Year, 1, 1), EndDate = new DateTime(Year, 12, 31)
+                });
+            }
+            await db.SaveChangesAsync();
+            _wizardSaving = false;
+        }
+        NextStep();
+    }
+
+    // Step 2: 분기 저장(시작일 기준, 종료일=다음 분기 시작 -1일/4분기는 연말) 후 다음
+    private async Task SaveQuartersNext()
+    {
+        _wizardSaving = true;
+        for (int q = 1; q <= 4; q++)
+        {
+            DateTime start = _wizardQuarterStarts[q - 1];
+            DateTime end = (q < 4) ? _wizardQuarterStarts[q].AddDays(-1) : new DateTime(Year, 12, 31);
+            await AccService.SaveQuarterSettingAsync(DeptId, Year, q, start, end);
+        }
+        _wizardSaving = false;
+        NextStep();
+    }
+
+    // Step 3: 선택된 예산만 저장 후 다음(없으면 건너뜀)
+    private async Task SaveBudgetsNext()
+    {
+        var selected = _wizardBudgetPresets.Where(b => b.Selected).ToList();
+        if (selected.Any())
+        {
+            _wizardSaving = true;
+            foreach (var b in selected)
+                await AccService.SaveBudgetPlanAsync(new BudgetPlan { DepartmentId = DeptId, Year = Year, Type = b.Type, Category = b.Category, Amount = b.Amount });
+            _wizardSaving = false;
+        }
+        NextStep();
+    }
+
+    // Step 4: 매핑 저장(값 있을 때만) 후 다음
+    private async Task SaveMappingsNext()
+    {
+        var valid = _wizardMappings.Where(m => !string.IsNullOrWhiteSpace(m.Keyword) && !string.IsNullOrWhiteSpace(m.Category)).ToList();
+        if (valid.Any())
+        {
+            _wizardSaving = true;
+            foreach (var m in valid)
+                await AccService.SaveMappingAsync(new CategoryMapping { DepartmentId = DeptId, Keyword = m.Keyword, Category = m.Category });
+            _wizardSaving = false;
+        }
+        NextStep();
+    }
 }
