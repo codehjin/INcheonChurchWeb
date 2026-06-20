@@ -113,26 +113,26 @@
         <InputFile @key="_bulkImportKey" id="bulkImportInput" OnChange="HandleBulkImport" style="display:none;" accept=".xlsx,.xls" />
         <InputFile @key="_systemRestoreKey" id="systemRestoreInput" OnChange="HandleSystemRestore" style="display:none;" accept=".json" />
 
-        @* ?? 탭 메뉴 분리 *@
+        @* 탭 메뉴 분리 *@
         <div class="settings-tab-bar mb-4">
             @if (CurrentUser?.IsSystemAdmin == true)
             {
-                <button class="settings-tab @(_activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'>?? 사용자 관리</button>
+                <button class="settings-tab @(_activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'><i class="bi bi-people-fill me-1"></i>사용자 관리</button>
             }
             @if (CurrentUser?.IsManager == true)
             {
-                <button class="settings-tab @(_activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'>?? 수입 예산</button>
-                <button class="settings-tab @(_activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'>?? 지출 예산</button>
-                <button class="settings-tab @(_activeTab == "Mapping" ? "active" : "")" @onclick='() => ChangeTab("Mapping")'>??? 자동분류 설정</button>
-                <button class="settings-tab @(_activeTab == "Quarter" ? "active" : "")" @onclick='() => ChangeTab("Quarter")'>?? 분기 설정</button>
+                <button class="settings-tab @(_activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'><i class="bi bi-graph-up-arrow me-1"></i>수입 예산</button>
+                <button class="settings-tab @(_activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'><i class="bi bi-graph-down-arrow me-1"></i>지출 예산</button>
+                <button class="settings-tab @(_activeTab == "Mapping" ? "active" : "")" @onclick='() => ChangeTab("Mapping")'><i class="bi bi-magic me-1"></i>자동분류 설정</button>
+                <button class="settings-tab @(_activeTab == "Quarter" ? "active" : "")" @onclick='() => ChangeTab("Quarter")'><i class="bi bi-calendar3 me-1"></i>분기 설정</button>
                 
-                <button class="settings-tab @(_activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'>?? 데이터 백업</button>
+                <button class="settings-tab @(_activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'><i class="bi bi-hdd-fill me-1"></i>데이터 백업</button>
             }
-            <button class="settings-tab @(_activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'>?? 보안 및 암호</button>
+            <button class="settings-tab @(_activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'><i class="bi bi-shield-lock-fill me-1"></i>보안 및 암호</button>
             @if (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true)
             {
-                <button class="settings-tab @(_activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'>?? 부서 임원 정보</button>
-                <button class="settings-tab @(_activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'>?? 부서 계좌번호</button>
+                <button class="settings-tab @(_activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'><i class="bi bi-person-badge me-1"></i>부서 임원 정보</button>
+                <button class="settings-tab @(_activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'><i class="bi bi-bank me-1"></i>부서 계좌번호</button>
             }
         </div>
 
@@ -182,7 +182,7 @@
                                 <input type="number" class="settings-input text-end fw-bold settings-tabular" style="color: #785600;" @bind="_newPlan.Amount" placeholder="0" />
                             </div>
                             <div class="col-md-2">
-                                <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan">@((_newPlan.Id == 0) ? "? 추가" : "?? 수정")</button>
+                                <button class="settings-gold-btn w-100 py-2" @onclick="SavePlan"><i class="bi @((_newPlan.Id == 0) ? "bi-plus-circle" : "bi-pencil-square") me-1"></i>@((_newPlan.Id == 0) ? "추가" : "수정")</button>
                             </div>
                         </div>
                     </div>
@@ -384,7 +384,7 @@
 
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #5a4000;">?? 수입 항목 자동분류 규칙</h6>
+                        <h6 class="fw-bold mb-3" style="color: #5a4000;"><i class="bi bi-tags-fill me-1"></i>수입 항목 자동분류 규칙</h6>
                         <div class="settings-table-container">
                             <table class="settings-table">
                                 <thead><tr><th width="40%">키워드(적요)</th><th width="40%">분류될 항목</th><th width="20%">관리</th></tr></thead>
@@ -402,7 +402,7 @@
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #ba1a1a;">?? 지출 항목 자동분류 규칙</h6>
+                        <h6 class="fw-bold mb-3" style="color: #ba1a1a;"><i class="bi bi-tags-fill me-1"></i>지출 항목 자동분류 규칙</h6>
                         <div class="settings-table-container">
                             <table class="settings-table">
                                 <thead><tr><th width="40%">키워드(적요)</th><th width="40%">분류될 항목</th><th width="20%">관리</th></tr></thead>
@@ -466,7 +466,7 @@
                                 <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q 분기</label>
                                 <div class="col d-flex flex-column gap-1">
                                     <div class="d-flex gap-2 align-items-center">
-                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)">?? 연속성 맞춤</button>
+                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)"><i class="bi bi-link-45deg me-1"></i>연속성 맞춤</button>
                                         <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterStartDates[localQ - 1]" />
                                         <span style="color: #d2c5b2;">~</span>
                                         <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterEndDates[localQ - 1]" />
@@ -634,7 +634,7 @@
                 <div class="row g-4 justify-content-center">
                     <div class="col-md-5">
                         <div class="settings-card border border-light p-4 h-100">
-                            <h5 class="fw-bold mb-4 text-center" style="color: #1b1c15;">?? 비밀번호 변경</h5>
+                            <h5 class="fw-bold mb-4 text-center" style="color: #1b1c15;"><i class="bi bi-key-fill me-1"></i>비밀번호 변경</h5>
                             
                             <div class="p-3 text-center mb-4 rounded" style="background-color: #f5f4e8; color: #4e4637;">
                                 현재 비밀번호: <strong class="fs-5 ms-2" style="color: #1b1c15;">[ @_currentVisiblePassword ]</strong>
@@ -1227,7 +1227,7 @@
     {
         var file = e.File;
         if (file == null) return;
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", "?? 현재 시스템의 모든 데이터가 삭제됩니다. 진행하시겠습니까?") != true) return;
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", "현재 시스템의 모든 데이터가 삭제됩니다. 진행하시겠습니까?") != true) return;
         _isRestoring = true; StateHasChanged();
         try
         {
@@ -1246,9 +1246,9 @@
             if (backupData.BudgetPlans.Any()) context.BudgetPlans.AddRange(backupData.BudgetPlans);
             if (backupData.CategoryMappings.Any()) context.CategoryMappings.AddRange(backupData.CategoryMappings);
             await context.SaveChangesAsync(); await LoadData();
-            await ShowAlertAsync("? 시스템 복원이 완료되었습니다."); Nav.NavigateTo("/", forceLoad: true);
+            await ShowAlertAsync("시스템 복원이 완료되었습니다."); Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (Exception ex) { await ShowAlertAsync($"? 복원 중 오류 발생: {ex.Message}"); }
+        catch (Exception ex) { await ShowAlertAsync($"복원 중 오류 발생: {ex.Message}"); }
         finally { _isRestoring = false; _systemRestoreKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
@@ -1335,7 +1335,7 @@
             var prevPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == _targetYear - 1).ToListAsync();
             if (!prevPlans.Any()) { await ShowAlertAsync($"?? {_targetYear - 1}년도 예산이 없습니다."); return; }
             foreach (var plan in prevPlans) context.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = _targetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
-            await context.SaveChangesAsync(); await LoadData(); await ShowAlertAsync("? 직전년도 예산 불러오기 완료!");
+            await context.SaveChangesAsync(); await LoadData(); await ShowAlertAsync("직전년도 예산 불러오기 완료!");
         }
         catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
         finally { _isImporting = false; _bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
@@ -1357,7 +1357,7 @@
             wsBudget.Cell(3, 1).Value = "수입"; wsBudget.Cell(3, 2).Value = "주일헌금"; wsBudget.Cell(3, 3).Value = "예배"; wsBudget.Cell(3, 5).Value = 2600000;
             wsBudget.Cell(4, 1).Value = "지출"; wsBudget.Cell(4, 2).Value = "행사비"; wsBudget.Cell(4, 3).Value = "성경학교"; wsBudget.Cell(4, 5).Value = 200000;
             
-            // ?? 수정: 예산 양식 칸 너비를 웹페이지와 유사한 비율로 고정
+            // 수정: 예산 양식 칸 너비를 웹페이지와 유사한 비율로 고정
             wsBudget.Column(1).Width = 10; // 구분
             wsBudget.Column(2).Width = 20; // 항목
             wsBudget.Column(3).Width = 30; // 상세내역
@@ -1375,7 +1375,7 @@
             wsMapping.Cell(3, 1).Value = "수입"; wsMapping.Cell(3, 2).Value = "인천중앙교회"; wsMapping.Cell(3, 3).Value = "교회보조금";
             wsMapping.Cell(4, 1).Value = "지출"; wsMapping.Cell(4, 2).Value = "다이소"; wsMapping.Cell(4, 3).Value = "행사비";
             
-            // ?? 수정: 자동분류 양식 칸 너비 비율 고정
+            // 수정: 자동분류 양식 칸 너비 비율 고정
             wsMapping.Column(1).Width = 10; // 구분
             wsMapping.Column(2).Width = 40; // 키워드
             wsMapping.Column(3).Width = 40; // 분류될 항목
@@ -1389,7 +1389,7 @@
     
     private async Task TriggerBulkImport() 
     { 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "?? 다운로드하신 엑셀 파일 내의 '빨간색 글씨로 된 예시 행'은 엑셀에서 미리 다 지우셨나요?\n\n지우지 않고 올리면 오류가 발생할 수 있습니다. 계속 진행하시겠습니까?");
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "다운로드하신 엑셀 파일 내의 '빨간색 글씨로 된 예시 행'은 엑셀에서 미리 다 지우셨나요?\n\n지우지 않고 올리면 오류가 발생할 수 있습니다. 계속 진행하시겠습니까?");
         if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); }
     }
 
@@ -1443,9 +1443,9 @@
             }
             await context.SaveChangesAsync();
             await LoadData(); 
-            await ShowAlertAsync($"? 일괄 입력 완료!\n- 예산: {budgetCount}건\n- 자동분류: {mappingCount}건");
+            await ShowAlertAsync($"일괄 입력 완료!\n- 예산: {budgetCount}건\n- 자동분류: {mappingCount}건");
         }
-        catch (Exception ex) { await ShowAlertAsync($"? 엑셀 처리 중 오류: {ex.Message}"); }
+        catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
         finally { _isImporting = false; _bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
@@ -1512,11 +1512,11 @@
                 {
                     user.TwoFactorSecret = _tempSecret; user.IsTwoFactorEnabled = true; await context.SaveChangesAsync();
                     CurrentUser.IsTwoFactorEnabled = true; _tempSecret = ""; _setupOtpCode = "";
-                    await ShowAlertAsync("? 성공! 이제 로그인 시 OTP 인증이 필요합니다.");
+                    await ShowAlertAsync("성공! 이제 로그인 시 OTP 인증이 필요합니다.");
                 }
             }
         } 
-        else { await ShowAlertAsync("? 번호가 일치하지 않습니다. 다시 확인하세요."); }
+        else { await ShowAlertAsync("번호가 일치하지 않습니다. 다시 확인하세요."); }
     }
     
     // 반복되던 단순 알림(alert) 호출을 한 곳으로 모은 내부 헬퍼
