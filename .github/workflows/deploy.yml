@@ -29,8 +29,24 @@ jobs:
       - name: Publish project
         run: dotnet publish -c Release -o ./publish --no-restore
 
-      # Step 4: 리눅스 서버로 파일 전송 (church.db 등 기존 데이터는 publish에 없으므로 보존됨)
+      # Step 4: 배포 시크릿 존재 여부 확인
+      - name: Check deployment secrets
+        id: check_deploy
+        env:
+          DEPLOY_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.SERVER_HOST }}
+          DEPLOY_USER: ${{ secrets.SERVER_USERNAME }}
+        run: |
+          if [[ -n "$DEPLOY_KEY" && -n "$DEPLOY_HOST" && -n "$DEPLOY_USER" ]]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::One or more deployment secrets (SERVER_HOST, SERVER_USERNAME, SERVER_SSH_KEY) are not configured. Skipping deployment steps."
+            echo "ready=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Step 5: 리눅스 서버로 파일 전송 (church.db 등 기존 데이터는 publish에 없으므로 보존됨)
       - name: Copy files to server via SCP
+        if: steps.check_deploy.outputs.ready == 'true'
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -38,11 +54,12 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           source: "./publish/*"
-          target: "/home/ubuntu/church"
+          target: "/home/${{ secrets.SERVER_USERNAME }}/church"
           strip_components: 1
 
-      # Step 5: 도커 컨테이너 재빌드 및 실행
+      # Step 6: 도커 컨테이너 재빌드 및 실행
       - name: Rebuild and run Docker container via SSH
+        if: steps.check_deploy.outputs.ready == 'true'
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -50,8 +67,8 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
-            cd /home/ubuntu/church
+            cd /home/${{ secrets.SERVER_USERNAME }}/church
             sudo docker-compose down
-            sudo chmod -R 777 /home/ubuntu/church
+            sudo chmod -R 777 /home/${{ secrets.SERVER_USERNAME }}/church
             sudo docker-compose up -d --build
             sudo docker ps
