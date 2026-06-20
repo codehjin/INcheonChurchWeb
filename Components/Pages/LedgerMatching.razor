@@ -3,8 +3,8 @@
 <div class="hub-info-box mb-4">
     <i class="bi bi-info-circle" style="color: #785600; font-size: 1.25rem;"></i>
     <div>
-        <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">»ç¿ë¹ý ¾È³»</div>
-        <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.6;">¿ÞÂÊ ¸®½ºÆ®¿¡¼­ ¹Ì¿¬°áµÈ ¿µ¼öÁõÀ» ¼±ÅÃÇÏ°í, ¿À¸¥ÂÊ ¸®½ºÆ®¿¡¼­ ¸ÅÄªÇÒ ÀåºÎ µ¥ÀÌÅÍ¸¦ ¼±ÅÃÇÑ µÚ ÇÏ´ÜÀÇ '°Çº°¸ÅÄ¡' ¹öÆ°À» ´©¸£¼¼¿ä. ³¯Â¥¿Í ±Ý¾×ÀÌ ÀÏÄ¡ÇÏ´Â Ç×¸ñµéÀº 'ÀÚµ¿¸ÅÄ¡' ±â´ÉÀ» ÅëÇØ ÇÑ ¹ø¿¡ Á¤¸®ÇÒ ¼ö ÀÖ½À´Ï´Ù.</p>
+        <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">ì‚¬ìš©ë²• ì•ˆë‚´</div>
+        <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.6;">ì™¼ìª½ ë¦¬ìŠ¤íŠ¸ì—ì„œ ë¯¸ì—°ê²°ëœ ì˜ìˆ˜ì¦ì„ ì„ íƒí•˜ê³ , ì˜¤ë¥¸ìª½ ë¦¬ìŠ¤íŠ¸ì—ì„œ ë§¤ì¹­í•  ìž¥ë¶€ ë°ì´í„°ë¥¼ ì„ íƒí•œ ë’¤ í•˜ë‹¨ì˜ 'ê±´ë³„ë§¤ì¹˜' ë²„íŠ¼ì„ ëˆ„ë¥´ì„¸ìš”. ë‚ ì§œì™€ ê¸ˆì•¡ì´ ì¼ì¹˜í•˜ëŠ” í•­ëª©ë“¤ì€ 'ìžë™ë§¤ì¹˜' ê¸°ëŠ¥ì„ í†µí•´ í•œ ë²ˆì— ì •ë¦¬í•  ìˆ˜ ìžˆìŠµë‹ˆë‹¤.</p>
     </div>
 </div>
 
@@ -12,12 +12,12 @@
     <div class="col-md-5 col-lg-5 d-flex flex-column">
         <div class="d-flex align-items-center justify-content-between mb-3">
             <h5 class="fw-bold mb-0 d-flex align-items-center gap-2" style="color: #1b1c15;">
-                ¹Ì¿¬°á ¿µ¼öÁõ
+                ë¯¸ì—°ê²° ì˜ìˆ˜ì¦
                 <span class="hub-tabular px-2 py-1 rounded-pill" style="background-color: rgba(90, 64, 0, 0.1); color: #5a4000; font-size: 0.8rem;">@PendingReceipts.Count</span>
             </h5>
             <select class="form-select hub-input fw-bold" style="width: auto; font-size: 1rem; padding: 0.3rem 2.25rem 0.3rem 0.75rem;" @bind:get="MatchingFilterMonth" @bind:set="SetMatchingFilterMonth">
-                <option value="0">ÀüÃ¼ ±â°£</option>
-                @for (int m = 1; m <= 12; m++) { <option value="@m">@(m)¿ù</option> }
+                <option value="0">ì „ì²´ ê¸°ê°„</option>
+                @for (int m = 1; m <= 12; m++) { <option value="@m">@(m)ì›”</option> }
             </select>
         </div>
 
@@ -26,7 +26,7 @@
             {
                 <div class="text-center py-5" style="color: #4e4637;">
                     <i class="bi bi-check-circle fs-1 d-block mb-2" style="color: #174577;"></i>
-                    ¸ðµç ¿µ¼öÁõÀÌ ¸ÅÄª ¿Ï·áµÇ¾ú½À´Ï´Ù!
+                    ëª¨ë“  ì˜ìˆ˜ì¦ì´ ë§¤ì¹­ ì™„ë£Œë˜ì—ˆìŠµë‹ˆë‹¤!
                 </div>
             }
             @foreach (var receipt in GetFilteredPendingReceipts())
@@ -36,7 +36,7 @@
                     <input type="checkbox" class="form-check-input flex-shrink-0" style="min-width: 1.25rem; min-height: 1.25rem;" checked="@(SelectedMatchingReceiptIds.Contains(receipt.Id))" @onchange="e => ToggleMatchingReceiptSelection(receipt.Id, e)" @onclick:stopPropagation="true" />
 
                     <div class="position-relative flex-shrink-0">
-                        <img src="@receipt.ImagePath" alt="¿µ¼öÁõ" class="rounded border" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.src='/images/no-image.png'" />
+                        <img src="@receipt.ImagePath" alt="ì˜ìˆ˜ì¦" class="rounded border" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.src='/images/no-image.png'" />
                         <button type="button" class="btn btn-dark p-0"
                                 style="position: absolute; bottom: -5px; right: -5px; width: 22px; height: 22px; border-radius: 50%; opacity: 0.9; box-shadow: 0 2px 4px rgba(0,0,0,0.2);"
                                 @onclick:stopPropagation="true"
@@ -54,7 +54,7 @@
                         </div>
                         <div class="d-flex justify-content-between align-items-end mt-1">
                             <span class="fw-bold text-truncate" style="color: #1b1c15; max-width: 150px;">@receipt.Description</span>
-                            <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">¿ø</span></span>
+                            <span class="hub-amount hub-tabular">@receipt.Amount.ToString("N0") <span style="font-size: 0.9rem; font-weight: 500; opacity: 0.7;">ì›</span></span>
                         </div>
                     </div>
                 </div>
@@ -64,14 +64,14 @@
 
     <div class="col-md-7 col-lg-7 d-flex flex-column">
         <div class="d-flex flex-wrap align-items-center justify-content-between mb-3 gap-2">
-            <h5 class="fw-bold mb-0" style="color: #1b1c15;">ÀåºÎ µ¥ÀÌÅÍ</h5>
+            <h5 class="fw-bold mb-0" style="color: #1b1c15;">ìž¥ë¶€ ë°ì´í„°</h5>
             <div class="d-flex gap-2 align-items-center">
                 <div class="position-relative">
                     <i class="bi bi-search position-absolute" style="left: 0.75rem; top: 50%; transform: translateY(-50%); color: #4e4637; font-size: 0.8rem;"></i>
-                    <input type="text" class="form-control hub-input" style="padding-left: 2rem; font-size: 1rem; width: 220px;" placeholder="ÀåºÎ ³»¿ª °Ë»ö..." @bind:get="SearchKeyword" @bind:set="SetSearchKeyword" @bind:event="oninput" @onkeyup="HandleKeyUp" />
+                    <input type="text" class="form-control hub-input" style="padding-left: 2rem; font-size: 1rem; width: 220px;" placeholder="ìž¥ë¶€ ë‚´ì—­ ê²€ìƒ‰..." @bind:get="SearchKeyword" @bind:set="SetSearchKeyword" @bind:event="oninput" @onkeyup="HandleKeyUp" />
                 </div>
                 <button class="hub-secondary-btn px-3 py-2" style="font-size: 0.75rem;" @onclick="SearchData">
-                    <i class="bi bi-search me-1"></i>°Ë»ö
+                    <i class="bi bi-search me-1"></i>ê²€ìƒ‰
                 </button>
             </div>
         </div>
@@ -81,11 +81,11 @@
                 <table class="table mb-0 hub-file-table" style="border-collapse: collapse; min-width: 560px;">
                     <thead class="hub-table-header" style="position: sticky; top: 0; z-index: 1;">
                         <tr>
-                            <th style="padding: 1rem 1.5rem;">¼±ÅÃ</th>
-                            <th style="padding: 1rem 0.5rem;">³¯Â¥</th>
-                            <th style="padding: 1rem 0.5rem;">Ä«Å×°í¸®</th>
-                            <th style="padding: 1rem 0.5rem;">Àû¿ä</th>
-                            <th style="padding: 1rem 1.5rem;" class="text-end">±Ý¾×</th>
+                            <th style="padding: 1rem 1.5rem;">ì„ íƒ</th>
+                            <th style="padding: 1rem 0.5rem;">ë‚ ì§œ</th>
+                            <th style="padding: 1rem 0.5rem;">ì¹´í…Œê³ ë¦¬</th>
+                            <th style="padding: 1rem 0.5rem;">ì ìš”</th>
+                            <th style="padding: 1rem 1.5rem;" class="text-end">ê¸ˆì•¡</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,7 +109,7 @@
                         }
                         @if (!UnmatchedEntries.Any())
                         {
-                            <tr><td colspan="5" class="text-center py-5" style="color: #4e4637;">Áõºù ¾ø´Â ÀåºÎ ³»¿ªÀÌ ¾ø½À´Ï´Ù.</td></tr>
+                            <tr><td colspan="5" class="text-center py-5" style="color: #4e4637;">ì¦ë¹™ ì—†ëŠ” ìž¥ë¶€ ë‚´ì—­ì´ ì—†ìŠµë‹ˆë‹¤.</td></tr>
                         }
                     </tbody>
                 </table>
@@ -120,17 +120,17 @@
 
 <div class="hub-bottom-bar">
     <div class="d-flex align-items-center gap-3">
-        <span style="font-size: 0.6875rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.08em;">¼±ÅÃµÈ Ç×¸ñ</span>
+        <span style="font-size: 0.6875rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.08em;">ì„ íƒëœ í•­ëª©</span>
         <span class="px-2 py-1 rounded hub-tabular" style="background-color: #5a4000; color: #ffffff; font-size: 0.625rem; font-weight: 800;">
-            @SelectedMatchingReceiptIds.Count ¿µ¼öÁõ / @(SelectedMatchingEntryId > 0 ? "1" : "0") ÀåºÎ
+            @SelectedMatchingReceiptIds.Count ì˜ìˆ˜ì¦ / @(SelectedMatchingEntryId > 0 ? "1" : "0") ìž¥ë¶€
         </span>
     </div>
     <div class="d-flex align-items-center gap-3">
         <button class="hub-secondary-btn" @onclick="AutoMatchReceipts">
-            ÀÚµ¿¸ÅÄ¡
+            ìžë™ë§¤ì¹˜
         </button>
         <button class="hub-gold-btn" @onclick="ManualMatchSingle" disabled="@(SelectedMatchingReceipt == null || SelectedMatchingEntryId == 0)">
-            °Çº°¸ÅÄ¡
+            ê±´ë³„ë§¤ì¹˜
         </button>
     </div>
 </div>

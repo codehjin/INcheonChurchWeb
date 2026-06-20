@@ -8,8 +8,8 @@
                 <i class="bi bi-robot fs-4" style="color: #785600;"></i>
                 <div class="d-flex justify-content-between align-items-center flex-grow-1">
                     <div>
-                        <div class="fw-bold" style="color: #1b1c15; font-size: 1.25rem;">ÀÌ¹ø ´Þ AI ÀÚµ¿ ÆÇµ¶</div>
-                        <div style="color: #4e4637; font-size: 1rem;">»çÁø ¼±ÅÃ ½Ã ÀÚµ¿À¸·Î ³¯Â¥¡¤±Ý¾×¡¤»ç¿ëÃ³¸¦ ÀÎ½ÄÇÕ´Ï´Ù.</div>
+                        <div class="fw-bold" style="color: #1b1c15; font-size: 1.25rem;">ì´ë²ˆ ë‹¬ AI ìžë™ íŒë…</div>
+                        <div style="color: #4e4637; font-size: 1rem;">ì‚¬ì§„ ì„ íƒ ì‹œ ìžë™ìœ¼ë¡œ ë‚ ì§œÂ·ê¸ˆì•¡Â·ì‚¬ìš©ì²˜ë¥¼ ì¸ì‹í•©ë‹ˆë‹¤.</div>
                     </div>
                     <div class="text-end">
                         <span class="fw-bold hub-tabular" style="font-size: 1.25rem; color: @(CurrentOcrUsage >= 1000 ? "#ba1a1a" : "#5a4000");">@CurrentOcrUsage</span>
@@ -26,18 +26,18 @@
                     @if (IsOcrProcessing)
                     {
                         <span class="spinner-border me-3" style="color: #785600;" role="status"></span>
-                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AI°¡ ¿µ¼öÁõ ÀÐ´Â Áß...</span>
+                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">AIê°€ ì˜ìˆ˜ì¦ ì½ëŠ” ì¤‘...</span>
                     }
                     else
                     {
                         <i class="bi bi-camera-fill me-3" style="font-size: 2rem; color: #785600;"></i>
-                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">¿©±â¸¦ ´­·¯ »çÁø Ã£±â</span>
+                        <span class="fw-bold" style="color: #1b1c15; font-size: 1.1rem;">ì—¬ê¸°ë¥¼ ëˆŒëŸ¬ ì‚¬ì§„ ì°¾ê¸°</span>
                     }
                 </label>
 
                 @if (CurrentOcrUsage >= 1000)
                 {
-                    <div class="text-center mb-3" style="color: #ba1a1a; font-size: 1rem; font-weight: 700;">ÀÌ¹ø ´Þ ¹«·á Á¦°ø·®À» ¸ðµÎ »ç¿ëÇß½À´Ï´Ù. ¼öµ¿À¸·Î ÀÔ·ÂÇØÁÖ¼¼¿ä.</div>
+                    <div class="text-center mb-3" style="color: #ba1a1a; font-size: 1rem; font-weight: 700;">ì´ë²ˆ ë‹¬ ë¬´ë£Œ ì œê³µëŸ‰ì„ ëª¨ë‘ ì‚¬ìš©í–ˆìŠµë‹ˆë‹¤. ìˆ˜ë™ìœ¼ë¡œ ìž…ë ¥í•´ì£¼ì„¸ìš”.</div>
                 }
             }
             else
@@ -52,18 +52,18 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <span class="badge bg-secondary" style="opacity: 0.7;">¸¶¿ì½º ÈÙ: È®´ë / µå·¡±×: ÀÌµ¿</span>
+                    <span class="badge bg-secondary" style="opacity: 0.7;">ë§ˆìš°ìŠ¤ íœ : í™•ëŒ€ / ë“œëž˜ê·¸: ì´ë™</span>
                     <div class="btn-group" role="group">
-                        <label for="hubSingleFileInput" class="btn btn-sm text-white m-0 d-flex align-items-center" style="background-color: #785600; border-color: #785600; cursor: pointer;" title="»çÁø ´Ù½Ã ¼±ÅÃ">
-                            <i class="bi bi-camera-fill me-1"></i> ´Ù½Ã ¼±ÅÃ
+                        <label for="hubSingleFileInput" class="btn btn-sm text-white m-0 d-flex align-items-center" style="background-color: #785600; border-color: #785600; cursor: pointer;" title="ì‚¬ì§„ ë‹¤ì‹œ ì„ íƒ">
+                            <i class="bi bi-camera-fill me-1"></i> ë‹¤ì‹œ ì„ íƒ
                         </label>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut" title="Ãà¼Ò">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomOut" title="ì¶•ì†Œ">
                             <i class="bi bi-dash-lg"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ResetImageTransform" title="È­¸é ¸ÂÃã">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ResetImageTransform" title="í™”ë©´ ë§žì¶¤">
                             <i class="bi bi-arrows-fullscreen"></i>
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomIn" title="È®´ë">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ZoomIn" title="í™•ëŒ€">
                             <i class="bi bi-plus-lg"></i>
                         </button>
                     </div>
@@ -71,15 +71,15 @@
             }
 
             <div class="mb-3">
-                <div class="hub-label" style="color: #ba1a1a;">1. °áÁ¦ ³¯Â¥(ÇÊ¼öÀÔ·Â)</div>
+                <div class="hub-label" style="color: #ba1a1a;">1. ê²°ì œ ë‚ ì§œ(í•„ìˆ˜ìž…ë ¥)</div>
                 <input type="date" class="form-control hub-input" @bind="NewReceipt.ReceiptDate" />
             </div>
 
             <div class="mb-3">
-                <div class="hub-label" style="color: #ba1a1a;">2. °áÁ¦ ±Ý¾×(ÇÊ¼öÀÔ·Â)</div>
+                <div class="hub-label" style="color: #ba1a1a;">2. ê²°ì œ ê¸ˆì•¡(í•„ìˆ˜ìž…ë ¥)</div>
                 <div class="d-flex gap-2 align-items-center">
-                    <input type="number" class="form-control hub-input flex-grow-1 text-end fw-bold" @bind:get="InputAmount" @bind:set="SetInputAmount" placeholder="¿¹: 15000" />
-                    <span class="fw-bold" style="color: #4e4637;">¿ø</span>
+                    <input type="number" class="form-control hub-input flex-grow-1 text-end fw-bold" @bind:get="InputAmount" @bind:set="SetInputAmount" placeholder="ì˜ˆ: 15000" />
+                    <span class="fw-bold" style="color: #4e4637;">ì›</span>
                     @if (InputAmount.HasValue)
                     {
                         <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="ClearAmount"><i class="bi bi-x-circle"></i></button>
@@ -88,9 +88,9 @@
             </div>
 
             <div class="mb-4">
-                <div class="hub-label">3. »ç¿ëÃ³/³»¿ª(¼±ÅÃÀÔ·Â)</div>
+                <div class="hub-label">3. ì‚¬ìš©ì²˜/ë‚´ì—­(ì„ íƒìž…ë ¥)</div>
                 <div class="d-flex gap-2 align-items-center">
-                    <input type="text" class="form-control hub-input flex-grow-1" @bind="NewReceipt.Description" placeholder="¿¹: ´ÙÀÌ¼Ò" />
+                    <input type="text" class="form-control hub-input flex-grow-1" @bind="NewReceipt.Description" placeholder="ì˜ˆ: ë‹¤ì´ì†Œ" />
                     @if (!string.IsNullOrEmpty(NewReceipt.Description))
                     {
                         <button class="btn btn-sm" style="color: #ba1a1a;" @onclick="ClearDescription"><i class="bi bi-x-circle"></i></button>
@@ -101,10 +101,10 @@
             @if (CurrentUser?.Role == "Admin")
             {
                 <div class="mb-4">
-                    <div class="hub-label" style="color: #ba1a1a;">4. ºÎ¼­ ¼±ÅÃ (°ü¸®ÀÚ ÇÊ¼ö)</div>
+                    <div class="hub-label" style="color: #ba1a1a;">4. ë¶€ì„œ ì„ íƒ (ê´€ë¦¬ìž í•„ìˆ˜)</div>
                     <select class="form-select hub-input fw-bold" @bind:get="AdminSelectedDeptId" @bind:set="SetAdminSelectedDeptId" style="color: #785600;">
-                        <option value="0">ºÎ¼­¸¦ ¼±ÅÃÇÏ¼¼¿ä</option>
-                        @foreach (var dept in AllDepts.Where(d => d.Name != "°ü¸®ÀÚ"))
+                        <option value="0">ë¶€ì„œë¥¼ ì„ íƒí•˜ì„¸ìš”</option>
+                        @foreach (var dept in AllDepts.Where(d => d.Name != "ê´€ë¦¬ìž"))
                         {
                             <option value="@dept.Id">@dept.Name</option>
                         }
@@ -115,11 +115,11 @@
             <button class="hub-gold-btn w-100 py-3" @onclick="UploadReceipt" disabled="@(IsUploading || IsOcrProcessing)">
                 @if (IsUploading)
                 {
-                    <span class="spinner-border spinner-border-sm me-2"></span><span>¾÷·Îµå Áß...</span>
+                    <span class="spinner-border spinner-border-sm me-2"></span><span>ì—…ë¡œë“œ ì¤‘...</span>
                 }
                 else
                 {
-                    <i class="bi bi-cloud-arrow-up-fill me-2"></i><span>È®ÀÎ ¿Ï·á / ¼­¹ö·Î Àü¼Û</span>
+                    <i class="bi bi-cloud-arrow-up-fill me-2"></i><span>í™•ì¸ ì™„ë£Œ / ì„œë²„ë¡œ ì „ì†¡</span>
                 }
             </button>
         </div>

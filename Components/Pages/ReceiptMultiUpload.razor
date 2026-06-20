@@ -5,14 +5,14 @@
     <div class="hub-info-box mb-4">
         <i class="bi bi-info-circle-fill" style="color: #785600; font-size: 1.25rem;"></i>
         <div>
-            <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">ÀÛ¾÷ È¿À² ÆÁ</div>
-            <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.5;">ÃÖ´ë 20ÀåÀÇ ¿µ¼öÁõ »çÁøÀ» ÇÑ ¹ø¿¡ ¼±ÅÃÇÏ¼¼¿ä. AI°¡ ÀÚµ¿À¸·Î ³¯Â¥¿Í ±Ý¾×À» ÆÇµ¶ÇÏ¿© ÀåºÎ¿¡ ÀÓ½Ã ÀúÀåÇÕ´Ï´Ù. ºñ¾îÀÖ°Å³ª Àß¸ø ÀÎ½ÄµÈ Ç×¸ñÀº ¿ùº°ÀåºÎ¿¡¼­ ¼öÁ¤ÇÒ ¼ö ÀÖ½À´Ï´Ù.</p>
+            <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">ìž‘ì—… íš¨ìœ¨ íŒ</div>
+            <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.5;">ìµœëŒ€ 20ìž¥ì˜ ì˜ìˆ˜ì¦ ì‚¬ì§„ì„ í•œ ë²ˆì— ì„ íƒí•˜ì„¸ìš”. AIê°€ ìžë™ìœ¼ë¡œ ë‚ ì§œì™€ ê¸ˆì•¡ì„ íŒë…í•˜ì—¬ ìž¥ë¶€ì— ìž„ì‹œ ì €ìž¥í•©ë‹ˆë‹¤. ë¹„ì–´ìžˆê±°ë‚˜ ìž˜ëª» ì¸ì‹ëœ í•­ëª©ì€ ì›”ë³„ìž¥ë¶€ì—ì„œ ìˆ˜ì •í•  ìˆ˜ ìžˆìŠµë‹ˆë‹¤.</p>
         </div>
     </div>
 
     <div class="mb-4">
         <InputFile multiple OnChange="HandleFilesSelected" class="form-control hub-input" accept="image/*" />
-        <div class="mt-2" style="font-size: 1rem; font-weight: 700; color: #ba1a1a;">¡Ø ÇÑ ¹ø¿¡ ÃÖ´ë 20Àå±îÁö¸¸ ¾÷·Îµå °¡´ÉÇÕ´Ï´Ù.</div>
+        <div class="mt-2" style="font-size: 1rem; font-weight: 700; color: #ba1a1a;">â€» í•œ ë²ˆì— ìµœëŒ€ 20ìž¥ê¹Œì§€ë§Œ ì—…ë¡œë“œ ê°€ëŠ¥í•©ë‹ˆë‹¤.</div>
     </div>
 
     @if (FileStatuses.Any())
@@ -21,11 +21,11 @@
             <table class="table mb-0 hub-file-table">
                 <thead class="hub-table-header">
                     <tr>
-                        <th>ÆÄÀÏ¸í</th>
-                        <th>AI ÆÇµ¶ »óÅÂ</th>
-                        <th>ÀÎ½ÄµÈ ³¯Â¥</th>
-                        <th class="text-end">ÀÎ½ÄµÈ ±Ý¾×</th>
-                        <th>ÀÎ½ÄµÈ »ç¿ëÃ³</th>
+                        <th>íŒŒì¼ëª…</th>
+                        <th>AI íŒë… ìƒíƒœ</th>
+                        <th>ì¸ì‹ëœ ë‚ ì§œ</th>
+                        <th class="text-end">ì¸ì‹ëœ ê¸ˆì•¡</th>
+                        <th>ì¸ì‹ëœ ì‚¬ìš©ì²˜</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -36,23 +36,23 @@
                             <td>
                                 @if (file.Status == ReceiptFileStatus.Pending)
                                 {
-                                    <span class="hub-badge" style="background-color: #eae9dd; color: #4e4637;">´ë±âÁß</span>
+                                    <span class="hub-badge" style="background-color: #eae9dd; color: #4e4637;">ëŒ€ê¸°ì¤‘</span>
                                 }
                                 else if (file.Status == ReceiptFileStatus.Processing)
                                 {
-                                    <span class="hub-badge" style="background-color: rgba(120, 86, 0, 0.1); color: #785600;"><span class="spinner-border spinner-border-sm me-1"></span>ºÐ¼®Áß</span>
+                                    <span class="hub-badge" style="background-color: rgba(120, 86, 0, 0.1); color: #785600;"><span class="spinner-border spinner-border-sm me-1"></span>ë¶„ì„ì¤‘</span>
                                 }
                                 else if (file.Status == ReceiptFileStatus.Success)
                                 {
-                                    <span class="hub-badge" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">¼º°ø</span>
+                                    <span class="hub-badge" style="background-color: rgba(23, 69, 119, 0.1); color: #174577;">ì„±ê³µ</span>
                                 }
                                 else
                                 {
-                                    <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">½ÇÆÐ/¼öµ¿ÇÊ¿ä</span>
+                                    <span class="hub-badge" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a;">ì‹¤íŒ¨/ìˆ˜ë™í•„ìš”</span>
                                 }
                             </td>
                             <td class="hub-tabular" style="color: #4e4637;">@(file.ParsedDate?.ToString("yyyy-MM-dd") ?? "-")</td>
-                            <td class="text-end hub-tabular hub-amount">@(file.ParsedAmount > 0 ? file.ParsedAmount.ToString("#,0") + "¿ø" : "-")</td>
+                            <td class="text-end hub-tabular hub-amount">@(file.ParsedAmount > 0 ? file.ParsedAmount.ToString("#,0") + "ì›" : "-")</td>
                             <td style="color: #1b1c15;">@(string.IsNullOrEmpty(file.ParsedDescription) ? "-" : file.ParsedDescription)</td>
                         </tr>
                     }
@@ -63,11 +63,11 @@
         <button class="hub-gold-btn w-100 py-3" @onclick="ProcessAllFiles" disabled="@IsProcessing">
             @if (IsProcessing)
             {
-                <span class="spinner-border spinner-border-sm me-2"></span><span>@($"{ProcessedCount} / {FileStatuses.Count} Ã³¸®Áß...")</span>
+                <span class="spinner-border spinner-border-sm me-2"></span><span>@($"{ProcessedCount} / {FileStatuses.Count} ì²˜ë¦¬ì¤‘...")</span>
             }
             else
             {
-                <i class="bi bi-magic me-2"></i><span>ÀüÃ¼ AI ºÐ¼® ¹× ¼­¹ö ÀúÀå ½ÃÀÛ</span>
+                <i class="bi bi-magic me-2"></i><span>ì „ì²´ AI ë¶„ì„ ë° ì„œë²„ ì €ìž¥ ì‹œìž‘</span>
             }
         </button>
     }
