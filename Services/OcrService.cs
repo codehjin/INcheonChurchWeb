@@ -1,6 +1,8 @@
 ﻿using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Vision.V1;
+using INcheonChurchWeb.Data;
 using INcheonChurchWeb.Models;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -22,6 +24,14 @@ namespace INcheonChurchWeb.Services
         // 💡 오직 날짜와 금액 관련 키워드만 남겼습니다.
         private readonly string[] _dateKeywords = { "결제일시", "승인일시", "결제일자", "거래일시", "거래일자", "판매일시", "일자", "주문일시", "결제일", "판매일", "승인일" };
         private readonly string[] _amountKeywords = { "총결제금액", "결제금액", "승인금액", "합계금액", "받을금액", "판매총액", "이체금액", "청구금액", "결제합계", "카드결제", "판매합계", "받은금액", "과세합계", "총액", "합계" };
+
+        // 🚀 Vision API 사용량(이번 달 카운트) 기록을 위한 DB 팩토리
+        private readonly IDbContextFactory<AppDbContext> _dbFactory;
+
+        public OcrService(IDbContextFactory<AppDbContext> dbFactory)
+        {
+            _dbFactory = dbFactory;
+        }
 
         public async Task<OcrResult> ProcessReceiptAsync(byte[] imageBytes)
         {
@@ -47,6 +57,10 @@ namespace INcheonChurchWeb.Services
 
                 var image = Image.FromBytes(imageBytes);
                 var response = await client.DetectTextAsync(image);
+
+                // 🚀 Vision API 호출이 (예외 없이) 성공했으므로 이번 달 사용량 카운트를 1 증가시킵니다.
+                // 글자 인식 결과(날짜/금액)와 무관하게 API 호출 자체가 과금 대상이므로 여기서 집계합니다.
+                await IncrementUsageAsync();
 
                 if (response == null || !response.Any())
                 {
@@ -82,6 +96,32 @@ namespace INcheonChurchWeb.Services
             }
 
             return result;
+        }
+
+        // 🚀 이번 달(yyyy-MM) Vision API 사용량을 DB에서 가져와 +1 하고 저장합니다.
+        // 카운트 집계 실패가 OCR 기능 자체를 막지 않도록 예외는 삼킵니다.
+        private async Task IncrementUsageAsync()
+        {
+            try
+            {
+                string currentMonth = DateTime.Now.ToString("yyyy-MM");
+                using var context = _dbFactory.CreateDbContext();
+
+                var usage = await context.OcrUsages.FirstOrDefaultAsync(u => u.YearMonth == currentMonth);
+                if (usage == null)
+                {
+                    context.OcrUsages.Add(new OcrUsage { YearMonth = currentMonth, UsageCount = 1 });
+                }
+                else
+                {
+                    usage.UsageCount++;
+                }
+                await context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"OCR 사용량 집계 실패(무시): {ex.Message}");
+            }
         }
 
         private DateTime? ExtractDate(string[] lines, string fullText)

@@ -730,13 +730,13 @@
                                 {
                                     <h2 class="accordion-header" id="heading-off-@dept.Id">
                                         <button class="accordion-button @(isExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
-                                            ????? @dept.Name <span class="badge bg-white text-muted border ms-2">총 @oList.Count 명</span>
+                                            <i class="bi bi-people-fill me-1" style="color: #785600;"></i>@dept.Name <span class="badge bg-white text-muted border ms-2">총 @oList.Count 명</span>
                                         </button>
                                     </h2>
                                 }
                                 else
                                 {
-                                    <h5 class="fw-bold text-dark mb-4">????? @dept.Name 임원 관리 <span class="badge bg-light text-muted border ms-2 fs-6">총 @oList.Count 명</span></h5>
+                                    <h5 class="fw-bold text-dark mb-4"><i class="bi bi-people-fill me-1" style="color: #785600;"></i>@dept.Name 임원 관리 <span class="badge bg-light text-muted border ms-2 fs-6">총 @oList.Count 명</span></h5>
                                 }
 
                                 <div id="collapse-off-@dept.Id" class="@(useAccordion ? $"accordion-collapse collapse {(isExpanded ? "show" : "")}" : "")">
@@ -797,7 +797,7 @@
                                                         <button class="settings-gold-btn flex-grow-1" @onclick="() => SaveOfficer(dept.Id)">
                                                             @(isEditing ? "수정 저장" : "임원 등록")
                                                         </button>
-                                                        @if (isEditing) { <button class="settings-secondary-btn px-3" @onclick="() => CancelOfficerEdit(dept.Id)">?</button> }
+                                                        @if (isEditing) { <button class="settings-secondary-btn px-3" @onclick="() => CancelOfficerEdit(dept.Id)" title="취소"><i class="bi bi-x-lg"></i></button> }
                                                     </div>
                                                 </div>
                                             </div>

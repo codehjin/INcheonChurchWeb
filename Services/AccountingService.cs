@@ -1,4 +1,4 @@
-﻿using INcheonChurchWeb.Data;
+using INcheonChurchWeb.Data;
 using INcheonChurchWeb.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -44,12 +44,15 @@ namespace INcheonChurchWeb.Services
         [GeneratedRegex(@"[\\/:*?""<>|]")]
         private static partial Regex InvalidFileNameChars();
 
-        private readonly AppDbContext _db;
+        // 🚀 [동시성 안전화] Blazor Server에서 Scoped DbContext는 회로(circuit) 수명 동안
+        // 살아남아 여러 비동기 작업이 같은 인스턴스를 공유 → 스레드 충돌이 발생합니다.
+        // 따라서 전역 _db 주입 대신 IDbContextFactory로 각 메서드마다 짧은 수명의 컨텍스트를 생성합니다.
+        private readonly IDbContextFactory<AppDbContext> _dbFactory;
         private readonly IWebHostEnvironment _env;
 
-        public AccountingService(AppDbContext db, IWebHostEnvironment env)
+        public AccountingService(IDbContextFactory<AppDbContext> dbFactory, IWebHostEnvironment env)
         {
-            _db = db;
+            _dbFactory = dbFactory;
             _env = env;
         }
         // =========================================================
@@ -94,8 +97,10 @@ namespace INcheonChurchWeb.Services
         // 분기 날짜 조회: DB 수동 설정 우선, 없으면 기본 규칙 적용
         public async Task<(DateTime Start, DateTime End)> GetQuarterDateRangeAsync(int deptId, int year, int quarter)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             string key = $"Quarter_{year}_Q{quarter}";
-            var setting = await _db.CategoryMappings.AsNoTracking().FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
+            var setting = await db.CategoryMappings.AsNoTracking().FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
 
             // 1. DB에 설정된 분기값이 있으면 우선 적용
             if (setting != null && setting.Category.Contains('~'))
@@ -116,19 +121,21 @@ namespace INcheonChurchWeb.Services
 
         public async Task SaveQuarterSettingAsync(int deptId, int year, int quarter, DateTime start, DateTime end)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             string key = $"Quarter_{year}_Q{quarter}";
             string rangeStr = $"{start:yyyy-MM-dd}~{end:yyyy-MM-dd}";
 
-            var setting = await _db.CategoryMappings.FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
+            var setting = await db.CategoryMappings.FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
             if (setting == null)
             {
-                _db.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = key, Category = rangeStr });
+                db.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = key, Category = rangeStr });
             }
             else
             {
                 setting.Category = rangeStr;
             }
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         // =========================================================
@@ -136,7 +143,9 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task<List<LedgerEntry>> GetLedgerByOptionAsync(int deptId, int year, string option, int value)
         {
-            var query = _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId);
+            using var db = _dbFactory.CreateDbContext();
+
+            var query = db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId);
 
             if (option == "Month") query = query.Where(t => t.FiscalYear == year && t.Date.Month == value);
             else if (option == "Quarter")
@@ -151,21 +160,27 @@ namespace INcheonChurchWeb.Services
 
         public async Task<List<string>> GetAllCategoriesAsync(int deptId)
         {
-            var budgetCats = await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).Select(b => b.Category).ToListAsync();
-            var ledgerCats = await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).Select(t => t.Category).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            var budgetCats = await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).Select(b => b.Category).ToListAsync();
+            var ledgerCats = await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).Select(t => t.Category).ToListAsync();
             return budgetCats.Union(ledgerCats).Where(c => !string.IsNullOrEmpty(c) && c != "미분류").Distinct().OrderBy(c => c).ToList();
         }
 
         public async Task BulkUpdateCategoryAsync(List<int> ids, string newCategory)
         {
-            var targets = await _db.Transactions.Where(t => ids.Contains(t.Id)).ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            var targets = await db.Transactions.Where(t => ids.Contains(t.Id)).ToListAsync();
             foreach (var item in targets) { item.Category = newCategory; }
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         public async Task<List<BudgetPlan>> GetAllBudgetPlansForDeptAsync(int deptId, string type)
         {
-            return await _db.BudgetPlans.AsNoTracking()
+            using var db = _dbFactory.CreateDbContext();
+
+            return await db.BudgetPlans.AsNoTracking()
                 .Where(b => b.DepartmentId == deptId && b.Type == type)
                 .OrderByDescending(b => b.Year).ThenBy(b => b.Category).ToListAsync();
         }
@@ -175,11 +190,13 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task<List<DeptStat>> GetIntegratedDashboardAsync(int year)
         {
-            var trans = await _db.Transactions.AsNoTracking().Where(t => t.FiscalYear == year).ToListAsync();
-            var budgets = await _db.BudgetPlans.AsNoTracking().Where(b => b.Year == year && b.Type == "Expense").ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            var trans = await db.Transactions.AsNoTracking().Where(t => t.FiscalYear == year).ToListAsync();
+            var budgets = await db.BudgetPlans.AsNoTracking().Where(b => b.Year == year && b.Type == "Expense").ToListAsync();
 
             // 모든 부서를 DB에서 가져와서 처리합니다.
-            var depts = await _db.Departments.AsNoTracking().ToListAsync();
+            var depts = await db.Departments.AsNoTracking().ToListAsync();
             var list = new List<DeptStat>();
 
             foreach (var d in depts)
@@ -198,8 +215,10 @@ namespace INcheonChurchWeb.Services
 
         public async Task<(decimal TotalIn, decimal TotalOut, List<StatItem> Stats)> GetDashboardDataAsync(int deptId, int year)
         {
-            var trans = await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.FiscalYear == year).ToListAsync();
-            var budgets = await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == "Expense").ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            var trans = await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.FiscalYear == year).ToListAsync();
+            var budgets = await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == "Expense").ToListAsync();
             var stats = budgets.GroupBy(b => b.Category).Select(g => new StatItem { Category = g.Key, Budget = g.Sum(x => x.Amount), Spent = trans.Where(t => t.Type == "지출" && t.Category == g.Key).Sum(t => t.Expense) }).ToList();
             var unclassified = trans.Where(t => t.Type == "지출" && t.Category == "미분류").Sum(t => t.Expense);
             if (unclassified > 0) stats.Add(new StatItem { Category = "미분류", Budget = 0, Spent = unclassified });
@@ -211,8 +230,10 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task<string> UploadReceiptAsync(IBrowserFile file, int transactionId)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             // 🚀 부서 정보를 가져오기 위해 Include 추가
-            var entry = await _db.Transactions.Include(t => t.DepartmentInfo)
+            var entry = await db.Transactions.Include(t => t.DepartmentInfo)
                                               .FirstOrDefaultAsync(t => t.Id == transactionId);
 
             if (entry == null) return "내역을 찾을 수 없습니다.";
@@ -246,7 +267,7 @@ namespace INcheonChurchWeb.Services
                     }
                 }
                 entry.ReceiptPath = $"/uploads/{newFileName}";
-                await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
                 return "OK";
             }
             catch (Exception ex) { return $"실패: {ex.Message}"; }
@@ -254,7 +275,9 @@ namespace INcheonChurchWeb.Services
 
         public async Task RemoveReceiptAsync(int id)
         {
-            var entry = await _db.Transactions.FindAsync(id);
+            using var db = _dbFactory.CreateDbContext();
+
+            var entry = await db.Transactions.FindAsync(id);
             if (entry != null)
             {
                 if (!string.IsNullOrEmpty(entry.ReceiptPath))
@@ -263,7 +286,7 @@ namespace INcheonChurchWeb.Services
                     if (File.Exists(fullPath)) { File.Delete(fullPath); }
                 }
                 entry.ReceiptPath = "";
-                await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
             }
         }
 
@@ -272,24 +295,28 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task LogActivityAsync(string username, string action, string details)
         {
-            _db.ActivityLogs.Add(new ActivityLog { Username = username, Action = action, Details = details, Timestamp = DateTime.Now });
-            await _db.SaveChangesAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            db.ActivityLogs.Add(new ActivityLog { Username = username, Action = action, Details = details, Timestamp = DateTime.Now });
+            await db.SaveChangesAsync();
         }
 
         public async Task CreateBackupAsync(int deptId, string type, string memo)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             string jsonData;
             if (type == "Ledger")
             {
-                jsonData = JsonSerializer.Serialize(await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
+                jsonData = JsonSerializer.Serialize(await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
             }
             else if (type == "Budget")
             {
-                jsonData = JsonSerializer.Serialize(await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync());
+                jsonData = JsonSerializer.Serialize(await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync());
             }
             else if (type == "Mapping")
             {
-                jsonData = JsonSerializer.Serialize(await _db.CategoryMappings.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
+                jsonData = JsonSerializer.Serialize(await db.CategoryMappings.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync());
             }
             else
             {
@@ -297,69 +324,75 @@ namespace INcheonChurchWeb.Services
                 {
                     ExportDate = DateTime.Now,
                     DepartmentId = deptId,
-                    Transactions = await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync(),
-                    BudgetPlans = await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync(),
-                    CategoryMappings = await _db.CategoryMappings.AsNoTracking().Where(m => m.DepartmentId == deptId).ToListAsync(),
-                    ExpenseReports = await _db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId).ToListAsync()
+                    Transactions = await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId).ToListAsync(),
+                    BudgetPlans = await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId).ToListAsync(),
+                    CategoryMappings = await db.CategoryMappings.AsNoTracking().Where(m => m.DepartmentId == deptId).ToListAsync(),
+                    ExpenseReports = await db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId).ToListAsync()
                 };
 
                 jsonData = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions { WriteIndented = true });
             }
 
-            _db.DataBackups.Add(new DataBackup { DepartmentId = deptId, DataType = type, Memo = memo, JsonData = jsonData, BackupDate = DateTime.Now });
-            await _db.SaveChangesAsync();
+            db.DataBackups.Add(new DataBackup { DepartmentId = deptId, DataType = type, Memo = memo, JsonData = jsonData, BackupDate = DateTime.Now });
+            await db.SaveChangesAsync();
         }
 
-        public async Task<List<DataBackup>> GetBackupsAsync(int deptId) => await _db.DataBackups.AsNoTracking().Where(b => b.DepartmentId == deptId).OrderByDescending(b => b.BackupDate).ToListAsync();
+        public async Task<List<DataBackup>> GetBackupsAsync(int deptId)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.DataBackups.AsNoTracking().Where(b => b.DepartmentId == deptId).OrderByDescending(b => b.BackupDate).ToListAsync();
+        }
 
         public async Task RestoreFromBackupAsync(int backupId)
         {
-            var backup = await _db.DataBackups.FindAsync(backupId);
+            using var db = _dbFactory.CreateDbContext();
+
+            var backup = await db.DataBackups.FindAsync(backupId);
             if (backup == null) return;
 
             if (backup.DataType == "Budget")
             {
-                var old = await _db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
-                _db.BudgetPlans.RemoveRange(old);
+                var old = await db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
+                db.BudgetPlans.RemoveRange(old);
                 var restored = JsonSerializer.Deserialize<List<BudgetPlan>>(backup.JsonData);
-                if (restored != null) _db.BudgetPlans.AddRange(restored);
+                if (restored != null) db.BudgetPlans.AddRange(restored);
             }
             else if (backup.DataType == "Ledger")
             {
-                var old = await _db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
-                _db.Transactions.RemoveRange(old);
+                var old = await db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
+                db.Transactions.RemoveRange(old);
                 var restored = JsonSerializer.Deserialize<List<LedgerEntry>>(backup.JsonData);
-                if (restored != null) _db.Transactions.AddRange(restored);
+                if (restored != null) db.Transactions.AddRange(restored);
             }
             else if (backup.DataType == "Mapping")
             {
-                var old = await _db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
-                _db.CategoryMappings.RemoveRange(old);
+                var old = await db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
+                db.CategoryMappings.RemoveRange(old);
                 var restored = JsonSerializer.Deserialize<List<CategoryMapping>>(backup.JsonData);
-                if (restored != null) _db.CategoryMappings.AddRange(restored);
+                if (restored != null) db.CategoryMappings.AddRange(restored);
             }
             else
             {
                 var snapshot = JsonSerializer.Deserialize<DepartmentBackupDto>(backup.JsonData, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 if (snapshot == null) return;
 
-                var oldTrans = await _db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
-                var oldBudgets = await _db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
-                var oldMappings = await _db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
-                var oldReports = await _db.ExpenseReports.Where(r => r.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldTrans = await db.Transactions.Where(t => t.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldBudgets = await db.BudgetPlans.Where(b => b.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldMappings = await db.CategoryMappings.Where(m => m.DepartmentId == backup.DepartmentId).ToListAsync();
+                var oldReports = await db.ExpenseReports.Where(r => r.DepartmentId == backup.DepartmentId).ToListAsync();
 
-                _db.Transactions.RemoveRange(oldTrans);
-                _db.BudgetPlans.RemoveRange(oldBudgets);
-                _db.CategoryMappings.RemoveRange(oldMappings);
-                _db.ExpenseReports.RemoveRange(oldReports);
+                db.Transactions.RemoveRange(oldTrans);
+                db.BudgetPlans.RemoveRange(oldBudgets);
+                db.CategoryMappings.RemoveRange(oldMappings);
+                db.ExpenseReports.RemoveRange(oldReports);
 
-                if (snapshot.Transactions.Any()) _db.Transactions.AddRange(snapshot.Transactions);
-                if (snapshot.BudgetPlans.Any()) _db.BudgetPlans.AddRange(snapshot.BudgetPlans);
-                if (snapshot.CategoryMappings.Any()) _db.CategoryMappings.AddRange(snapshot.CategoryMappings);
-                if (snapshot.ExpenseReports.Any()) _db.ExpenseReports.AddRange(snapshot.ExpenseReports);
+                if (snapshot.Transactions.Any()) db.Transactions.AddRange(snapshot.Transactions);
+                if (snapshot.BudgetPlans.Any()) db.BudgetPlans.AddRange(snapshot.BudgetPlans);
+                if (snapshot.CategoryMappings.Any()) db.CategoryMappings.AddRange(snapshot.CategoryMappings);
+                if (snapshot.ExpenseReports.Any()) db.ExpenseReports.AddRange(snapshot.ExpenseReports);
             }
 
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         // =========================================================
@@ -367,19 +400,27 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task<List<string>> GetCategorySuggestionsAsync(int deptId, string type)
         {
-            var fromBudget = await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Type == type).Select(b => b.Category).Distinct().ToListAsync();
-            var fromLedger = await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.Type == (type == "Expense" ? "지출" : "수입")).Select(t => t.Category).Distinct().ToListAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            var fromBudget = await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Type == type).Select(b => b.Category).Distinct().ToListAsync();
+            var fromLedger = await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.Type == (type == "Expense" ? "지출" : "수입")).Select(t => t.Category).Distinct().ToListAsync();
             return fromBudget.Union(fromLedger).OrderBy(c => c).ToList();
         }
 
-        public async Task AddTransactionAsync(LedgerEntry entry) { entry.Id = 0; if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; if (string.IsNullOrEmpty(entry.Category)) entry.Category = "미분류"; _db.Transactions.Add(entry); await _db.SaveChangesAsync(); }
+        public async Task AddTransactionAsync(LedgerEntry entry)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            entry.Id = 0; if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; if (string.IsNullOrEmpty(entry.Category)) entry.Category = "미분류"; db.Transactions.Add(entry); await db.SaveChangesAsync();
+        }
 
         public async Task AddTransactionsAsync(List<LedgerEntry> entries)
         {
             if (entries == null || entries.Count == 0) return;
 
+            using var db = _dbFactory.CreateDbContext();
+
             // 유년부 아이디 가져오기 (기본값 세팅용)
-            var defaultDept = await _db.Departments.FirstOrDefaultAsync(d => d.Name == "유년부");
+            var defaultDept = await db.Departments.FirstOrDefaultAsync(d => d.Name == "유년부");
             int defaultDeptId = defaultDept?.Id ?? 1;
 
             foreach (var entry in entries)
@@ -399,33 +440,53 @@ namespace INcheonChurchWeb.Services
                 int quarter = await GetQuarterNumberAsync(entry.DepartmentId, fiscalYear, entry.Date);
                 entry.FiscalYear = fiscalYear;
                 entry.Quarter = quarter;
-                _db.Transactions.Add(entry);
+                db.Transactions.Add(entry);
             }
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         public async Task<DateTime?> GetLastTransactionDateAsync(int deptId)
         {
-            return await _db.Transactions.AsNoTracking()
+            using var db = _dbFactory.CreateDbContext();
+
+            return await db.Transactions.AsNoTracking()
                 .Where(t => t.DepartmentId == deptId)
                 .OrderByDescending(t => t.Date)
                 .Select(t => (DateTime?)t.Date)
                 .FirstOrDefaultAsync();
         }
 
-        public async Task UpdateTransactionAsync(LedgerEntry entry) { var ex = await _db.Transactions.FindAsync(entry.Id); if (ex != null) { if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; _db.Entry(ex).CurrentValues.SetValues(entry); await _db.SaveChangesAsync(); } }
-        public async Task DeleteTransactionAsync(int id) { var target = await _db.Transactions.FindAsync(id); if (target != null) { _db.Transactions.Remove(target); await _db.SaveChangesAsync(); } }
+        public async Task UpdateTransactionAsync(LedgerEntry entry)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var ex = await db.Transactions.FindAsync(entry.Id); if (ex != null) { if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; db.Entry(ex).CurrentValues.SetValues(entry); await db.SaveChangesAsync(); }
+        }
+        public async Task DeleteTransactionAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var target = await db.Transactions.FindAsync(id); if (target != null) { db.Transactions.Remove(target); await db.SaveChangesAsync(); }
+        }
 
-        public async Task<List<LedgerEntry>> GetMonthlyTransactionsAsync(int deptId, int year, int month) => await _db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.Date.Year == year && t.Date.Month == month).OrderBy(t => t.Date).ToListAsync();
-        public async Task<List<LedgerEntry>> GetAllTransactionsAsync(int year) => await _db.Transactions.AsNoTracking().Where(t => t.FiscalYear == year).ToListAsync();
+        public async Task<List<LedgerEntry>> GetMonthlyTransactionsAsync(int deptId, int year, int month)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.Transactions.AsNoTracking().Where(t => t.DepartmentId == deptId && t.Date.Year == year && t.Date.Month == month).OrderBy(t => t.Date).ToListAsync();
+        }
+        public async Task<List<LedgerEntry>> GetAllTransactionsAsync(int year)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.Transactions.AsNoTracking().Where(t => t.FiscalYear == year).ToListAsync();
+        }
 
         // =========================================================
         // CSV/XLS 은행 거래내역 파싱
         // =========================================================
         public async Task<List<LedgerEntry>> ParseAndClassifyBankCsvAsync(Stream fileStream, int departmentId)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             var list = new List<LedgerEntry>();
-            var dbMappings = await _db.CategoryMappings.AsNoTracking()
+            var dbMappings = await db.CategoryMappings.AsNoTracking()
                 .Where(m => m.DepartmentId == departmentId).ToListAsync();
 
             Encoding encoding;
@@ -476,7 +537,7 @@ namespace INcheonChurchWeb.Services
             }
 
             var existingKeys = new HashSet<string>(
-                (await _db.Transactions.AsNoTracking()
+                (await db.Transactions.AsNoTracking()
                     .Where(t => t.DepartmentId == departmentId)
                     .Select(t => t.Date.ToString("yyyyMMddHHmm") + "_" + t.Description + "_" + t.Income + "_" + t.Expense)
                     .ToListAsync()));
@@ -597,69 +658,123 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         // 5. 예산 및 분류 설정
         // =========================================================
-        public async Task<List<BudgetPlan>> GetBudgetPlansAsync(int deptId, int year, string type) => await _db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == type).ToListAsync();
+        public async Task<List<BudgetPlan>> GetBudgetPlansAsync(int deptId, int year, string type)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == year && b.Type == type).ToListAsync();
+        }
         public async Task SaveBudgetPlanAsync(BudgetPlan plan)
         {
             if (plan == null) return;
+
+            using var db = _dbFactory.CreateDbContext();
+
             if (!string.IsNullOrEmpty(plan.Type))
             {
                 if (plan.Type.Equals("수입", StringComparison.OrdinalIgnoreCase)) plan.Type = "Income";
                 else if (plan.Type.Equals("지출", StringComparison.OrdinalIgnoreCase)) plan.Type = "Expense";
             }
 
-            if (plan.Id == 0) _db.BudgetPlans.Add(plan);
-            else { var ex = await _db.BudgetPlans.FindAsync(plan.Id); if (ex != null) _db.Entry(ex).CurrentValues.SetValues(plan); }
-            await _db.SaveChangesAsync();
+            if (plan.Id == 0) db.BudgetPlans.Add(plan);
+            else { var ex = await db.BudgetPlans.FindAsync(plan.Id); if (ex != null) db.Entry(ex).CurrentValues.SetValues(plan); }
+            await db.SaveChangesAsync();
         }
-        public async Task DeleteBudgetPlanAsync(int id) { var t = await _db.BudgetPlans.FindAsync(id); if (t != null) { _db.BudgetPlans.Remove(t); await _db.SaveChangesAsync(); } }
+        public async Task DeleteBudgetPlanAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var t = await db.BudgetPlans.FindAsync(id); if (t != null) { db.BudgetPlans.Remove(t); await db.SaveChangesAsync(); }
+        }
 
-        public async Task<List<CategoryMapping>> GetMappingsAsync(int deptId) => await _db.CategoryMappings.AsNoTracking().Where(m => m.DepartmentId == deptId).ToListAsync();
-        public async Task SaveMappingAsync(CategoryMapping m) { if (m.Id == 0) _db.CategoryMappings.Add(m); else { var ex = await _db.CategoryMappings.FindAsync(m.Id); if (ex != null) _db.Entry(ex).CurrentValues.SetValues(m); } await _db.SaveChangesAsync(); }
-        public async Task DeleteMappingAsync(int id) { var m = await _db.CategoryMappings.FindAsync(id); if (m != null) { _db.CategoryMappings.Remove(m); await _db.SaveChangesAsync(); } }
+        public async Task<List<CategoryMapping>> GetMappingsAsync(int deptId)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.CategoryMappings.AsNoTracking().Where(m => m.DepartmentId == deptId).ToListAsync();
+        }
+        public async Task SaveMappingAsync(CategoryMapping m)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            if (m.Id == 0) db.CategoryMappings.Add(m); else { var ex = await db.CategoryMappings.FindAsync(m.Id); if (ex != null) db.Entry(ex).CurrentValues.SetValues(m); } await db.SaveChangesAsync();
+        }
+        public async Task DeleteMappingAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var m = await db.CategoryMappings.FindAsync(id); if (m != null) { db.CategoryMappings.Remove(m); await db.SaveChangesAsync(); }
+        }
 
         // =========================================================
         // 6. 사용자 관리 및 부서 정보 관리
         // =========================================================
-        public async Task<List<User>> GetAllUsersAsync() => await _db.Users.AsNoTracking().ToListAsync();
-        public async Task AddUserAsync(User user) { if (!await _db.Users.AnyAsync(u => u.Username == user.Username)) { _db.Users.Add(user); await _db.SaveChangesAsync(); } }
-        public async Task DeleteUserAsync(string id) { var u = await _db.Users.FindAsync(id); if (u != null) { _db.Users.Remove(u); await _db.SaveChangesAsync(); } }
-        public async Task ChangePasswordAsync(string id, string pw) { var u = await _db.Users.FindAsync(id); if (u != null) { u.Password = pw; await _db.SaveChangesAsync(); } }
-        public async Task ResetPasswordAsync(string id) { var u = await _db.Users.FindAsync(id); if (u != null) { u.Password = "1234"; await _db.SaveChangesAsync(); } }
+        public async Task<List<User>> GetAllUsersAsync()
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.Users.AsNoTracking().ToListAsync();
+        }
+        public async Task AddUserAsync(User user)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            if (!await db.Users.AnyAsync(u => u.Username == user.Username)) { db.Users.Add(user); await db.SaveChangesAsync(); }
+        }
+        public async Task DeleteUserAsync(string id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var u = await db.Users.FindAsync(id); if (u != null) { db.Users.Remove(u); await db.SaveChangesAsync(); }
+        }
+        public async Task ChangePasswordAsync(string id, string pw)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = pw; await db.SaveChangesAsync(); }
+        }
+        public async Task ResetPasswordAsync(string id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = "1234"; await db.SaveChangesAsync(); }
+        }
 
         // 부서 목록 전체 불러오기
-        public async Task<List<Department>> GetDepartmentsAsync() => await _db.Departments.AsNoTracking().ToListAsync();
+        public async Task<List<Department>> GetDepartmentsAsync()
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.Departments.AsNoTracking().ToListAsync();
+        }
 
         // 🚀 신규 추가: 단일 부서 정보 가져오기 (환경설정용)
         public async Task<Department?> GetDepartmentAsync(int departmentId)
         {
-            return await _db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == departmentId);
+            using var db = _dbFactory.CreateDbContext();
+            return await db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == departmentId);
         }
 
         // 🚀 신규 추가: 단일 부서 정보 업데이트 (환경설정용)
         public async Task UpdateDepartmentAsync(Department updatedDept)
         {
-            var existing = await _db.Departments.FindAsync(updatedDept.Id);
+            using var db = _dbFactory.CreateDbContext();
+
+            var existing = await db.Departments.FindAsync(updatedDept.Id);
             if (existing != null)
             {
-                _db.Entry(existing).CurrentValues.SetValues(updatedDept);
-                await _db.SaveChangesAsync();
+                db.Entry(existing).CurrentValues.SetValues(updatedDept);
+                await db.SaveChangesAsync();
             }
         }
 
         // 사용자 정보 통째로 업데이트 (이름, 부서, 활성상태 변경용)
         public async Task UpdateUserAsync(User user)
         {
-            var existing = await _db.Users.FindAsync(user.Username);
+            using var db = _dbFactory.CreateDbContext();
+
+            var existing = await db.Users.FindAsync(user.Username);
             if (existing != null)
             {
-                _db.Entry(existing).CurrentValues.SetValues(user);
-                await _db.SaveChangesAsync();
+                db.Entry(existing).CurrentValues.SetValues(user);
+                await db.SaveChangesAsync();
             }
         }
 
         // 초기 매핑 셋팅 (유년부 Id 찾아서 저장)
         public async Task EnsureDetailedMappingsAsync(int deptId)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             var mapData = new Dictionary<string, string>
             {
                 { "인천중앙교회", "교회보조금" }, { "주정헌금", "주일헌금" }, { "주일헌금", "주일헌금" }, { "이자", "은행이자" },
@@ -673,10 +788,10 @@ namespace INcheonChurchWeb.Services
             };
             foreach (var kv in mapData)
             {
-                if (!await _db.CategoryMappings.AnyAsync(x => x.Keyword == kv.Key && x.DepartmentId == deptId))
-                    _db.CategoryMappings.Add(new CategoryMapping { Keyword = kv.Key, Category = kv.Value, DepartmentId = deptId });
+                if (!await db.CategoryMappings.AnyAsync(x => x.Keyword == kv.Key && x.DepartmentId == deptId))
+                    db.CategoryMappings.Add(new CategoryMapping { Keyword = kv.Key, Category = kv.Value, DepartmentId = deptId });
             }
-            await _db.SaveChangesAsync();
+            await db.SaveChangesAsync();
         }
 
         // =========================================================
@@ -684,22 +799,33 @@ namespace INcheonChurchWeb.Services
         // =========================================================
         public async Task SaveExpenseReportAsync(ExpenseReport report)
         {
-            if (report.Id == 0) _db.ExpenseReports.Add(report);
-            else { var existing = await _db.ExpenseReports.FindAsync(report.Id); if (existing != null) _db.Entry(existing).CurrentValues.SetValues(report); }
-            await _db.SaveChangesAsync();
+            using var db = _dbFactory.CreateDbContext();
+
+            if (report.Id == 0) db.ExpenseReports.Add(report);
+            else { var existing = await db.ExpenseReports.FindAsync(report.Id); if (existing != null) db.Entry(existing).CurrentValues.SetValues(report); }
+            await db.SaveChangesAsync();
         }
 
-        public async Task<List<ExpenseReport>> GetExpenseReportsAsync(int deptId, int year) =>
-            await _db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId && r.FiscalYear == year).OrderByDescending(r => r.Date).ToListAsync();
+        public async Task<List<ExpenseReport>> GetExpenseReportsAsync(int deptId, int year)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.ExpenseReports.AsNoTracking().Where(r => r.DepartmentId == deptId && r.FiscalYear == year).OrderByDescending(r => r.Date).ToListAsync();
+        }
 
-        public async Task DeleteExpenseReportAsync(int id) { var target = await _db.ExpenseReports.FindAsync(id); if (target != null) { _db.ExpenseReports.Remove(target); await _db.SaveChangesAsync(); } }
+        public async Task DeleteExpenseReportAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var target = await db.ExpenseReports.FindAsync(id); if (target != null) { db.ExpenseReports.Remove(target); await db.SaveChangesAsync(); }
+        }
         // =========================================================
         // [신규 추가] 지출결의서 작성용 예산 및 기 신청액 통계 조회 (SQLite 호환성 패치)
         // =========================================================
         public async Task<(decimal TotalReceived, decimal TotalUsed)> GetSubsidyStatusForReportAsync(int deptId, int year)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             // 1. 총 예산(수령액): 해당 연도 수입 예산 총합 (SQLite decimal Sum 오류 방지를 위해 메모리에서 합산)
-            var budgetList = await _db.BudgetPlans.AsNoTracking()
+            var budgetList = await db.BudgetPlans.AsNoTracking()
                 .Where(b => b.DepartmentId == deptId && b.Year == year && (b.Type == "Income" || b.Type == "수입"))
                 .Select(b => b.Amount)
                 .ToListAsync();
@@ -707,7 +833,7 @@ namespace INcheonChurchWeb.Services
             decimal totalBudget = budgetList.Sum();
 
             // 2. 기 신청액: 해당 연도에 이미 작성된 지출결의서들의 총합
-            var usedList = await _db.ExpenseReports.AsNoTracking()
+            var usedList = await db.ExpenseReports.AsNoTracking()
                 .Where(r => r.DepartmentId == deptId && r.FiscalYear == year)
                 .Select(r => r.TotalAmount)
                 .ToListAsync();
@@ -720,11 +846,17 @@ namespace INcheonChurchWeb.Services
 
         public async Task<List<LedgerEntry>> GetLedgerAsync(int deptId, int year)
         {
-            return await _db.Transactions.Where(t => t.DepartmentId == deptId && t.FiscalYear == year)
+            using var db = _dbFactory.CreateDbContext();
+
+            return await db.Transactions.Where(t => t.DepartmentId == deptId && t.FiscalYear == year)
                 .OrderBy(t => t.Date).AsNoTracking().ToListAsync();
         }
 
-        public async Task DeleteLedgerEntryAsync(int id) { var entry = await _db.Transactions.FindAsync(id); if (entry != null) { _db.Transactions.Remove(entry); await _db.SaveChangesAsync(); } }
+        public async Task DeleteLedgerEntryAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var entry = await db.Transactions.FindAsync(id); if (entry != null) { db.Transactions.Remove(entry); await db.SaveChangesAsync(); }
+        }
         // 수동 설정 및 11월 4째주 주일 규칙을 모두 반영하여 회계연도를 반환하는 메서드
         // 핵심: Q1 시작일(전년 11월 말)과 Q4 종료일(당년 11월)을 모두 확인하여
         //       날짜가 어느 회계연도에 속하는지 정확히 판단
@@ -751,6 +883,8 @@ namespace INcheonChurchWeb.Services
         // 분기 설정 변경 시, 해당 부서의 관련 장부 데이터 FiscalYear/Quarter를 일괄 재계산
         public async Task<int> BulkRecalcFiscalYearQuarterAsync(int deptId, int fiscalYear)
         {
+            using var db = _dbFactory.CreateDbContext();
+
             // 해당 회계연도의 전체 날짜 범위를 구함
             var q1 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 1);
             var q4 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 4);
@@ -763,7 +897,7 @@ namespace INcheonChurchWeb.Services
             DateTime rangeStart = q4Prev.Start.Date < q1.Start.Date ? q4Prev.Start.Date : q1.Start.Date;
             DateTime rangeEnd = q4.End.Date.AddDays(60); // 여유 있게
 
-            var targets = await _db.Transactions
+            var targets = await db.Transactions
                 .Where(t => t.DepartmentId == deptId && t.Date >= rangeStart && t.Date <= rangeEnd)
                 .ToListAsync();
 
@@ -782,7 +916,7 @@ namespace INcheonChurchWeb.Services
             }
 
             if (updatedCount > 0)
-                await _db.SaveChangesAsync();
+                await db.SaveChangesAsync();
 
             return updatedCount;
         }

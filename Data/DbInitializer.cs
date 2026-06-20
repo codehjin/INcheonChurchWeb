@@ -10,6 +10,10 @@ namespace INcheonChurchWeb.Data
         {
             context.Database.EnsureCreated();
 
+            // 0. 🚀 인코딩 손상 찌꺼기 1회성 정화 보정
+            // (부서명/계좌 정보에 끼어든 연속된 물음표·유니코드 대체문자 등을 제거)
+            CleanCorruptedDepartmentData(context);
+
             // 1. 기본 부서 데이터 세팅
             if (!context.Departments.Any())
             {
@@ -101,6 +105,43 @@ namespace INcheonChurchWeb.Data
                     context.SaveChanges();
                 }
             }
+        }
+
+        // 🚀 부서명(Name)과 계좌 정보(은행명/계좌번호/예금주)에 남은 인코딩 찌꺼기를 정리합니다.
+        // 예) "????? 영유아부" -> "영유아부"
+        private static void CleanCorruptedDepartmentData(AppDbContext context)
+        {
+            // 부서 테이블이 아직 없으면(최초 생성 직후) 정리할 데이터도 없으므로 건너뜀
+            if (!context.Departments.Any()) return;
+
+            bool changed = false;
+            foreach (var dept in context.Departments)
+            {
+                string name = CleanGarbage(dept.Name);
+                string bank = CleanGarbage(dept.BankName);
+                string accNo = CleanGarbage(dept.AccountNumber);
+                string holder = CleanGarbage(dept.AccountHolder);
+
+                if (name != dept.Name || bank != dept.BankName || accNo != dept.AccountNumber || holder != dept.AccountHolder)
+                {
+                    dept.Name = name;
+                    dept.BankName = bank;
+                    dept.AccountNumber = accNo;
+                    dept.AccountHolder = holder;
+                    changed = true;
+                }
+            }
+
+            if (changed) context.SaveChanges();
+        }
+
+        // 문자열 앞뒤에 붙은 물음표(?)·유니코드 대체문자(�)와 주변 공백을 제거합니다.
+        private static string CleanGarbage(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return value ?? "";
+            // 앞뒤의 찌꺼기 문자/공백을 한 번에 제거 (예: "?????　영유아부 " -> "영유아부")
+            string cleaned = value.Trim('?', '�', ' ', '\t', '　').Trim();
+            return cleaned;
         }
     }
 }

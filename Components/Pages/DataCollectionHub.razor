@@ -650,6 +650,7 @@ private async Task DownloadLedgerTemplate()
         }
 
         _isProcessing = false;
+        await LoadOcrUsage(); // 🚀 일괄 처리로 누적된 Vision API 사용량을 화면에 다시 반영
         await ShowAlertAsync($"{_processedCount}장의 영수증 처리가 완료되었습니다.\n월별 장부 화면에서 '자동 매치' 또는 '수동 매치'를 진행해 주세요!");
     }
 

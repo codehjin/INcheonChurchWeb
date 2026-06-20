@@ -45,7 +45,10 @@ namespace INcheonChurchWeb.Services
 
                 using (var scope = _serviceProvider.CreateScope())
                 {
-                    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    // 🚀 [동시성 안전화] AppDbContext는 Scoped로 등록되지 않고 IDbContextFactory로만 등록되어 있으므로
+                    // GetRequiredService<AppDbContext>()는 DI 예외를 던집니다. 팩토리에서 짧은 수명의 컨텍스트를 생성합니다.
+                    var dbFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+                    using var dbContext = dbFactory.CreateDbContext();
                     var accService = scope.ServiceProvider.GetRequiredService<AccountingService>();
 
                     // 1. 운영 중인 모든 부서 목록 가져오기
