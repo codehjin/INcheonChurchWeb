@@ -140,21 +140,26 @@ namespace INcheonChurchWeb.Services
         // [1-2] 분기 설정: 날짜 범위 저장 및 조회
         // =========================================================
 
-        public async Task SaveQuarterSettingAsync(int deptId, int year, int quarter, DateTime start, DateTime end)
+        // isSystemAdmin == true: 특정 부서가 아닌 '모든 부서(관리자/시스템 제외)'에 동일 분기 일정을 일괄 적용.
+        public async Task SaveQuarterSettingAsync(int deptId, int year, int quarter, DateTime start, DateTime end, bool isSystemAdmin = false)
         {
             using var db = _dbFactory.CreateDbContext();
 
             string key = $"Quarter_{year}_Q{quarter}";
             string rangeStr = $"{start:yyyy-MM-dd}~{end:yyyy-MM-dd}";
 
-            var setting = await db.CategoryMappings.FirstOrDefaultAsync(m => m.DepartmentId == deptId && m.Keyword == key);
-            if (setting == null)
+            // 적용 대상 부서: 관리자면 전체, 아니면 본인 부서만
+            List<int> targetDeptIds = isSystemAdmin
+                ? await db.Departments.Where(d => d.Name != "관리자" && d.Name != "시스템").Select(d => d.Id).ToListAsync()
+                : new List<int> { deptId };
+
+            foreach (var tid in targetDeptIds)
             {
-                db.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = key, Category = rangeStr });
-            }
-            else
-            {
-                setting.Category = rangeStr;
+                var setting = await db.CategoryMappings.FirstOrDefaultAsync(m => m.DepartmentId == tid && m.Keyword == key);
+                if (setting == null)
+                    db.CategoryMappings.Add(new CategoryMapping { DepartmentId = tid, Keyword = key, Category = rangeStr });
+                else
+                    setting.Category = rangeStr;
             }
             await db.SaveChangesAsync();
         }
@@ -1151,8 +1156,19 @@ namespace INcheonChurchWeb.Services
         }
 
         // 분기 설정 변경 시, 해당 부서의 관련 장부 데이터 FiscalYear/Quarter를 일괄 재계산
-        public async Task<int> BulkRecalcFiscalYearQuarterAsync(int deptId, int fiscalYear)
+        // isSystemAdmin == true: 모든 부서(관리자/시스템 제외)의 장부를 각각 재계산하고 총 변경건수를 합산.
+        public async Task<int> BulkRecalcFiscalYearQuarterAsync(int deptId, int fiscalYear, bool isSystemAdmin = false)
         {
+            if (isSystemAdmin)
+            {
+                using var dbAll = _dbFactory.CreateDbContext();
+                var deptIds = await dbAll.Departments.Where(d => d.Name != "관리자" && d.Name != "시스템").Select(d => d.Id).ToListAsync();
+                int total = 0;
+                foreach (var tid in deptIds)
+                    total += await BulkRecalcFiscalYearQuarterAsync(tid, fiscalYear, false);
+                return total;
+            }
+
             using var db = _dbFactory.CreateDbContext();
 
             // 해당 회계연도의 전체 날짜 범위를 구함

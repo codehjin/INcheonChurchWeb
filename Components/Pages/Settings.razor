@@ -419,7 +419,10 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-8 col-lg-9">
-                                <p class="mb-0 small text-muted mt-md-4">선택한 부서의 장부·규칙만 분석/등록 대상이 됩니다. 부서를 바꾸면 분석 결과가 초기화됩니다.</p>
+                                <div class="mt-md-4">
+                                    <span class="badge" style="background-color: #785600; font-size: 0.85rem;"><i class="bi bi-check-circle me-1"></i>현재 관리 대상: @(_adminDeptList.FirstOrDefault(d => d.Id == _mappingTargetDeptId)?.Name ?? "미선택")</span>
+                                    <p class="mb-0 small text-muted mt-1">선택한 부서의 장부·규칙만 분석/등록 대상이 됩니다. 부서를 바꾸면 규칙·추천 결과가 즉시 갱신됩니다.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1395,13 +1398,17 @@
 
     private async Task SaveAllQuarters()
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{_targetYear}년도 전체 분기 기간을 저장하시겠습니까?") != true) return;
+        bool isAdmin = CurrentUser?.IsSystemAdmin == true;
+        string confirmMsg = isAdmin
+            ? "⚠️ 경고: 최고관리자 권한으로 저장 시, 모든 부서의 회계 분기 일정이 현재 설정으로 일괄 변경됩니다. 정말 진행하시겠습니까?"
+            : $"{_targetYear}년도 전체 분기 기간을 저장하시겠습니까?";
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", confirmMsg) != true) return;
         for (int q = 1; q <= 4; q++)
         {
-            await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, q, _quarterStartDates[q - 1], _quarterEndDates[q - 1]);
+            await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, q, _quarterStartDates[q - 1], _quarterEndDates[q - 1], isAdmin);
         }
-        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear);
-        string msg = $"{_targetYear}년도 전체 분기 기간이 저장되었습니다.";
+        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, isAdmin);
+        string msg = isAdmin ? $"{_targetYear}년도 전체 분기 기간이 전 부서에 일괄 저장되었습니다." : $"{_targetYear}년도 전체 분기 기간이 저장되었습니다.";
         if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
         await ShowAlertAsync(msg);
     }
@@ -1711,10 +1718,14 @@
     private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _budgetSubTab; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
     private async Task SaveQuarter(int q)
     {
-        if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{_targetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return;
-        await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, q, _quarterStartDates[q - 1], _quarterEndDates[q - 1]);
-        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear);
-        string msg = $"{_targetYear}년도 {q}분기 기간이 설정되었습니다.";
+        bool isAdmin = CurrentUser?.IsSystemAdmin == true;
+        string confirmMsg = isAdmin
+            ? "⚠️ 경고: 최고관리자 권한으로 저장 시, 모든 부서의 회계 분기 일정이 현재 설정으로 일괄 변경됩니다. 정말 진행하시겠습니까?"
+            : $"{_targetYear}년도 {q}분기 기간을 변경하시겠습니까?";
+        if (await JSRuntime.InvokeAsync<bool?>("confirm", confirmMsg) != true) return;
+        await AccService.SaveQuarterSettingAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, q, _quarterStartDates[q - 1], _quarterEndDates[q - 1], isAdmin);
+        int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, isAdmin);
+        string msg = isAdmin ? $"{_targetYear}년도 {q}분기 기간이 전 부서에 일괄 설정되었습니다." : $"{_targetYear}년도 {q}분기 기간이 설정되었습니다.";
         if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
         await ShowAlertAsync(msg);
     }
