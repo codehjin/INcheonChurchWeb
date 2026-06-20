@@ -28,7 +28,7 @@
                 <div class="d-flex align-items-center gap-2">
                     <div class="d-flex align-items-center rounded px-2 py-1" style="background-color: #f5f4e8;">
                         <button class="btn btn-sm p-1" style="color: #4e4637; background: none; border: none; font-weight: 700;" @onclick="PrevYear">◀</button>
-                        <span class="fw-bold px-2" style="color: #5a4000; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center;">@(TargetYear)</span>
+                        <span class="fw-bold px-2" style="color: #5a4000; font-variant-numeric: tabular-nums; min-width: 60px; text-align: center;">@(_targetYear)</span>
                         <button class="btn btn-sm p-1" style="color: #4e4637; background: none; border: none; font-weight: 700;" @onclick="NextYear">▶</button>
                     </div>
                     <button class="px-3 py-2 fw-bold" style="background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #fff; border: none; border-radius: 0.25rem; font-size: 0.8rem; transition: transform 0.15s ease-out;" @onclick="NewReport">
@@ -38,11 +38,11 @@
             </div>
 
             <div class="d-flex gap-3 pb-3" style="overflow-x: auto;">
-                @if (reportHistory.Count > 0)
+                @if (_reportHistory.Count > 0)
                 {
-                    @foreach (var report in reportHistory)
+                    @foreach (var report in _reportHistory)
                     {
-                        <div class="flex-shrink-0 p-3 px-4" style="background-color: @(CurrentReport.Id == report.Id ? "#eae9dd" : "#f5f4e8"); border-radius: 0.25rem; cursor: pointer; transition: all 0.2s ease-out; min-width: 180px;" @onclick="() => LoadReport(report)">
+                        <div class="flex-shrink-0 p-3 px-4" style="background-color: @(_currentReport.Id == report.Id ? "#eae9dd" : "#f5f4e8"); border-radius: 0.25rem; cursor: pointer; transition: all 0.2s ease-out; min-width: 180px;" @onclick="() => LoadReport(report)">
                             <div class="fw-bold mb-1" style="color: #5a4000; font-size: 0.8125rem;">@report.Title</div>
                             <div style="font-size: 0.6875rem; color: #4e4637; font-variant-numeric: tabular-nums;">@report.Date.ToString("yyyy-MM-dd") · ₩ @report.TotalAmount.ToString("N0")</div>
                             <div class="d-flex gap-2 mt-2">
@@ -64,13 +64,13 @@
             <div class="col-6 col-md-3">
                 <div class="p-4" style="background-color: #f5f4e8; border-radius: 0.375rem;">
                     <span class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">총 예산 (보조금)</span>
-                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: #1b1c15;">₩ @TotalBudget.ToString("N0")</span>
+                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: #1b1c15;">₩ @_totalBudget.ToString("N0")</span>
                 </div>
             </div>
             <div class="col-6 col-md-3">
                 <div class="p-4" style="background-color: #f5f4e8; border-radius: 0.375rem;">
                     <span class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">기 신청액</span>
-                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: #1b1c15; opacity: 0.7;">₩ @UsedBudget.ToString("N0")</span>
+                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: #1b1c15; opacity: 0.7;">₩ @_usedBudget.ToString("N0")</span>
                 </div>
             </div>
             <div class="col-6 col-md-3">
@@ -82,7 +82,7 @@
             <div class="col-6 col-md-3">
                 <div class="p-4" style="background-color: rgba(90, 64, 0, 0.05); border-radius: 0.375rem;">
                     <span class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">신청 후 잔액</span>
-                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: @((TotalBudget - UsedBudget - CurrentRequestTotal) < 0 ? "#ba1a1a" : "#1b1c15");">₩ @((TotalBudget - UsedBudget - CurrentRequestTotal).ToString("N0"))</span>
+                    <span class="fw-bold" style="font-size: 1.25rem; font-variant-numeric: tabular-nums; color: @((_totalBudget - _usedBudget - CurrentRequestTotal) < 0 ? "#ba1a1a" : "#1b1c15");">₩ @((_totalBudget - _usedBudget - CurrentRequestTotal).ToString("N0"))</span>
                 </div>
             </div>
         </div>
@@ -100,26 +100,26 @@
                     <div class="row g-4 mb-4">
                         <div class="col-md-4">
                             <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">문서 제목 (청구인)</label>
-                            <input type="text" class="form-control er-noline-input fs-5 fw-medium" @bind="CurrentReport.Title" placeholder="성명을 입력하세요" />
+                            <input type="text" class="form-control er-noline-input fs-5 fw-medium" @bind="_currentReport.Title" placeholder="성명을 입력하세요" />
                         </div>
                         <div class="col-md-3">
                             <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">지출 일자</label>
-                            <input type="date" class="form-control er-noline-input fs-5" style="font-variant-numeric: tabular-nums;" @bind="CurrentReport.Date" />
+                            <input type="date" class="form-control er-noline-input fs-5" style="font-variant-numeric: tabular-nums;" @bind="_currentReport.Date" />
                         </div>
                         <div class="col-md-5">
                             <label class="d-block mb-2" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">지급 방법</label>
                             <div class="d-flex align-items-center gap-4 pt-1">
                                 <label class="d-flex align-items-center gap-2" style="cursor: pointer;">
                                     <input type="radio" name="payMethod" id="payAcc" style="width: 1.125rem; height: 1.125rem; accent-color: #5a4000;"
-                                           checked="@(CurrentReport.PaymentMethod == "계좌")"
-                                           @onchange='() => CurrentReport.PaymentMethod = "계좌"' />
-                                    <span class="fw-medium" style="color: @(CurrentReport.PaymentMethod == "계좌" ? "#5a4000" : "#1b1c15");">계좌이체</span>
+                                           checked="@(_currentReport.PaymentMethod == "계좌")"
+                                           @onchange='() => _currentReport.PaymentMethod = "계좌"' />
+                                    <span class="fw-medium" style="color: @(_currentReport.PaymentMethod == "계좌" ? "#5a4000" : "#1b1c15");">계좌이체</span>
                                 </label>
                                 <label class="d-flex align-items-center gap-2" style="cursor: pointer;">
                                     <input type="radio" name="payMethod" id="payCash" style="width: 1.125rem; height: 1.125rem; accent-color: #5a4000;"
-                                           checked="@(CurrentReport.PaymentMethod == "현금")"
-                                           @onchange='() => CurrentReport.PaymentMethod = "현금"' />
-                                    <span class="fw-medium" style="color: @(CurrentReport.PaymentMethod == "현금" ? "#5a4000" : "#1b1c15");">현금지급</span>
+                                           checked="@(_currentReport.PaymentMethod == "현금")"
+                                           @onchange='() => _currentReport.PaymentMethod = "현금"' />
+                                    <span class="fw-medium" style="color: @(_currentReport.PaymentMethod == "현금" ? "#5a4000" : "#1b1c15");">현금지급</span>
                                 </label>
                             </div>
                         </div>
@@ -131,7 +131,7 @@
                     <div class="d-flex align-items-center justify-content-between mb-3">
                         <h4 class="fw-bold mb-0" style="color: #1b1c15; font-size: 1.2rem;">지출 상세 내역</h4>
                         <button class="d-flex align-items-center gap-1 px-3 py-2 fw-bold" style="color: #5a4000; font-size: 1rem; background: none; border: none; border-radius: 0.25rem; transition: background 0.2s;" @onclick="AddOrUpdateItem">
-                            <i class="bi bi-plus-circle"></i> @(isEditing ? "수정완료" : "항목 추가")
+                            <i class="bi bi-plus-circle"></i> @(_isEditing ? "수정완료" : "항목 추가")
                         </button>
                     </div>
 
@@ -140,9 +140,9 @@
                         <div class="row g-3 align-items-end">
                             <div class="col-md-3">
                                 <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">지출항목</label>
-                                <input class="form-control er-noline-input ep-input" list="expCats" @bind="newItem.Category" @bind:event="oninput" placeholder="선택/입력" />
+                                <input class="form-control er-noline-input ep-input" list="expCats" @bind="_newItem.Category" @bind:event="oninput" placeholder="선택/입력" />
                                 <datalist id="expCats">
-                                    @foreach (var c in catList)
+                                    @foreach (var c in _catList)
                                     {
                                         <option value="@c" />
                                     }
@@ -150,17 +150,17 @@
                             </div>
                             <div class="col-md-5">
                                 <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">산출근거 (내용)</label>
-                                <input class="form-control er-noline-input ep-input" style="ime-mode:active;" @bind="newItem.CalcDetail" @bind:event="oninput" placeholder="상세 내용" />
+                                <input class="form-control er-noline-input ep-input" style="ime-mode:active;" @bind="_newItem.CalcDetail" @bind:event="oninput" placeholder="상세 내용" />
                             </div>
                             <div class="col-md-2">
                                 <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">청구금액</label>
-                                <input type="number" class="form-control er-noline-input ep-input no-spinners text-end fw-bold" @bind="inputAmount" @bind:event="oninput" placeholder="금액" @onkeyup="EnterKey" />
+                                <input type="number" class="form-control er-noline-input ep-input no-spinners text-end fw-bold" @bind="_inputAmount" @bind:event="oninput" placeholder="금액" @onkeyup="EnterKey" />
                             </div>
                             <div class="col-md-2 d-flex gap-2 align-items-end">
                                 <button class="flex-grow-1 py-2 fw-bold" style="background: linear-gradient(135deg, #785600 0%, #5a4000 100%); color: #fff; border: none; border-radius: 0.25rem; font-size: 1rem; transition: transform 0.15s ease-out;" @onclick="AddOrUpdateItem">
-                                    <i class="@(isEditing ? "bi bi-check-circle me-1" : "bi bi-arrow-down-circle me-1")"></i>@(isEditing ? "완료" : "추가")
+                                    <i class="@(_isEditing ? "bi bi-check-circle me-1" : "bi bi-arrow-down-circle me-1")"></i>@(_isEditing ? "완료" : "추가")
                                 </button>
-                                @if (isEditing)
+                                @if (_isEditing)
                                 {
                                     <button class="py-2 px-3 fw-bold" style="background-color: rgba(186, 26, 26, 0.1); color: #ba1a1a; border: none; border-radius: 0.25rem; font-size: 1rem;" @onclick="ClearInputFields">취소</button>
                                 }
@@ -178,12 +178,12 @@
                             <div class="text-center" style="width: 100px; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">수정</div>
                         </div>
                         @* 행 *@
-                        @if (itemList.Count > 0)
+                        @if (_itemList.Count > 0)
                         {
-                            @foreach (var item in itemList)
+                            @foreach (var item in _itemList)
                             {
-                                bool isCurrentEdit = isEditing && editingItem == item;
-                                <div class="d-flex flex-wrap px-4 py-3 align-items-center" style="background-color: @(isCurrentEdit ? "#eae9dd" : (itemList.IndexOf(item) % 2 == 0 ? "#f5f4e8" : "rgba(255,255,255,0.4)")); transition: background-color 0.15s ease-out; cursor: pointer;">
+                                bool isCurrentEdit = _isEditing && _editingItem == item;
+                                <div class="d-flex flex-wrap px-4 py-3 align-items-center" style="background-color: @(isCurrentEdit ? "#eae9dd" : (_itemList.IndexOf(item) % 2 == 0 ? "#f5f4e8" : "rgba(255,255,255,0.4)")); transition: background-color 0.15s ease-out; cursor: pointer;">
                                     <div class="fw-bold" style="width: 25%; color: #1b1c15;">@item.Category</div>
                                     <div class="flex-grow-1" style="color: #4e4637; font-size: 0.875rem;">@item.CalcDetail</div>
                                     <div class="text-end fw-bold" style="width: 20%; color: #5a4000; font-variant-numeric: tabular-nums;">₩ @item.Amount.ToString("N0")</div>
@@ -240,7 +240,7 @@
                             <div class="ep-title">지 출 결 의 서</div>
                             <div class="d-flex flex-column align-items-end mb-2">
                                 <div class="mb-1" style="font-weight: bold; text-align: right; width: 100%; font-size: 11pt; color: #000;">
-                                    @CurrentReport.Date.ToString("yyyy 년 MM 월 dd 일")
+                                    @_currentReport.Date.ToString("yyyy 년 MM 월 dd 일")
                                 </div>
                                 <table class="ep-approval">
                                     <tbody>
@@ -280,9 +280,9 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                @if (itemList.Count > 0)
+                                                @if (_itemList.Count > 0)
                                                 {
-                                                    @foreach (var item in itemList)
+                                                    @foreach (var item in _itemList)
                                                     {
                                                         <tr>
                                                             <td class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category, "Category")">@item.Category</span></td>
@@ -291,7 +291,7 @@
                                                         </tr>
                                                     }
                                                 }
-                                                @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
+                                                @for (int i = 0; i < Math.Max(6, _itemList.Count) - _itemList.Count; i++)
                                                 {
                                                     <tr>
                                                         <td class="col-cat">&nbsp;</td>
@@ -319,11 +319,11 @@
                                 <tr>
                                     <td class="ep-acc-val fw-bold">
                                         <span class="text-nowrap-squish" style="font-size: 9pt !important; letter-spacing: -0.5px;">
-                                            현금@(CurrentReport.PaymentMethod == "현금" ? "☑" : "□")
-                                            계좌@(CurrentReport.PaymentMethod == "계좌" ? "☑" : "□")
+                                            현금@(_currentReport.PaymentMethod == "현금" ? "☑" : "□")
+                                            계좌@(_currentReport.PaymentMethod == "계좌" ? "☑" : "□")
                                         </span>
                                     </td>
-                                    @if (CurrentReport.PaymentMethod == "계좌")
+                                    @if (_currentReport.PaymentMethod == "계좌")
                                     {
                                         <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important;">@(CurrentUser?.Department?.BankName ?? "")</span></td>
                                         <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important; letter-spacing: -0.5px;">@(CurrentUser?.Department?.AccountNumber ?? "")</span></td>
@@ -334,8 +334,8 @@
                                         <td class="ep-acc-val" colspan="3"><span class="text-muted small">현금 지급 (계좌이체 안함)</span></td>
                                     }
                                 </tr>
-                                <tr><td class="ep-lbl">청구날짜</td><td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Date.ToString("yyyy년 MM월 dd일")</td></tr>
-                                <tr><td class="ep-lbl">청&nbsp;구&nbsp;인</td><td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Title <span class="ep-seal fw-bold ms-2">(인)</span></td></tr>
+                                <tr><td class="ep-lbl">청구날짜</td><td class="ep-cval text-end pe-3" colspan="4">@_currentReport.Date.ToString("yyyy년 MM월 dd일")</td></tr>
+                                <tr><td class="ep-lbl">청&nbsp;구&nbsp;인</td><td class="ep-cval text-end pe-3" colspan="4">@_currentReport.Title <span class="ep-seal fw-bold ms-2">(인)</span></td></tr>
                                 <tr><td class="ep-lbl">지출날짜</td><td class="ep-cval text-end pe-3 fw-bold" colspan="4">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</td></tr>
                             </table>
                             <div class="ep-footer">인천중앙성결교회</div>
@@ -379,7 +379,7 @@
             <div class="ep-title">지 출 결 의 서</div>
             <div class="d-flex flex-column align-items-end mb-2">
                 <div class="mb-1" style="font-weight: bold; text-align: right; width: 100%; font-size: 11pt; color: #000;">
-                    @CurrentReport.Date.ToString("yyyy 년 MM 월 dd 일")
+                    @_currentReport.Date.ToString("yyyy 년 MM 월 dd 일")
                 </div>
                 <table class="ep-approval">
                     <tbody>
@@ -420,9 +420,9 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @if (itemList.Count > 0)
+                                @if (_itemList.Count > 0)
                                 {
-                                    @foreach (var item in itemList)
+                                    @foreach (var item in _itemList)
                                     {
                                         <tr>
                                             <td class="col-cat"><span class="text-nowrap-squish" style="@GetDynamicStyle(item.Category, "Category")">@item.Category</span></td>
@@ -431,7 +431,7 @@
                                         </tr>
                                     }
                                 }
-                                @for (int i = 0; i < Math.Max(6, itemList.Count) - itemList.Count; i++)
+                                @for (int i = 0; i < Math.Max(6, _itemList.Count) - _itemList.Count; i++)
                                 {
                                     <tr>
                                         <td class="col-cat">&nbsp;</td>
@@ -460,11 +460,11 @@
                 <tr>
                     <td class="ep-acc-val fw-bold">
                         <span class="text-nowrap-squish" style="font-size: 9pt !important; letter-spacing: -0.5px;">
-                            현금@(CurrentReport.PaymentMethod == "현금" ? "☑" : "□")
-                            계좌@(CurrentReport.PaymentMethod == "계좌" ? "☑" : "□")
+                            현금@(_currentReport.PaymentMethod == "현금" ? "☑" : "□")
+                            계좌@(_currentReport.PaymentMethod == "계좌" ? "☑" : "□")
                         </span>
                     </td>
-                    @if (CurrentReport.PaymentMethod == "계좌")
+                    @if (_currentReport.PaymentMethod == "계좌")
                     {
                         <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important;">@(CurrentUser?.Department?.BankName ?? "")</span></td>
                         <td class="ep-acc-val"><span class="text-nowrap-squish" style="font-size: 9.5pt !important; letter-spacing: -0.5px;">@(CurrentUser?.Department?.AccountNumber ?? "")</span></td>
@@ -475,8 +475,8 @@
                         <td class="ep-acc-val" colspan="3"><span class="text-muted small">현금 지급 (계좌이체 안함)</span></td>
                     }
                 </tr>
-                <tr><td class="ep-lbl">청구날짜</td><td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Date.ToString("yyyy년 MM월 dd일")</td></tr>
-                <tr><td class="ep-lbl">청&nbsp;구&nbsp;인</td><td class="ep-cval text-end pe-3" colspan="4">@CurrentReport.Title <span class="ep-seal fw-bold ms-2">(인)</span></td></tr>
+                <tr><td class="ep-lbl">청구날짜</td><td class="ep-cval text-end pe-3" colspan="4">@_currentReport.Date.ToString("yyyy년 MM월 dd일")</td></tr>
+                <tr><td class="ep-lbl">청&nbsp;구&nbsp;인</td><td class="ep-cval text-end pe-3" colspan="4">@_currentReport.Title <span class="ep-seal fw-bold ms-2">(인)</span></td></tr>
                 <tr><td class="ep-lbl">지출날짜</td><td class="ep-cval text-end pe-3 fw-bold" colspan="4">&nbsp;&nbsp;&nbsp;&nbsp;년&nbsp;&nbsp;&nbsp;&nbsp;월&nbsp;&nbsp;&nbsp;&nbsp;일</td></tr>
             </table>
             <div class="ep-footer">인천중앙성결교회</div>
@@ -859,24 +859,27 @@
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
-    private int TargetYear = DateTime.Now.Year;
-    private decimal TotalBudget = 0;
-    private decimal UsedBudget = 0;
+    private int _targetYear = DateTime.Now.Year;
+    private decimal _totalBudget = 0;
+    private decimal _usedBudget = 0;
 
     // 🚀 화면의 '금액' 빈칸 입력을 처리하기 위한 전용 변수 (null 허용)
-    private decimal? inputAmount = null;
+    private decimal? _inputAmount = null;
 
-    private ExpenseReport CurrentReport = new() { Date = DateTime.Now };
-    private List<BudgetPlan> itemList = new();
-    private BudgetPlan newItem = new();
-    private List<ExpenseReport> reportHistory = new();
-    private List<string> catList = new();
+    private ExpenseReport _currentReport = new() { Date = DateTime.Now };
+    private List<BudgetPlan> _itemList = new();
+    private BudgetPlan _newItem = new();
+    private List<ExpenseReport> _reportHistory = new();
+    private List<string> _catList = new();
 
     // 🚀 수정 모드 처리를 위한 변수
-    private bool isEditing = false;
-    private BudgetPlan? editingItem = null;
+    private bool _isEditing = false;
+    private BudgetPlan? _editingItem = null;
 
-    private decimal CurrentRequestTotal => itemList.Sum(x => x.Amount);
+    private decimal CurrentRequestTotal => _itemList.Sum(x => x.Amount);
+
+    // 🚀 반복되는 alert 호출 압축용 헬퍼
+    private async Task ShowAlertAsync(string message) => await JSRuntime.InvokeVoidAsync("alert", message);
 
     // 🚀 항목(Category)인지 내용(Detail)인지 구분해서 글자 축소 & 두 줄 넘김 적용
     private string GetDynamicStyle(string? text, string colType = "Detail")
@@ -910,8 +913,8 @@
         return $"font-size: {fontSize:F1}pt !important; letter-spacing: {letterSpacing:F1}px;";
     }
 
-    private async Task PrevYear() { TargetYear--; await LoadData(); }
-    private async Task NextYear() { TargetYear++; await LoadData(); }
+    private async Task PrevYear() { _targetYear--; await LoadData(); }
+    private async Task NextYear() { _targetYear++; await LoadData(); }
 
     private string AmountInKorean
     {
@@ -949,45 +952,45 @@
     {
         if (CurrentUser == null) return;
         await LoadData();
-        catList = await AccService.GetCategorySuggestionsAsync(CurrentUser.DepartmentId, "Expense");
+        _catList = await AccService.GetCategorySuggestionsAsync(CurrentUser.DepartmentId, "Expense");
     }
 
     private async Task LoadData()
     {
         if (CurrentUser == null) return;
-        var status = await AccService.GetSubsidyStatusForReportAsync(CurrentUser.DepartmentId, TargetYear);
-        TotalBudget = status.TotalReceived;
-        UsedBudget = status.TotalUsed;
-        reportHistory = await AccService.GetExpenseReportsAsync(CurrentUser.DepartmentId, TargetYear);
+        var status = await AccService.GetSubsidyStatusForReportAsync(CurrentUser.DepartmentId, _targetYear);
+        _totalBudget = status.TotalReceived;
+        _usedBudget = status.TotalUsed;
+        _reportHistory = await AccService.GetExpenseReportsAsync(CurrentUser.DepartmentId, _targetYear);
     }
 
     private void NewReport()
     {
-        CurrentReport = new ExpenseReport
+        _currentReport = new ExpenseReport
         {
             Date = DateTime.Now,
             DepartmentId = CurrentUser?.DepartmentId ?? 0,
-            FiscalYear = TargetYear
+            FiscalYear = _targetYear
         };
-        itemList.Clear();
-        newItem = new();
-        inputAmount = null; // 신규 작성 시 금액 빈칸 초기화
-        isEditing = false;
-        editingItem = null;
+        _itemList.Clear();
+        _newItem = new();
+        _inputAmount = null; // 신규 작성 시 금액 빈칸 초기화
+        _isEditing = false;
+        _editingItem = null;
     }
 
     // 🚀 항목 추가 및 수정 완료 통합 메서드
     private async Task AddOrUpdateItem()
     {
         // 화면의 값을 실제 데이터에 옮겨 담기 (null이면 0으로 처리)
-        newItem.Amount = inputAmount ?? 0;
+        _newItem.Amount = _inputAmount ?? 0;
 
-        if (string.IsNullOrWhiteSpace(newItem.Category) || newItem.Amount <= 0) return;
+        if (string.IsNullOrWhiteSpace(_newItem.Category) || _newItem.Amount <= 0) return;
 
         // 예산 초과 검증 (수정 모드일 때는 기존 항목 금액을 빼고 계산)
-        decimal amountToCheck = isEditing && editingItem != null ? newItem.Amount - editingItem.Amount : newItem.Amount;
+        decimal amountToCheck = _isEditing && _editingItem != null ? _newItem.Amount - _editingItem.Amount : _newItem.Amount;
 
-        if (TotalBudget > 0 && UsedBudget + CurrentRequestTotal + amountToCheck > TotalBudget)
+        if (_totalBudget > 0 && _usedBudget + CurrentRequestTotal + amountToCheck > _totalBudget)
         {
             bool proceed = await JSRuntime.InvokeAsync<bool>("confirm",
                 "⚠️ 신청 금액이 현재 남은 예산을 초과합니다.\n\n" +
@@ -997,56 +1000,56 @@
             if (!proceed) return;
         }
 
-        if (isEditing && editingItem != null)
+        if (_isEditing && _editingItem != null)
         {
-            editingItem.Category = newItem.Category;
-            editingItem.CalcDetail = newItem.CalcDetail;
-            editingItem.Amount = newItem.Amount;
+            _editingItem.Category = _newItem.Category;
+            _editingItem.CalcDetail = _newItem.CalcDetail;
+            _editingItem.Amount = _newItem.Amount;
         }
         else
         {
-            itemList.Add(new BudgetPlan
+            _itemList.Add(new BudgetPlan
             {
-                Category = newItem.Category,
-                CalcDetail = newItem.CalcDetail,
-                Amount = newItem.Amount
+                Category = _newItem.Category,
+                CalcDetail = _newItem.CalcDetail,
+                Amount = _newItem.Amount
             });
         }
 
-        newItem = new();
-        inputAmount = null; // 🚀 입력 완료 후 금액 칸을 다시 완벽한 빈칸으로!
-        isEditing = false;
-        editingItem = null;
+        _newItem = new();
+        _inputAmount = null; // 🚀 입력 완료 후 금액 칸을 다시 완벽한 빈칸으로!
+        _isEditing = false;
+        _editingItem = null;
     }
 
     // 🚀 항목 수정 시작
     private void EditItem(BudgetPlan item)
     {
-        editingItem = item;
-        newItem = new BudgetPlan
+        _editingItem = item;
+        _newItem = new BudgetPlan
         {
             Category = item.Category,
             CalcDetail = item.CalcDetail,
             Amount = item.Amount
         };
-        inputAmount = item.Amount; // 🚀 수정 버튼 누르면 금액도 다시 불러오기
-        isEditing = true;
+        _inputAmount = item.Amount; // 🚀 수정 버튼 누르면 금액도 다시 불러오기
+        _isEditing = true;
     }
 
     // 🚀 입력칸 모두 비우기 & 수정 모드 취소 (초기화 버튼 동작)
     private void ClearInputFields()
     {
-        newItem = new BudgetPlan(); // 지출항목, 산출근거 빈칸으로
-        inputAmount = null;         // 금액 빈칸으로
-        isEditing = false;          // 수정 모드 해제
-        editingItem = null;
+        _newItem = new BudgetPlan(); // 지출항목, 산출근거 빈칸으로
+        _inputAmount = null;         // 금액 빈칸으로
+        _isEditing = false;          // 수정 모드 해제
+        _editingItem = null;
     }
 
     // 🚀 항목 삭제
     private void RemoveItem(BudgetPlan item)
     {
-        itemList.Remove(item);
-        if (isEditing && editingItem == item)
+        _itemList.Remove(item);
+        if (_isEditing && _editingItem == item)
         {
             ClearInputFields();
         }
@@ -1054,30 +1057,30 @@
 
     private async Task SaveReport()
     {
-        if (!itemList.Any())
+        if (!_itemList.Any())
         {
-            await JSRuntime.InvokeVoidAsync("alert", "내역을 입력하세요.");
+            await ShowAlertAsync("내역을 입력하세요.");
             return;
         }
-        if (string.IsNullOrWhiteSpace(CurrentReport.Title))
+        if (string.IsNullOrWhiteSpace(_currentReport.Title))
         {
-            await JSRuntime.InvokeVoidAsync("alert", "청구인을 입력하세요.");
+            await ShowAlertAsync("청구인을 입력하세요.");
             return;
         }
 
-        CurrentReport.DepartmentId = CurrentUser?.DepartmentId ?? 0;
-        CurrentReport.FiscalYear = TargetYear;
-        CurrentReport.TotalAmount = CurrentRequestTotal;
-        CurrentReport.DetailsJson = JsonSerializer.Serialize(itemList);
+        _currentReport.DepartmentId = CurrentUser?.DepartmentId ?? 0;
+        _currentReport.FiscalYear = _targetYear;
+        _currentReport.TotalAmount = CurrentRequestTotal;
+        _currentReport.DetailsJson = JsonSerializer.Serialize(_itemList);
 
-        await AccService.SaveExpenseReportAsync(CurrentReport);
+        await AccService.SaveExpenseReportAsync(_currentReport);
         await LoadData();
-        await JSRuntime.InvokeVoidAsync("alert", "저장되었습니다.");
+        await ShowAlertAsync("저장되었습니다.");
     }
 
     private void LoadReport(ExpenseReport report)
     {
-        CurrentReport = new ExpenseReport
+        _currentReport = new ExpenseReport
         {
             Id = report.Id,
             Date = report.Date,
@@ -1090,17 +1093,17 @@
 
         try
         {
-            itemList = JsonSerializer.Deserialize<List<BudgetPlan>>(report.DetailsJson) ?? new();
+            _itemList = JsonSerializer.Deserialize<List<BudgetPlan>>(report.DetailsJson) ?? new();
         }
         catch
         {
-            itemList = new();
+            _itemList = new();
         }
 
-        newItem = new();
-        inputAmount = null;
-        isEditing = false;
-        editingItem = null;
+        _newItem = new();
+        _inputAmount = null;
+        _isEditing = false;
+        _editingItem = null;
     }
 
     private async Task DeleteReport(ExpenseReport report)
@@ -1110,8 +1113,7 @@
 
         if (isDeposited)
         {
-            await JSRuntime.InvokeVoidAsync("alert",
-                "⚠️ 이미 입금이 확인(완료)된 지출결의서입니다.\n\n" +
+            await ShowAlertAsync("⚠️ 이미 입금이 확인(완료)된 지출결의서입니다.\n\n" +
                 "삭제가 필요하신 경우, 회계 장부(또는 입금 내역)에서\n" +
                 "해당 건을 먼저 취소(삭제)하신 후 다시 시도해 주세요.");
             return;

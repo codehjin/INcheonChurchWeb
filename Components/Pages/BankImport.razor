@@ -124,7 +124,7 @@
                             @foreach (var cat in IncomeCats)
                             {
                                 <div class="col-4">
-                                    <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(90, 64, 0, 0.06)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                    <div class="text-center py-4 rounded" style="background-color: @(_draggedItem != null ? "rgba(90, 64, 0, 0.06)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
                                         <strong style="color: #5a4000; font-size: 1rem;">@cat</strong>
                                     </div>
                                 </div>
@@ -138,7 +138,7 @@
                             @foreach (var cat in ExpenseCats)
                             {
                                 <div class="col-4">
-                                    <div class="text-center py-4 rounded" style="background-color: @(draggedItem != null ? "rgba(186, 26, 26, 0.04)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
+                                    <div class="text-center py-4 rounded" style="background-color: @(_draggedItem != null ? "rgba(186, 26, 26, 0.04)" : "#f5f4e8"); transition: 0.2s; cursor: pointer;" ondragover="event.preventDefault();" @ondrop="@(() => HandleDrop(cat))">
                                         <strong style="color: #ba1a1a; font-size: 1rem;">@cat</strong>
                                     </div>
                                 </div>
@@ -249,7 +249,7 @@
     [Parameter] public EventCallback DownloadLedgerTemplate { get; set; }
     [Parameter] public EventCallback<InputFileChangeEventArgs> HandleLedgerImport { get; set; }
 
-    private LedgerEntry? draggedItem;
+    private LedgerEntry? _draggedItem;
 
     private Task SetSearchUnclassified(string value) => SearchUnclassifiedChanged.InvokeAsync(value);
     private Task SetSearchPreview(string value) => SearchPreviewChanged.InvokeAsync(value);
@@ -308,7 +308,7 @@
 
     private void HandleDragStart(LedgerEntry item)
     {
-        draggedItem = item;
+        _draggedItem = item;
         if (!SelectedUnclassified.Contains(item))
         {
             SelectedUnclassified.Clear();
@@ -318,11 +318,11 @@
 
     private void HandleDrop(string targetCategory)
     {
-        if (draggedItem != null && SelectedUnclassified.Any())
+        if (_draggedItem != null && SelectedUnclassified.Any())
         {
             foreach (var item in SelectedUnclassified) item.Category = targetCategory;
             SelectedUnclassified.Clear();
-            draggedItem = null;
+            _draggedItem = null;
         }
     }
 }
