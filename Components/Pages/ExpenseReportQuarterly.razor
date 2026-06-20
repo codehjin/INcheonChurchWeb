@@ -140,13 +140,7 @@
                         <div class="row g-3 align-items-end">
                             <div class="col-md-3">
                                 <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">지출항목</label>
-                                <input class="form-control er-noline-input ep-input" list="expCats" @bind="_newItem.Category" @bind:event="oninput" placeholder="선택/입력" />
-                                <datalist id="expCats">
-                                    @foreach (var c in _catList)
-                                    {
-                                        <option value="@c" />
-                                    }
-                                </datalist>
+                                <ComboBox @bind-Value="_newItem.Category" Options="_catList" Placeholder="선택/입력" InputClass="form-control er-noline-input ep-input" />
                             </div>
                             <div class="col-md-5">
                                 <label class="d-block mb-1" style="font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #4e4637;">산출근거 (내용)</label>

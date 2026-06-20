@@ -1,0 +1,83 @@
+@* =========================================================
+   공통 콤보박스(Combo-Box) — 입력창 + 화살표 + 전체목록 드롭다운 일체형
+   HTML <datalist>의 브라우저 스타일 한계/화살표 소실 문제를 대체.
+   사용: <ComboBox @bind-Value="모델.속성" Options="문자열목록" Placeholder="..." />
+   ========================================================= *@
+
+<div class="position-relative" style="width: 100%;">
+    <input class="@InputClass"
+           style="padding-right: 2.1rem; @InputStyle"
+           value="@Value"
+           @oninput="OnInput"
+           @onfocus="Open"
+           placeholder="@Placeholder" />
+
+    @* 우측 화살표 — 텍스트 유무와 관계없이 항상 표시(인쇄 시에는 숨김) *@
+    <button type="button"
+            class="btn border-0 position-absolute end-0 top-50 translate-middle-y px-2 d-print-none"
+            style="color: #785600; z-index: 3;"
+            @onclick="Toggle" tabindex="-1">
+        <i class="bi bi-chevron-down" style="transition: transform 0.15s; @(_open ? "transform: rotate(180deg);" : "")"></i>
+    </button>
+
+    @if (_open)
+    {
+        @* 바깥 클릭 감지용 투명 백드롭 *@
+        <div class="d-print-none" style="position: fixed; inset: 0; z-index: 1050; background: transparent;" @onclick="Close"></div>
+
+        <ul class="dropdown-menu show d-print-none"
+            style="display: block; position: absolute; top: 100%; left: 0; width: 100%; z-index: 1056;
+                   border-radius: 0.375rem; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 1px solid #e4e3d7;
+                   max-height: 260px; overflow-y: auto; margin-top: 2px;">
+            @if (Options != null && Options.Any())
+            {
+                @foreach (var opt in Options)
+                {
+                    <li>
+                        <button type="button" class="dropdown-item @(opt == Value ? "active" : "")"
+                                style="cursor: pointer;" @onclick="() => Select(opt)">
+                            @opt
+                        </button>
+                    </li>
+                }
+            }
+            else
+            {
+                <li><span class="dropdown-item-text text-muted small">선택 가능한 항목이 없습니다.</span></li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public IEnumerable<string> Options { get; set; } = new List<string>();
+    [Parameter] public string Placeholder { get; set; } = "";
+
+    // 호출 측 스타일 보존용(예: 인쇄 폼의 ep-input, 테이블 셀의 form-control-sm). 기본은 프로젝트 표준 input.
+    [Parameter] public string InputClass { get; set; } = "settings-input";
+    [Parameter] public string InputStyle { get; set; } = "";
+
+    private bool _open = false;
+
+    private void Open() => _open = true;
+    private void Close() => _open = false;
+    private void Toggle() => _open = !_open;
+
+    // 직접 타이핑 시: 전체목록은 유지하되 값만 즉시 반영(드롭다운은 열어둠)
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString() ?? "";
+        await ValueChanged.InvokeAsync(Value);
+        _open = true;
+    }
+
+    // 목록 항목 선택 시: 값 반영 후 닫기
+    private async Task Select(string option)
+    {
+        Value = option;
+        await ValueChanged.InvokeAsync(option);
+        _open = false;
+    }
+}

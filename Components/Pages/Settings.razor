@@ -160,14 +160,7 @@
                         <div class="row g-2 align-items-end">
                             <div class="col-md-3">
                                 <label class="form-label small fw-bold mb-1 text-muted">항목 (직접입력/선택)</label>
-                                <div class="position-relative">
-                                    <input class="settings-input" list="catList" @bind="_newPlan.Category" placeholder="예: 행사비, 주일헌금" style="padding-right: 2rem;" />
-                                    <datalist id="catList">@foreach (var c in currentCats) { <option value="@c"></option> }</datalist>
-                                    @if (!string.IsNullOrEmpty(_newPlan.Category))
-                                    {
-                                        <button class="position-absolute end-0 top-50 translate-middle-y btn btn-sm border-0" style="color: #ba1a1a;" @onclick="@(() => _newPlan.Category = string.Empty)" title="지우기"><i class="bi bi-x-circle-fill"></i></button>
-                                    }
-                                </div>
+                                <ComboBox @bind-Value="_newPlan.Category" Options="currentCats" Placeholder="예: 행사비, 주일헌금" />
                             </div>
                             <div class="col-md-2">
                                 <label class="form-label small fw-bold mb-1 text-muted">상세내역</label>
@@ -347,6 +340,27 @@
             {
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">엑셀 장부 자동분류 설정</h4>
 
+                @* 🚀 최고관리자 전용: 관리 대상 부서 전환 선택기 *@
+                @if (CurrentUser?.IsSystemAdmin == true)
+                {
+                    <div class="settings-card-warm mb-4 border-start border-4" style="border-color: #785600 !important;">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-4 col-lg-3">
+                                <label class="form-label small fw-bold mb-1" style="color: #5a4000;"><i class="bi bi-building me-1"></i>관리 대상 부서 선택</label>
+                                <select class="settings-input fw-bold" style="color: #785600;" value="@_mappingTargetDeptId" @onchange="ChangeMappingTargetDept">
+                                    @foreach (var d in _adminDeptList.Where(d => d.Name != "관리자"))
+                                    {
+                                        <option value="@d.Id">@d.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-8 col-lg-9">
+                                <p class="mb-0 small text-muted mt-md-4">선택한 부서의 장부·규칙만 분석/등록 대상이 됩니다. 부서를 바꾸면 분석 결과가 초기화됩니다.</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-magic fs-5 mt-1" style="color: #785600;"></i>
                     <div>
@@ -370,14 +384,16 @@
                         </div>
                         <div class="col-md-4">
                             <label class="form-label small fw-bold mb-1 text-muted">분류될 항목</label>
-                            <input class="settings-input" list="mapCatList" @bind="_newMapping.Category" placeholder="항목 선택" />
-                            <datalist id="mapCatList">
-                                @if (_mappingType == "수입") { @foreach (var c in _incomeCats) { <option value="@c"></option> } }
-                                else { @foreach (var c in _expenseCats) { <option value="@c"></option> } }
-                            </datalist>
+                            <ComboBox @bind-Value="_newMapping.Category" Options="@(_mappingType == "수입" ? _incomeCats : _expenseCats)" Placeholder="항목 선택" />
                         </div>
                         <div class="col-md-2">
-                            <button class="settings-gold-btn w-100 py-2" @onclick="AddMapping">규칙 등록</button>
+                            <div class="d-flex gap-1">
+                                <button class="settings-gold-btn flex-grow-1 py-2" @onclick="AddMapping">@(_newMapping.Id == 0 ? "규칙 등록" : "수정 저장")</button>
+                                @if (_newMapping.Id != 0)
+                                {
+                                    <button class="settings-secondary-btn px-3" @onclick="CancelMappingEdit" title="취소"><i class="bi bi-x-lg"></i></button>
+                                }
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -393,7 +409,7 @@
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #785600;">@m.Category</td>
-                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
+                                            <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
                                         </tr>
                                     }
                                     @if (!_mappingList.Any(x => _incomeCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">등록된 수입 규칙이 없습니다.</td></tr> }
@@ -411,7 +427,7 @@
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #ba1a1a;">@m.Category</td>
-                                            <td><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
+                                            <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
                                         </tr>
                                     }
                                     @if (!_mappingList.Any(x => _expenseCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">등록된 지출 규칙이 없습니다.</td></tr> }
@@ -490,7 +506,7 @@
                 {
                     <div class="settings-info-box danger">
                         <i class="bi bi-exclamation-triangle-fill fs-5 mt-1" style="color: #ba1a1a;"></i>
-                        <div><p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">선택한 기간에 분석할 <b>분류된 지출 내역</b>이 없습니다. 기간을 바꾸거나 월별 장부에서 먼저 분류를 진행해 주세요.</p></div>
+                        <div><p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">선택한 기간에 분석할 수 있는 데이터가 없습니다. (※ 주의: 항목이 '미분류'인 내역은 학습할 수 없습니다. 월별 장부에서 먼저 항목 분류를 진행해 주세요.)</p></div>
                     </div>
                 }
                 else if (_suggestions.Any())
@@ -1077,6 +1093,9 @@
     private List<CategoryMapping> _mappingList = new();
     private CategoryMapping _newMapping = new();
 
+    // 🚀 자동분류 설정 '관리 대상 부서' — 최고관리자는 타 부서로 전환 가능(0이면 본인 부서로 초기화)
+    private int _mappingTargetDeptId = 0;
+
     // 🚀 자동분류 규칙 분석(추천 시스템) 상태
     private int _analysisYear = DateTime.Now.Year;
     private int _analysisQuarter = 0; // 0 = 전체
@@ -1238,8 +1257,28 @@
         else if (_activeTab == "Mapping")
         {
             using var context = DbContextFactory.CreateDbContext();
-            _mappingList = await AccService.GetMappingsAsync(myDeptId);
-            var currentYearAllPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == _targetYear).ToListAsync();
+
+            // 🚀 최고관리자는 대상 부서를 전환할 수 있으므로 부서 목록을 로드.
+            if (CurrentUser?.IsSystemAdmin == true)
+            {
+                _adminDeptList = await AccService.GetDepartmentsAsync();
+            }
+            // 대상 부서가 미설정(0)이면 본인 부서로 초기화.
+            if (_mappingTargetDeptId == 0) _mappingTargetDeptId = CurrentUser?.DepartmentId ?? 0;
+
+            // 관리자 본인 부서가 선택 목록(관리자 부서 제외)에 없으면 첫 실부서로 스냅 → 드롭다운과 상태 정합.
+            if (CurrentUser?.IsSystemAdmin == true)
+            {
+                var selectable = _adminDeptList.Where(d => d.Name != "관리자").ToList();
+                if (selectable.Any() && !selectable.Any(d => d.Id == _mappingTargetDeptId))
+                {
+                    _mappingTargetDeptId = selectable.First().Id;
+                }
+            }
+
+            // 이후 모든 조회는 본인 부서가 아니라 '관리 대상 부서(_mappingTargetDeptId)' 기준.
+            _mappingList = await AccService.GetMappingsAsync(_mappingTargetDeptId);
+            var currentYearAllPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == _mappingTargetDeptId && b.Year == _targetYear).ToListAsync();
             _expenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
             _incomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
         }
@@ -1626,20 +1665,54 @@
         await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData);
     }
     private async Task EditPlan(BudgetPlan p) { _newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; _expandedCategories[p.Category] = true; }
-    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = CurrentUser.DepartmentId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await ShowAlertAsync("키워드와 항목을 입력하세요."); } }
+    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = _mappingTargetDeptId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await ShowAlertAsync("키워드와 항목을 입력하세요."); } }
     private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
+
+    // 🚀 규칙 수정: 선택 규칙을 상단 입력 폼으로 깊은 복사하고, 수입/지출 구분을 폼에 맞춤
+    private void EditMapping(CategoryMapping m)
+    {
+        _newMapping = new CategoryMapping
+        {
+            Id = m.Id,
+            DepartmentId = m.DepartmentId,
+            Keyword = m.Keyword,
+            Category = m.Category
+        };
+        _mappingType = _incomeCats.Contains(m.Category ?? "") ? "수입" : "지출";
+    }
+
+    // 🚀 규칙 수정 취소: 입력 폼 초기화(신규 등록 상태로 복귀)
+    private void CancelMappingEdit()
+    {
+        _newMapping = new CategoryMapping();
+    }
+
+    // 🚀 최고관리자 전용: 자동분류 관리 대상 부서 전환
+    private async Task ChangeMappingTargetDept(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) _mappingTargetDeptId = id;
+        _suggestions.Clear();   // 이전 부서의 분석 결과 제거
+        _analysisRan = false;   // 새 부서는 분석 전 상태로
+        await LoadData();       // 새 부서 기준 규칙/항목 재로딩
+    }
 
     // 🚀 선택 기간의 지출 장부를 분석하여 키워드별 추천 분류 목록을 생성
     private async Task RunMappingAnalysis()
     {
         if (CurrentUser == null) return;
         _isAnalyzing = true;
+        StateHasChanged();      // 🚀 로딩 스피너를 먼저 화면에 그리도록 즉시 렌더 요청
+        await Task.Delay(10);   // 🚀 UI 스레드에 양보하여 스피너가 실제로 표시되게 함
         try
         {
-            _suggestions = await AccService.AnalyzeMappingSuggestionsAsync(CurrentUser.DepartmentId, _analysisYear, _analysisQuarter, _analysisMonth);
+            _suggestions = await AccService.AnalyzeMappingSuggestionsAsync(_mappingTargetDeptId, _analysisYear, _analysisQuarter, _analysisMonth);
             _analysisRan = true;
         }
-        finally { _isAnalyzing = false; }
+        finally
+        {
+            _isAnalyzing = false;
+            StateHasChanged(); // 🚀 분석 종료 후 결과/스피너 해제 상태를 확실히 반영
+        }
     }
 
     // 🚀 추천된 키워드/분류를 지출 자동분류 규칙 DB에 즉시 등록하고 상단 목록 갱신
@@ -1650,7 +1723,7 @@
 
         await AccService.SaveMappingAsync(new CategoryMapping
         {
-            DepartmentId = CurrentUser.DepartmentId,
+            DepartmentId = _mappingTargetDeptId,
             Keyword = s.Keyword,
             Category = s.RecommendedCategory
         });

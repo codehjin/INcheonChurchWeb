@@ -759,8 +759,8 @@ namespace INcheonChurchWeb.Services
             {
                 int total = grp.Count();
 
-                // 🚀 노이즈 제거: 전체 지출에서 2번 이상 등장한 단어만 추천 대상으로 인정.
-                if (total < 2) continue;
+                // 🚀 [필터 완화] 1번만 등장한 단어도 모두 추천 리스트에 노출.
+                // (기존 노이즈 제거: if (total < 2) continue; — 과소추출 방지를 위해 비활성화)
 
                 var distribution = grp.GroupBy(p => p.Category)
                     .Select(cg => new CategoryFrequency

@@ -416,19 +416,6 @@
     }
 </style>
 
-<datalist id="incomeCatList">
-    @foreach (var cat in _incomeCats)
-    {
-        <option value="@cat"></option>
-    }
-</datalist>
-<datalist id="expenseCatList">
-    @foreach (var cat in _expenseCats)
-    {
-        <option value="@cat"></option>
-    }
-</datalist>
-
 <InputFile id="pcUploadInput" OnChange="HandlePcUpload" style="display:none;" accept="image/*,.pdf" />
 
 <div class="ledger-surface no-print" id="monthly-ledger-content">
@@ -671,7 +658,7 @@
                                         <td class="fw-bold" style="color: #174577; font-size: 0.75rem;">EDIT</td>
                                         <td><input type="date" class="form-control form-control-sm px-1" @bind="_editBuffer.Date" /></td>
                                         <td><select class="form-select form-select-sm px-1" @bind="_editBuffer.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
-                                        <td><input class="form-control form-control-sm px-1 fw-bold" list="@(_editBuffer.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="_editBuffer.Category" /></td>
+                                        <td><ComboBox @bind-Value="_editBuffer.Category" Options="@(_editBuffer.Type == "수입" ? _incomeCats : _expenseCats)" InputClass="form-control form-control-sm px-1 fw-bold" /></td>
                                         <td><input class="form-control form-control-sm px-1" @bind="_editBuffer.Description" /></td>
                                         <td><input class="form-control form-control-sm px-1" @bind="_editBuffer.Note" /></td>
                                         <td>
@@ -786,7 +773,7 @@
                                     <td class="ledger-tabular fw-bold" style="color: #785600; font-size: 0.75rem;">NEW</td>
                                     <td><input type="date" class="form-control form-control-sm ledger-tabular px-1" @bind="_newItem.Date" /></td>
                                     <td><select class="form-select form-select-sm fw-bold px-1" @bind="_newItem.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
-                                    <td><input class="form-control form-control-sm fw-bold px-1" list="@(_newItem.Type == "수입" ? "incomeCatList" : "expenseCatList")" @bind="_newItem.Category" placeholder="분류입력" /></td>
+                                    <td><ComboBox @bind-Value="_newItem.Category" Options="@(_newItem.Type == "수입" ? _incomeCats : _expenseCats)" Placeholder="분류입력" InputClass="form-control form-control-sm fw-bold px-1" /></td>
                                     <td><input class="form-control form-control-sm fw-bold px-1" @bind="_newItem.Description" placeholder="내역(필수)" /></td>
                                     <td><input class="form-control form-control-sm px-1" @bind="_newItem.Note" placeholder="비고(선택)" /></td>
                                     <td>
