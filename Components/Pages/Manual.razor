@@ -133,12 +133,32 @@
                     <span class="manual-flow-arrow">→</span>
                     <span class="manual-flow-chip"><i class="bi bi-calendar-range me-1"></i>분기 날짜 설정</span>
                 </div>
-                <ul class="manual-note ps-3 mb-0">
-                    <li><b>예산 설정:</b> 올해 수입·지출 항목과 금액을 등록합니다. 직전 연도 불러오기 또는 엑셀 일괄입력으로 빠르게 완성할 수 있습니다.</li>
+                <ul class="manual-note ps-3 mb-3">
+                    <li><b>예산 설정:</b> 올해 수입·지출 항목과 금액을 등록합니다. [직전년도 예산 불러오기]로 빠르게 시작하거나, '데이터 및 엑셀 관리' 탭의 <b>환경설정 엑셀</b>로 일괄 백업·복원할 수 있습니다.</li>
                     <li><b>임원 정보:</b> 교역자·부장·총무·회계의 이름과 임기를 등록하면 지출결의서 결재란에 자동으로 반영됩니다.</li>
                     <li><b>계좌번호:</b> 부서 통장 정보를 입력해 두면 지출결의서 출력 시 자동 기입됩니다.</li>
-                    <li><b>분기 날짜:</b> 교회 회계연도에 맞게 각 분기의 시작일·종료일을 설정합니다. '연속성 맞춤' 버튼으로 자동 계산됩니다.</li>
+                    <li><b>분기 날짜:</b> 교회 회계연도에 맞게 각 분기의 시작일·종료일을 설정합니다. [기본값 자동 적용]·[연속성 맞춤] 버튼으로 손쉽게 계산됩니다.</li>
                 </ul>
+
+                @* 📱 모바일 서브 탭(2-Depth) 안내 *@
+                <div class="p-3 mb-3 rounded" style="background-color: var(--surface-low); border-left: 4px solid var(--primary-gold);">
+                    <div class="fw-bold mb-1" style="color: var(--on-surface);"><i class="bi bi-phone me-1" style="color: var(--primary-gold);"></i>한 손에 쏙 — 서브 탭(2-Depth) 네비게이션</div>
+                    <p class="mb-0" style="color: var(--on-surface-sub); font-size: 0.875rem;">
+                        환경설정의 5개 메인 탭(부서 기본 정보 · 예산 및 회계 기준 · 자동분류 설정 · 데이터 및 엑셀 관리 · 계정 및 보안) 안에는 <b>알약 모양(Pill) 서브 탭</b>이 들어 있어, 긴 스크롤 없이 <b>터치 한 번으로 화면이 즉시 전환</b>됩니다.
+                        예를 들어 <b>예산 및 회계 기준</b> 탭은 <b>[수입 예산] / [지출 예산] / [분기(회계) 설정]</b>으로 화면이 분할됩니다. 좁은 폴더블·휴대폰 화면에서는 서브 탭이 줄바꿈 없이 가로로 부드럽게 스크롤됩니다.
+                    </p>
+                </div>
+
+                @* 🛡️ 최고관리자 전역 통제 안내 *@
+                <div class="p-3 rounded" style="background: rgba(120,86,0,0.06); border: 1px solid rgba(120,86,0,0.25);">
+                    <div class="fw-bold mb-2" style="color: #5a4000;"><i class="bi bi-shield-lock-fill me-1"></i>최고관리자(SystemAdmin) 전역 통제 기능</div>
+                    <ul class="manual-note ps-3 mb-0">
+                        <li><b>분기 일괄 적용:</b> 관리자가 회계 분기 일정을 저장하면 안전 경고를 확인한 뒤 <b>단 한 번의 클릭으로 교회 모든 부서 장부에 동일한 분기 일정이 일괄 적용</b>되고, 각 부서의 회계연도·분기가 자동으로 재계산됩니다.</li>
+                        <li><b>관리부서 안전 배지:</b> 자동분류 탭에서 타 부서의 규칙을 원격 관리할 때, 화면 우측 상단에 <span class="badge" style="background-color: var(--primary-gold);">현재 관리 대상: ○○부</span> 골드 배지가 항상 표시되어 <b>엉뚱한 부서를 건드리는 실수를 원천 차단</b>합니다.</li>
+                        <li><b>통합 엑셀 백업:</b> 관리자가 환경설정 엑셀을 내려받으면 시트 <b>A열에 '부서명'</b>이 자동으로 추가되어, <b>전 부서의 예산과 자동분류 규칙이 단 하나의 파일</b>로 통합 다운로드됩니다. 이 파일을 수정해 일괄 업로드하면 <b>A열 부서명을 기준으로 각 부서 데이터베이스에 정확히 분배되어 복원(Override)</b>됩니다.</li>
+                        <li><b>보안 강제:</b> 일반 사용자가 엑셀의 부서명을 임의로 조작해 업로드하더라도, 보안 시스템이 이를 <b>무시하고 무조건 본인 부서 장부로만 강제 적용</b>하여 타 부서 데이터 침범을 막습니다.</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
