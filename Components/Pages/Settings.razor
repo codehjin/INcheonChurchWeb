@@ -387,13 +387,7 @@
                             <ComboBox @bind-Value="_newMapping.Category" Options="@(_mappingType == "수입" ? _incomeCats : _expenseCats)" Placeholder="항목 선택" />
                         </div>
                         <div class="col-md-2">
-                            <div class="d-flex gap-1">
-                                <button class="settings-gold-btn flex-grow-1 py-2" @onclick="AddMapping">@(_newMapping.Id == 0 ? "규칙 등록" : "수정 저장")</button>
-                                @if (_newMapping.Id != 0)
-                                {
-                                    <button class="settings-secondary-btn px-3" @onclick="CancelMappingEdit" title="취소"><i class="bi bi-x-lg"></i></button>
-                                }
-                            </div>
+                            <button class="settings-gold-btn w-100 py-2" @onclick="AddMapping">규칙 등록</button>
                         </div>
                     </div>
                 </div>
@@ -407,7 +401,7 @@
                                 @foreach (var c in _incomeCats) { <option value="@c">@c</option> }
                             </select>
                         </div>
-                        <div class="settings-table-container">
+                        <div class="settings-table-container" style="min-height: 350px;">
                             <table class="settings-table">
                                 <thead><tr>
                                     <th width="40%" style="cursor: pointer;" @onclick='() => SortIncomeRules("Keyword")'>키워드(적요) <i class="bi @IncomeKeywordIcon"></i></th>
@@ -418,8 +412,17 @@
                                     @foreach (var m in IncomeRules)
                                     {
                                         <tr>
-                                            <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #785600;">@m.Category</td>
-                                            <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
+                                            @if (_editingMappingId == m.Id)
+                                            {
+                                                <td><input type="text" class="form-control form-control-sm" @bind="_editMappingTemp.Keyword" /></td>
+                                                <td><ComboBox @bind-Value="_editMappingTemp.Category" Options="_incomeCats" InputClass="form-control form-control-sm" /></td>
+                                                <td><button class="btn btn-sm btn-success py-0 px-2 me-1" @onclick="SaveEditMappingAsync"><i class="bi bi-check-lg"></i></button><button class="btn btn-sm btn-secondary py-0 px-2" @onclick="CancelEditMapping"><i class="bi bi-x-lg"></i></button></td>
+                                            }
+                                            else
+                                            {
+                                                <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #785600;">@m.Category</td>
+                                                <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => StartEditMapping(m)"><i class="bi bi-pencil"></i></button><button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => DeleteMapping(m.Id)"><i class="bi bi-trash"></i></button></td>
+                                            }
                                         </tr>
                                     }
                                     @if (!IncomeRules.Any()) { <tr><td colspan="3" class="text-muted py-4">@(string.IsNullOrEmpty(_incomeFilterCategory) ? "등록된 수입 규칙이 없습니다." : "선택한 분류의 규칙이 없습니다.")</td></tr> }
@@ -435,7 +438,7 @@
                                 @foreach (var c in _expenseCats) { <option value="@c">@c</option> }
                             </select>
                         </div>
-                        <div class="settings-table-container">
+                        <div class="settings-table-container" style="min-height: 350px;">
                             <table class="settings-table">
                                 <thead><tr>
                                     <th width="40%" style="cursor: pointer;" @onclick='() => SortExpenseRules("Keyword")'>키워드(적요) <i class="bi @ExpenseKeywordIcon"></i></th>
@@ -446,8 +449,17 @@
                                     @foreach (var m in ExpenseRules)
                                     {
                                         <tr>
-                                            <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #ba1a1a;">@m.Category</td>
-                                            <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
+                                            @if (_editingMappingId == m.Id)
+                                            {
+                                                <td><input type="text" class="form-control form-control-sm" @bind="_editMappingTemp.Keyword" /></td>
+                                                <td><ComboBox @bind-Value="_editMappingTemp.Category" Options="_expenseCats" InputClass="form-control form-control-sm" /></td>
+                                                <td><button class="btn btn-sm btn-success py-0 px-2 me-1" @onclick="SaveEditMappingAsync"><i class="bi bi-check-lg"></i></button><button class="btn btn-sm btn-secondary py-0 px-2" @onclick="CancelEditMapping"><i class="bi bi-x-lg"></i></button></td>
+                                            }
+                                            else
+                                            {
+                                                <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #ba1a1a;">@m.Category</td>
+                                                <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => StartEditMapping(m)"><i class="bi bi-pencil"></i></button><button class="settings-danger-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => DeleteMapping(m.Id)"><i class="bi bi-trash"></i></button></td>
+                                            }
                                         </tr>
                                     }
                                     @if (!ExpenseRules.Any()) { <tr><td colspan="3" class="text-muted py-4">@(string.IsNullOrEmpty(_expenseFilterCategory) ? "등록된 지출 규칙이 없습니다." : "선택한 분류의 규칙이 없습니다.")</td></tr> }
@@ -531,23 +543,32 @@
                 }
                 else if (_suggestions.Any())
                 {
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fw-bold" style="color: #4e4637;">총 @_suggestions.Count 개의 키워드 분석됨</span>
-                        <span class="badge bg-white text-muted border">기준: @(_analysisYear)년 @(_analysisQuarter == 0 ? "전체분기" : $"{_analysisQuarter}분기") @(_analysisMonth == 0 ? "" : $"{_analysisMonth}월")</span>
+                    <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                        <span class="fw-bold" style="color: #4e4637;">총 @_suggestions.Count 개의 키워드 분석됨@(string.IsNullOrEmpty(_suggFilterCategory) ? "" : $" (필터: {FilteredSuggestions.Count()}개)")</span>
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <select class="settings-input fw-bold" style="width: auto; max-width: 180px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #785600;" @bind="_suggFilterCategory">
+                                <option value="">전체보기</option>
+                                @foreach (var c in _suggestions.Select(s => s.RecommendedCategory).Distinct().OrderBy(c => c))
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                            <span class="badge bg-white text-muted border">기준: @(_analysisYear)년 @(_analysisQuarter == 0 ? "전체분기" : $"{_analysisQuarter}분기") @(_analysisMonth == 0 ? "" : $"{_analysisMonth}월")</span>
+                        </div>
                     </div>
 
-                    <div class="settings-table-container">
+                    <div class="settings-table-container" style="min-height: 350px;">
                         <table class="settings-table" style="min-width: 760px;">
                             <thead>
                                 <tr>
-                                    <th class="text-start ps-4" style="min-width: 160px;">키워드(적요)</th>
-                                    <th style="min-width: 280px;">분류 항목 분포</th>
-                                    <th style="min-width: 130px;">추천 분류</th>
+                                    <th class="text-start ps-4" style="min-width: 160px; cursor: pointer;" @onclick='() => SortSuggestions("Keyword")'>키워드(적요) <i class="bi @SuggKeywordIcon"></i></th>
+                                    <th style="min-width: 280px; cursor: pointer;" @onclick='() => SortSuggestions("Count")'>분류 항목 분포 <i class="bi @SuggCountIcon"></i></th>
+                                    <th style="min-width: 130px; cursor: pointer;" @onclick='() => SortSuggestions("Category")'>추천 분류 <i class="bi @SuggCategoryIcon"></i></th>
                                     <th width="120">관리</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var s in _suggestions)
+                                @foreach (var s in FilteredSuggestions)
                                 {
                                     bool alreadyMapped = _mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword);
                                     <tr>
@@ -1158,6 +1179,38 @@
     private string ExpenseKeywordIcon => RuleSortIcon(_expenseSortColumn, "Keyword", _expenseSortAscending);
     private string ExpenseCategoryIcon => RuleSortIcon(_expenseSortColumn, "Category", _expenseSortAscending);
 
+    // 🚀 추천 결과(Suggestions) 정렬/필터 상태 (기본: 빈도 Count 내림차순)
+    private string _suggSortColumn = "Count";
+    private bool _suggSortAscending = false;
+    private string _suggFilterCategory = "";
+
+    private void SortSuggestions(string column)
+    {
+        if (_suggSortColumn == column) _suggSortAscending = !_suggSortAscending;
+        else { _suggSortColumn = column; _suggSortAscending = column != "Count"; } // 텍스트는 오름차순, Count는 내림차순부터
+    }
+
+    // 필터(추천분류) + 정렬(키워드/추천분류/빈도) 적용한 표시용 추천 목록
+    private IEnumerable<KeywordSuggestion> FilteredSuggestions
+    {
+        get
+        {
+            IEnumerable<KeywordSuggestion> src = _suggestions;
+            if (!string.IsNullOrEmpty(_suggFilterCategory)) src = src.Where(s => s.RecommendedCategory == _suggFilterCategory);
+            src = _suggSortColumn switch
+            {
+                "Keyword"  => _suggSortAscending ? src.OrderBy(s => s.Keyword) : src.OrderByDescending(s => s.Keyword),
+                "Category" => _suggSortAscending ? src.OrderBy(s => s.RecommendedCategory) : src.OrderByDescending(s => s.RecommendedCategory),
+                _          => _suggSortAscending ? src.OrderBy(s => s.TotalCount) : src.OrderByDescending(s => s.TotalCount), // "Count"
+            };
+            return src;
+        }
+    }
+
+    private string SuggKeywordIcon => RuleSortIcon(_suggSortColumn, "Keyword", _suggSortAscending);
+    private string SuggCountIcon => RuleSortIcon(_suggSortColumn, "Count", _suggSortAscending);
+    private string SuggCategoryIcon => RuleSortIcon(_suggSortColumn, "Category", _suggSortAscending);
+
     // 🚀 자동분류 규칙 분석(추천 시스템) 상태
     private int _analysisYear = DateTime.Now.Year;
     private int _analysisQuarter = 0; // 0 = 전체
@@ -1730,23 +1783,43 @@
     private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = _mappingTargetDeptId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await ShowAlertAsync("키워드와 항목을 입력하세요."); } }
     private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
 
-    // 🚀 규칙 수정: 선택 규칙을 상단 입력 폼으로 깊은 복사하고, 수입/지출 구분을 폼에 맞춤
-    private void EditMapping(CategoryMapping m)
+    // 🚀 규칙 인라인 수정 상태 (월별 장부와 동일한 행 단위 직접 수정)
+    private int _editingMappingId = 0;
+    private CategoryMapping _editMappingTemp = new();
+
+    // 수정 시작: 해당 행을 편집 모드로 전환하고 값을 임시 객체에 깊은 복사
+    private void StartEditMapping(CategoryMapping m)
     {
-        _newMapping = new CategoryMapping
+        _editingMappingId = m.Id;
+        _editMappingTemp = new CategoryMapping
         {
             Id = m.Id,
             DepartmentId = m.DepartmentId,
             Keyword = m.Keyword,
             Category = m.Category
         };
-        _mappingType = _incomeCats.Contains(m.Category ?? "") ? "수입" : "지출";
     }
 
-    // 🚀 규칙 수정 취소: 입력 폼 초기화(신규 등록 상태로 복귀)
-    private void CancelMappingEdit()
+    // 수정 취소: 편집 모드 해제(원본은 그대로)
+    private void CancelEditMapping()
     {
-        _newMapping = new CategoryMapping();
+        _editingMappingId = 0;
+    }
+
+    // 수정 저장: 권한 확인 후 SaveMappingAsync(Update) → 편집 모드 해제 → 재로딩
+    private async Task SaveEditMappingAsync()
+    {
+        bool canEdit = CurrentUser?.IsSystemAdmin == true || _mappingTargetDeptId == (CurrentUser?.DepartmentId ?? 0);
+        if (!canEdit) { await ShowAlertAsync("해당 부서의 규칙을 수정할 권한이 없습니다."); return; }
+        if (string.IsNullOrWhiteSpace(_editMappingTemp.Keyword) || string.IsNullOrWhiteSpace(_editMappingTemp.Category))
+        {
+            await ShowAlertAsync("키워드와 항목을 입력하세요.");
+            return;
+        }
+
+        await AccService.SaveMappingAsync(_editMappingTemp);
+        _editingMappingId = 0;
+        await LoadData();
     }
 
     // 🚀 최고관리자 전용: 자동분류 관리 대상 부서 전환
