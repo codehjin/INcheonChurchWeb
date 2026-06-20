@@ -59,7 +59,7 @@
 
 <div class="page">
     @* 🚀 로딩 중일 때는 로그인 창이 뜨는 것을 막고 스피너를 보여줌 (새 탭 깜빡임 방지) *@
-    @if (!isLoaded)
+    @if (!_isLoaded)
     {
         <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--surface); display: flex; justify-content: center; align-items: center; z-index: 9999;">
             <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
@@ -75,7 +75,7 @@
             }
         </style>
     }
-    else if (CurrentUser == null)
+    else if (_currentUser == null)
     {
         <INcheonChurchWeb.Components.Pages.Login OnLoginSuccess="HandleLoginSuccess" />
     }
@@ -83,7 +83,7 @@
     {
         @* 🖥️ PC 전용 사이드바 *@
         <div class="sidebar d-none d-sm-flex flex-column">
-            <NavMenu CurrentUser="CurrentUser" />
+            <NavMenu CurrentUser="_currentUser" />
         </div>
 
         <div class="main-content-area">
@@ -91,11 +91,11 @@
             @* 🖥️ PC 전용 상단 바 *@
             <div class="pc-top-bar d-none d-sm-flex" style="padding: 0 1.5rem; height: 60px; display: flex; align-items: center; border-bottom: 1px solid var(--surface-high);">
                 <span class="me-auto" style="font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 0.9375rem; color: var(--on-surface); letter-spacing: -0.01em;">
-                    @(CurrentUser.Department?.Name ?? "소속없음") 재정관리
+                    @(_currentUser.Department?.Name ?? "소속없음") 재정관리
                 </span>
                 <div class="d-flex align-items-center gap-3">
                     <span style="font-size: 0.8125rem; font-weight: 600; color: var(--on-surface-sub);">
-                        @CurrentUser.Username 님
+                        @_currentUser.Username 님
                     </span>
                     <button class="btn btn-sm fw-bold" style="background-color: var(--surface-high); color: var(--on-surface-sub); border: none; border-radius: var(--radius-lg); padding: 0.3rem 1rem; font-size: 0.75rem; transition: background-color 0.2s ease-out;" @onclick="Logout">
                         로그아웃
@@ -106,15 +106,15 @@
             @* 📱 모바일 전용 상단 헤더 *@
             <div class="mobile-top-header">
                 <div>
-                    <div class="mobile-dept-name">@(CurrentUser.Department?.Name ?? "소속없음")</div>
-                    <div class="mobile-user-name">@CurrentUser.Username 님</div>
+                    <div class="mobile-dept-name">@(_currentUser.Department?.Name ?? "소속없음")</div>
+                    <div class="mobile-user-name">@_currentUser.Username 님</div>
                 </div>
                 <button class="mobile-logout-btn" @onclick="Logout">로그아웃</button>
             </div>
 
             @* 콘텐츠 영역 *@
             <article class="content px-3 px-sm-4 mobile-content flex-grow-1" style="padding-top: 1.5rem; padding-bottom: 5rem;">
-                <CascadingValue Value="CurrentUser">
+                <CascadingValue Value="_currentUser">
                     @Body
                 </CascadingValue>
             </article>
@@ -126,7 +126,7 @@
                     <span>홈</span>
                 </NavLink>
 
-                @if (CurrentUser?.CanEdit == true)
+                @if (_currentUser?.CanEdit == true)
                 {
                     <NavLink class="mobile-tab-item" href="expense-report-quarterly">
                         <i class="bi bi-file-earmark-text-fill tab-icon"></i>
@@ -134,7 +134,7 @@
                     </NavLink>
                 }
 
-                @if (CurrentUser?.CanAccessDataCollection == true)
+                @if (_currentUser?.CanAccessDataCollection == true)
                 {
                     <NavLink class="mobile-tab-item" href="data-collection">
                         <i class="bi bi-receipt-cutoff tab-icon"></i>
@@ -223,8 +223,8 @@
 </script>
 
 @code {
-    private User? CurrentUser;
-    private bool isLoaded = false;
+    private User? _currentUser;
+    private bool _isLoaded = false;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -239,7 +239,7 @@
                 {
                     // 🚀 2. 아이디를 바탕으로 DB에서 부서 정보(Department)까지 포함하여 온전하게 복구합니다.
                     using var context = DbContextFactory.CreateDbContext();
-                    CurrentUser = await context.Users
+                    _currentUser = await context.Users
                         .Include(u => u.Department)
                         .AsNoTracking()
                         .FirstOrDefaultAsync(u => u.Username == result.Value);
@@ -247,14 +247,14 @@
             }
             catch { }
 
-            isLoaded = true;
+            _isLoaded = true;
             StateHasChanged();
         }
     }
 
     private async Task HandleLoginSuccess(User user)
     {
-        CurrentUser = user;
+        _currentUser = user;
         // 🚀 로그인 성공 시 객체가 아닌 '아이디'만 저장합니다.
         await BrowserStorage.SetAsync("LoggedInUsername", user.Username);
         StateHasChanged();
@@ -265,7 +265,7 @@
         bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "로그아웃 하시겠습니까?");
         if (confirm)
         {
-            CurrentUser = null;
+            _currentUser = null;
             // 🚀 로그아웃 시 저장된 '아이디'를 삭제합니다.
             await BrowserStorage.DeleteAsync("LoggedInUsername");
             StateHasChanged();
