@@ -9,6 +9,9 @@ using Microsoft.AspNetCore.Hosting; // 경로 확인용
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing; // 리사이징용
 using SixLabors.ImageSharp.Formats.Jpeg; // 압축용
+using ClosedXML.Excel; // 환경설정 엑셀 내보내기
+using ExcelDataReader; // 환경설정 엑셀 읽기
+using System.Data; // DataTable
 
 namespace INcheonChurchWeb.Services
 {
@@ -720,19 +723,137 @@ namespace INcheonChurchWeb.Services
         }
 
         // =========================================================
+        // 🚀 환경설정 엑셀 백업/복원 — 2개 시트(예산항목 / 자동분류)
+        // =========================================================
+
+        // 해당 연도 예산항목 + 부서 자동분류 규칙을 2개 시트 엑셀로 내보냅니다.
+        public async Task<byte[]> ExportSettingsExcelAsync(int deptId, int year)
+        {
+            using var db = _dbFactory.CreateDbContext();
+
+            var budgets = await db.BudgetPlans.AsNoTracking()
+                .Where(b => b.DepartmentId == deptId && b.Year == year)
+                .OrderBy(b => b.Type).ThenBy(b => b.Category).ToListAsync();
+
+            // 분기설정(Quarter_*) 등 시스템용 매핑은 제외하고 실제 자동분류 규칙만 내보냄
+            var mappings = await db.CategoryMappings.AsNoTracking()
+                .Where(m => m.DepartmentId == deptId && !m.Keyword.StartsWith("Quarter_"))
+                .OrderBy(m => m.Category).ThenBy(m => m.Keyword).ToListAsync();
+
+            // 자동분류의 구분(수입/지출)은 항목명이 수입 예산 항목군에 속하는지로 추론
+            var incomeCats = budgets.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).ToHashSet();
+
+            using var wb = new XLWorkbook();
+
+            // Sheet 1: 예산항목
+            var ws1 = wb.Worksheets.Add("예산항목");
+            string[] h1 = { "구분", "항목명", "예산금액" };
+            for (int i = 0; i < h1.Length; i++) { ws1.Cell(1, i + 1).Value = h1[i]; ws1.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws1.Cell(1, i + 1).Style.Font.Bold = true; }
+            int r1 = 2;
+            foreach (var b in budgets)
+            {
+                ws1.Cell(r1, 1).Value = (b.Type == "Income" || b.Type == "수입") ? "수입" : "지출";
+                ws1.Cell(r1, 2).Value = b.Category;
+                ws1.Cell(r1, 3).Value = b.Amount;
+                r1++;
+            }
+            ws1.Column(1).Width = 10; ws1.Column(2).Width = 30; ws1.Column(3).Width = 18;
+
+            // Sheet 2: 자동분류
+            var ws2 = wb.Worksheets.Add("자동분류");
+            string[] h2 = { "구분", "키워드", "분류될항목" };
+            for (int i = 0; i < h2.Length; i++) { ws2.Cell(1, i + 1).Value = h2[i]; ws2.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws2.Cell(1, i + 1).Style.Font.Bold = true; }
+            int r2 = 2;
+            foreach (var m in mappings)
+            {
+                ws2.Cell(r2, 1).Value = incomeCats.Contains(m.Category) ? "수입" : "지출";
+                ws2.Cell(r2, 2).Value = m.Keyword;
+                ws2.Cell(r2, 3).Value = m.Category;
+                r2++;
+            }
+            ws2.Column(1).Width = 10; ws2.Column(2).Width = 40; ws2.Column(3).Width = 30;
+
+            using var stream = new MemoryStream();
+            wb.SaveAs(stream);
+            return stream.ToArray();
+        }
+
+        // 업로드된 엑셀(예산항목/자동분류 시트)을 파싱하여 병합/업데이트합니다.
+        // 반환: (예산항목 처리 건수, 자동분류 추가 건수)
+        public async Task<(int budgetCount, int mappingCount)> ImportSettingsExcelAsync(int deptId, int year, Stream fileStream)
+        {
+            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+
+            using var db = _dbFactory.CreateDbContext();
+            int budgetCount = 0, mappingCount = 0;
+
+            using var reader = ExcelReaderFactory.CreateReader(fileStream);
+            var ds = reader.AsDataSet();
+
+            foreach (DataTable table in ds.Tables)
+            {
+                if (table.TableName == "예산항목")
+                {
+                    for (int i = 1; i < table.Rows.Count; i++)
+                    {
+                        var row = table.Rows[i];
+                        string typeStr = row[0]?.ToString()?.Trim() ?? "";
+                        string cat = (table.Columns.Count > 1 ? row[1]?.ToString()?.Trim() : "") ?? "";
+                        string amtStr = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "0") ?? "0";
+                        if (string.IsNullOrEmpty(cat)) continue;
+
+                        string type = (typeStr == "수입" || typeStr == "Income") ? "Income"
+                                    : (typeStr == "지출" || typeStr == "Expense") ? "Expense" : "";
+                        if (type == "") continue;
+                        decimal.TryParse(amtStr, out decimal amt);
+
+                        // 동일 부서/연도/구분/항목명이면 금액 업데이트, 없으면 신규 추가(병합)
+                        var existing = await db.BudgetPlans.FirstOrDefaultAsync(b => b.DepartmentId == deptId && b.Year == year && b.Type == type && b.Category == cat);
+                        if (existing == null) db.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = year, Type = type, Category = cat, Amount = amt });
+                        else existing.Amount = amt;
+                        budgetCount++;
+                    }
+                }
+                else if (table.TableName == "자동분류")
+                {
+                    for (int i = 1; i < table.Rows.Count; i++)
+                    {
+                        var row = table.Rows[i];
+                        string keyword = (table.Columns.Count > 1 ? row[1]?.ToString()?.Trim() : "") ?? "";
+                        string cat = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "") ?? "";
+                        if (string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
+
+                        // 키워드 중복 방지: 동일 부서에 같은 키워드가 이미 있으면 건너뜀
+                        bool exists = await db.CategoryMappings.AnyAsync(m => m.DepartmentId == deptId && m.Keyword == keyword);
+                        if (exists) continue;
+                        db.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = keyword, Category = cat });
+                        mappingCount++;
+                    }
+                }
+            }
+
+            await db.SaveChangesAsync();
+            return (budgetCount, mappingCount);
+        }
+
+        // =========================================================
         // 🚀 [추천 시스템] 자동분류 규칙 분석
         // 선택 기간의 '지출' 장부에서 이미 분류된 내역을 키워드(내역/비고)별로 그룹핑하여
         // 어떤 분류 항목이 가장 자주 귀속되었는지 빈도/비율을 계산하고 추천 분류를 선정합니다.
         // quarter / month 는 0이면 '전체'로 간주하여 필터를 적용하지 않습니다.
         // =========================================================
-        public async Task<List<KeywordSuggestion>> AnalyzeMappingSuggestionsAsync(int deptId, int year, int quarter, int month)
+        public async Task<List<KeywordSuggestion>> AnalyzeMappingSuggestionsAsync(int deptId, int year, int quarter, int month, string type)
         {
             using var db = _dbFactory.CreateDbContext();
+
+            // 구분(type)에 맞춰 수입/지출 장부를 선택적으로 분석 (한글/영문 표기 모두 대응)
+            bool isIncome = type == "수입" || type == "Income";
 
             var query = db.Transactions.AsNoTracking()
                 .Where(t => t.DepartmentId == deptId
                          && t.FiscalYear == year
-                         && (t.Type == "지출" || t.Type == "Expense"));
+                         && (isIncome ? (t.Type == "수입" || t.Type == "Income")
+                                      : (t.Type == "지출" || t.Type == "Expense")));
 
             if (quarter > 0) query = query.Where(t => t.Quarter == quarter);
             if (month > 0) query = query.Where(t => t.Date.Month == month);

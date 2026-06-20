@@ -89,51 +89,32 @@
             {
                 <div class="d-flex flex-wrap align-items-center gap-2 p-2 rounded" style="background-color: #f5f4e8;">
                     <span class="fw-bold" style="font-size: 0.75rem; color: #4e4637; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 0.5rem;">작업 연도</span>
-                    <div class="year-selector me-2">
+                    <div class="year-selector">
                         <button class="year-btn" @onclick="() => ChangeYear(-1)" disabled="@(_targetYear <= 2024)">◀</button>
                         <span class="year-value">@(_targetYear)년</span>
                         <button class="year-btn" @onclick="() => ChangeYear(1)" disabled="@(_targetYear >= DateTime.Now.Year + 1)">▶</button>
                     </div>
-
-                    <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.8rem;" @onclick="SafeImportPreviousYearBudget" disabled="@_isImporting">
-                        @if (_isImporting) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        else { <i class="bi bi-arrow-clockwise me-1"></i><span>직전년도 예산 불러오기</span> }
-                    </button>
-                    <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.8rem; background-color: #ffffff; border: 1px solid #d2c5b2;" @onclick="DownloadBulkTemplate">
-                        <i class="bi bi-file-earmark-excel me-1"></i>엑셀양식 다운로드
-                    </button>
-                    <button class="settings-gold-btn py-1 px-3" style="font-size: 0.8rem;" @onclick="TriggerBulkImport" disabled="@_isImporting">
-                        <i class="bi bi-upload me-1"></i>일괄입력 (엑셀)
-                    </button>
                 </div>
             }
         </div>
 
         @* 숨겨진 파일 업로드 Input *@
-        <InputFile @key="_bulkImportKey" id="bulkImportInput" OnChange="HandleBulkImport" style="display:none;" accept=".xlsx,.xls" />
         <InputFile @key="_systemRestoreKey" id="systemRestoreInput" OnChange="HandleSystemRestore" style="display:none;" accept=".json" />
+        <InputFile @key="_settingsImportKey" id="settingsImportInput" OnChange="HandleSettingsImport" style="display:none;" accept=".xlsx,.xls" />
 
         @* 탭 메뉴 분리 *@
         <div class="settings-tab-bar mb-4">
-            @if (CurrentUser?.IsSystemAdmin == true)
+            @if (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true)
             {
-                <button class="settings-tab @(_activeTab == "Users" ? "active" : "")" @onclick='() => ChangeTab("Users")'><i class="bi bi-people-fill me-1"></i>사용자 관리</button>
+                <button class="settings-tab @(_activeTab == "Info" ? "active" : "")" @onclick='() => ChangeTab("Info")'><i class="bi bi-person-badge me-1"></i>부서 기본 정보</button>
             }
             @if (CurrentUser?.IsManager == true)
             {
-                <button class="settings-tab @(_activeTab == "Income" ? "active" : "")" @onclick='() => ChangeTab("Income")'><i class="bi bi-graph-up-arrow me-1"></i>수입 예산</button>
-                <button class="settings-tab @(_activeTab == "Expense" ? "active" : "")" @onclick='() => ChangeTab("Expense")'><i class="bi bi-graph-down-arrow me-1"></i>지출 예산</button>
+                <button class="settings-tab @(_activeTab == "Budget" ? "active" : "")" @onclick='() => ChangeTab("Budget")'><i class="bi bi-graph-up-arrow me-1"></i>예산 및 회계 기준</button>
                 <button class="settings-tab @(_activeTab == "Mapping" ? "active" : "")" @onclick='() => ChangeTab("Mapping")'><i class="bi bi-magic me-1"></i>자동분류 설정</button>
-                <button class="settings-tab @(_activeTab == "Quarter" ? "active" : "")" @onclick='() => ChangeTab("Quarter")'><i class="bi bi-calendar3 me-1"></i>분기 설정</button>
-                
-                <button class="settings-tab @(_activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'><i class="bi bi-hdd-fill me-1"></i>데이터 백업</button>
+                <button class="settings-tab @(_activeTab == "Backup" ? "active" : "")" @onclick='() => ChangeTab("Backup")'><i class="bi bi-hdd-fill me-1"></i>데이터 및 엑셀 관리</button>
             }
-            <button class="settings-tab @(_activeTab == "MyInfo" ? "active" : "")" @onclick='() => ChangeTab("MyInfo")'><i class="bi bi-shield-lock-fill me-1"></i>보안 및 암호</button>
-            @if (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true)
-            {
-                <button class="settings-tab @(_activeTab == "Officers" ? "active" : "")" @onclick='() => ChangeTab("Officers")'><i class="bi bi-person-badge me-1"></i>부서 임원 정보</button>
-                <button class="settings-tab @(_activeTab == "Account" ? "active" : "")" @onclick='() => ChangeTab("Account")'><i class="bi bi-bank me-1"></i>부서 계좌번호</button>
-            }
+            <button class="settings-tab @(_activeTab == "Security" ? "active" : "")" @onclick='() => ChangeTab("Security")'><i class="bi bi-shield-lock-fill me-1"></i>계정 및 보안</button>
         </div>
 
         <div class="settings-card p-4 p-md-5">
@@ -141,10 +122,22 @@
             @* ──────────────────────────────
                [1] 탭: 예산 관리 (수입/지출)
             ────────────────────────────── *@
-            @if ((_activeTab == "Income" || _activeTab == "Expense") && CurrentUser?.IsManager == true)
+            @if (_activeTab == "Budget" && CurrentUser?.IsManager == true)
             {
-                var currentCats = _activeTab == "Income" ? _incomeCats : _expenseCats;
-                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 @(_activeTab == "Income" ? "수입" : "지출") 예산 편집</h4>
+                var currentCats = _budgetType == "Income" ? _incomeCats : _expenseCats;
+
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+                    <div class="settings-tab-bar" style="padding: 0.25rem;">
+                        <button class="settings-tab @(_budgetType == "Income" ? "active" : "")" @onclick='() => _budgetType = "Income"'><i class="bi bi-graph-up-arrow me-1"></i>수입 예산</button>
+                        <button class="settings-tab @(_budgetType == "Expense" ? "active" : "")" @onclick='() => _budgetType = "Expense"'><i class="bi bi-graph-down-arrow me-1"></i>지출 예산</button>
+                    </div>
+                    <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.85rem;" @onclick="SafeImportPreviousYearBudget" disabled="@_isImporting">
+                        @if (_isImporting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        else { <i class="bi bi-arrow-clockwise me-1"></i><span>직전년도 예산 불러오기</span> }
+                    </button>
+                </div>
+
+                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 @(_budgetType == "Income" ? "수입" : "지출") 예산 편집</h4>
 
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-info-circle-fill fs-5 mt-1" style="color: #785600;"></i>
@@ -181,7 +174,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fw-bold" style="color: #4e4637;">총 @(_budgetList.Count(b => b.Year == _targetYear && b.Type == _activeTab))건의 예산 내역</span>
+                        <span class="fw-bold" style="color: #4e4637;">총 @(_budgetList.Count(b => b.Year == _targetYear && b.Type == _budgetType))건의 예산 내역</span>
                         <div class="d-flex gap-2">
                             <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> 전체 나열</button>
                             <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> 전체 축소</button>
@@ -259,7 +252,7 @@
                         @foreach (var dept in _visibleDepartments)
                         {
                             bool isDeptExpanded = _expandedDepts.ContainsKey(dept.Id) && _expandedDepts[dept.Id];
-                            var deptBudgets = _budgetList.Where(b => b.DepartmentId == dept.Id && b.Year == _targetYear && b.Type == _activeTab).ToList();
+                            var deptBudgets = _budgetList.Where(b => b.DepartmentId == dept.Id && b.Year == _targetYear && b.Type == _budgetType).ToList();
                             decimal deptTotal = deptBudgets.Sum(b => b.Amount);
 
                             <div class="accordion-item">
@@ -331,6 +324,63 @@
                         }
                     </div>
                 }
+
+                @* ── 회계 기준: 분기 날짜 설정 (분기설정 탭 통합) ── *@
+                <hr class="my-5" />
+                <div class="col-12">
+                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 분기 날짜 설정</h4>
+
+                    <div class="settings-info-box mb-4">
+                        <i class="bi bi-calendar-range fs-5 mt-1" style="color: #785600;"></i>
+                        <div>
+                            <div class="fw-bold mb-1" style="color: #1b1c15;">분기 설정 규칙 안내</div>
+                            <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">
+                                <b>기본 규칙:</b> 매 3개월마다 <b>4주차 주일(일요일)</b>이 분기 마감일이며, 다음 날 월요일이 새 분기 시작일입니다. 매분기마다 확인해서 수정하세요<br/>
+                                분기 설정에 따라 대시보드의 통계와 월별장부의 분기설정이 달라집니다, <br/>
+                                <b>[기본값 자동 적용]</b> 버튼을 누르면 위 규칙으로 자동 계산되고, 필요 시 수동으로 수정할 수 있습니다. 부서별로 필히 확인해서 설정하셔야 합니다.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mb-4">
+                        <button class="settings-gold-btn" @onclick="ApplyDefaultQuarters">
+                            <i class="bi bi-magic me-1"></i>기본값 자동 적용
+                        </button>
+                        <button class="settings-secondary-btn" @onclick="SaveAllQuarters">
+                            <i class="bi bi-save me-1"></i>전체 분기 저장
+                        </button>
+                    </div>
+
+                    @{
+                        var defaultRanges = new (DateTime Start, DateTime End)[4];
+                        for (int dq = 1; dq <= 4; dq++)
+                            defaultRanges[dq - 1] = AccountingService.GetDefaultQuarterRange(_targetYear, dq);
+                    }
+
+                    <div class="settings-card-warm border border-light">
+                        @for (int q = 1; q <= 4; q++)
+                        {
+                            int localQ = q;
+                            var defRange = defaultRanges[localQ - 1];
+                            <div class="mb-3 row align-items-center bg-white p-3 rounded shadow-sm border border-light">
+                                <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q 분기</label>
+                                <div class="col d-flex flex-column gap-1">
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)"><i class="bi bi-link-45deg me-1"></i>연속성 맞춤</button>
+                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterStartDates[localQ - 1]" />
+                                        <span style="color: #d2c5b2;">~</span>
+                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterEndDates[localQ - 1]" />
+                                    </div>
+                                    <div style="font-size: 0.75rem; color: #807666; padding-left: 6rem;">
+                                        기본값: @defRange.Start.ToString("yyyy-MM-dd") ~ @defRange.End.ToString("yyyy-MM-dd")
+                                        (@defRange.End.ToString("M월 d일") 주일 마감)
+                                    </div>
+                                </div>
+                                <div class="col-sm-2"><button class="settings-gold-btn w-100 py-2" @onclick="() => SaveQuarter(localQ)">저장</button></div>
+                            </div>
+                        }
+                    </div>
+                </div>
             }
 
             @* ──────────────────────────────
@@ -480,13 +530,20 @@
                     <i class="bi bi-lightbulb-fill fs-5 mt-1" style="color: #785600;"></i>
                     <div>
                         <div class="fw-bold mb-1" style="color: #1b1c15;">추천 원리</div>
-                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">선택한 기간의 <b>지출 장부</b>에서 이미 분류된 내역을 학습하여, 같은 <b>적요(내역)</b>가 어떤 항목으로 가장 자주 분류됐는지 분석합니다. 가장 비율이 높은 항목을 <b>추천 규칙</b>으로 제안합니다.</p>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">선택한 기간의 <b>@(_analysisType) 장부</b>에서 이미 분류된 내역을 학습하여, 같은 <b>적요(내역)</b>가 어떤 항목으로 가장 자주 분류됐는지 분석합니다. 가장 비율이 높은 항목을 <b>추천 규칙</b>으로 제안합니다.</p>
                     </div>
                 </div>
 
                 <div class="settings-card-warm mb-4">
                     <div class="row g-2 align-items-end">
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small fw-bold mb-1 text-muted">구분</label>
+                            <select class="settings-input fw-bold" @bind="_analysisType" style="color: #785600;">
+                                <option value="지출">지출</option>
+                                <option value="수입">수입</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-2">
                             <label class="form-label small fw-bold mb-1 text-muted">연도</label>
                             <select class="settings-input fw-bold" @bind="_analysisYear" style="color: #785600;">
                                 @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 3; y--)
@@ -495,7 +552,7 @@
                                 }
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-2">
                             <label class="form-label small fw-bold mb-1 text-muted">분기</label>
                             <select class="settings-input" @bind="_analysisQuarter">
                                 <option value="0">전체 분기</option>
@@ -505,7 +562,7 @@
                                 <option value="4">4분기</option>
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-6 col-md-2">
                             <label class="form-label small fw-bold mb-1 text-muted">월</label>
                             <select class="settings-input" @bind="_analysisMonth">
                                 <option value="0">전체 월</option>
@@ -515,7 +572,7 @@
                                 }
                             </select>
                         </div>
-                        <div class="col-6 col-md-3">
+                        <div class="col-12 col-md-4">
                             <button class="settings-gold-btn w-100 py-2" @onclick="RunMappingAnalysis" disabled="@_isAnalyzing">
                                 @if (_isAnalyzing)
                                 {
@@ -546,6 +603,9 @@
                     <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
                         <span class="fw-bold" style="color: #4e4637;">총 @_suggestions.Count 개의 키워드 분석됨@(string.IsNullOrEmpty(_suggFilterCategory) ? "" : $" (필터: {FilteredSuggestions.Count()}개)")</span>
                         <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <button class="btn btn-sm btn-primary" @onclick="BulkAddSuggestedRulesAsync" disabled="@(_selectedSuggestions.Count == 0)">
+                                <i class="bi bi-plus-square me-1"></i>선택 항목 일괄 등록 (@_selectedSuggestions.Count)
+                            </button>
                             <select class="settings-input fw-bold" style="width: auto; max-width: 180px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #785600;" @bind="_suggFilterCategory">
                                 <option value="">전체보기</option>
                                 @foreach (var c in _suggestions.Select(s => s.RecommendedCategory).Distinct().OrderBy(c => c))
@@ -561,7 +621,8 @@
                         <table class="settings-table" style="min-width: 760px;">
                             <thead>
                                 <tr>
-                                    <th class="text-start ps-4" style="min-width: 160px; cursor: pointer;" @onclick='() => SortSuggestions("Keyword")'>키워드(적요) <i class="bi @SuggKeywordIcon"></i></th>
+                                    <th width="44" class="text-center"><input type="checkbox" class="form-check-input" checked="@IsAllSuggestionsSelected" @onchange="ToggleAllSuggestions" /></th>
+                                    <th class="text-start ps-2" style="min-width: 160px; cursor: pointer;" @onclick='() => SortSuggestions("Keyword")'>키워드(적요) <i class="bi @SuggKeywordIcon"></i></th>
                                     <th style="min-width: 280px; cursor: pointer;" @onclick='() => SortSuggestions("Count")'>분류 항목 분포 <i class="bi @SuggCountIcon"></i></th>
                                     <th style="min-width: 130px; cursor: pointer;" @onclick='() => SortSuggestions("Category")'>추천 분류 <i class="bi @SuggCategoryIcon"></i></th>
                                     <th width="120">관리</th>
@@ -572,7 +633,13 @@
                                 {
                                     bool alreadyMapped = _mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword);
                                     <tr>
-                                        <td class="text-start ps-4 fw-bold" style="color: #1b1c15;">
+                                        <td class="text-center">
+                                            @if (!alreadyMapped)
+                                            {
+                                                <input type="checkbox" class="form-check-input" checked="@_selectedSuggestions.Contains(s.Keyword)" @onchange="(e) => ToggleSuggestion(s.Keyword, e.Value)" />
+                                            }
+                                        </td>
+                                        <td class="text-start ps-2 fw-bold" style="color: #1b1c15;">
                                             @s.Keyword
                                             <div class="text-muted small fw-normal">총 @s.TotalCount 건</div>
                                         </td>
@@ -615,71 +682,32 @@
             }
 
             @* ──────────────────────────────
-               [3] 탭: 분기 설정
-            ────────────────────────────── *@
-            else if (_activeTab == "Quarter" && CurrentUser?.IsManager == true)
-            {
-                <div class="col-12">
-                    <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 분기 날짜 설정</h4>
-
-                    <div class="settings-info-box mb-4">
-                        <i class="bi bi-calendar-range fs-5 mt-1" style="color: #785600;"></i>
-                        <div>
-                            <div class="fw-bold mb-1" style="color: #1b1c15;">분기 설정 규칙 안내</div>
-                            <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">
-                                <b>기본 규칙:</b> 매 3개월마다 <b>4주차 주일(일요일)</b>이 분기 마감일이며, 다음 날 월요일이 새 분기 시작일입니다. 매분기마다 확인해서 수정하세요<br/>
-                                분기 설정에 따라 대시보드의 통계와 월별장부의 분기설정이 달라집니다, <br/>
-                                <b>[기본값 자동 적용]</b> 버튼을 누르면 위 규칙으로 자동 계산되고, 필요 시 수동으로 수정할 수 있습니다. 부서별로 필히 확인해서 설정하셔야 합니다. 
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="d-flex flex-wrap gap-2 mb-4">
-                        <button class="settings-gold-btn" @onclick="ApplyDefaultQuarters">
-                            <i class="bi bi-magic me-1"></i>기본값 자동 적용
-                        </button>
-                        <button class="settings-secondary-btn" @onclick="SaveAllQuarters">
-                            <i class="bi bi-save me-1"></i>전체 분기 저장
-                        </button>
-                    </div>
-
-                    @{
-                        var defaultRanges = new (DateTime Start, DateTime End)[4];
-                        for (int dq = 1; dq <= 4; dq++)
-                            defaultRanges[dq - 1] = AccountingService.GetDefaultQuarterRange(_targetYear, dq);
-                    }
-
-                    <div class="settings-card-warm border border-light">
-                        @for (int q = 1; q <= 4; q++)
-                        {
-                            int localQ = q;
-                            var defRange = defaultRanges[localQ - 1];
-                            <div class="mb-3 row align-items-center bg-white p-3 rounded shadow-sm border border-light">
-                                <label class="col-sm-2 col-form-label fw-bold text-center" style="color: #5a4000; font-size: 1.1rem;">@q 분기</label>
-                                <div class="col d-flex flex-column gap-1">
-                                    <div class="d-flex gap-2 align-items-center">
-                                        <button class="settings-secondary-btn py-1 px-2 text-nowrap" style="font-size: 0.75rem;" title="이전 분기 종료일 +1일 적용" @onclick="() => SyncWithPreviousQuarter(localQ)"><i class="bi bi-link-45deg me-1"></i>연속성 맞춤</button>
-                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterStartDates[localQ - 1]" />
-                                        <span style="color: #d2c5b2;">~</span>
-                                        <input type="date" class="settings-input settings-tabular fw-bold" @bind="_quarterEndDates[localQ - 1]" />
-                                    </div>
-                                    <div style="font-size: 0.75rem; color: #807666; padding-left: 6rem;">
-                                        기본값: @defRange.Start.ToString("yyyy-MM-dd") ~ @defRange.End.ToString("yyyy-MM-dd")
-                                        (@defRange.End.ToString("M월 d일") 주일 마감)
-                                    </div>
-                                </div>
-                                <div class="col-sm-2"><button class="settings-gold-btn w-100 py-2" @onclick="() => SaveQuarter(localQ)">저장</button></div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            @* ──────────────────────────────
-               [4] 탭: 데이터 백업/복구
+               [4] 탭: 데이터 및 엑셀 관리 (Backup)
             ────────────────────────────── *@
             else if (_activeTab == "Backup" && CurrentUser?.IsManager == true)
             {
+                @* ── 환경설정 엑셀 백업 및 복원 (신규) ── *@
+                <h4 class="fw-bold mb-3" style="color: #1b1c15;">환경설정 엑셀 백업 및 복원</h4>
+                <div class="settings-info-box mb-3">
+                    <i class="bi bi-file-earmark-spreadsheet fs-5 mt-1" style="color: #785600;"></i>
+                    <div>
+                        <div class="fw-bold mb-1" style="color: #1b1c15;">예산항목 · 자동분류 한 번에 백업</div>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">@(_targetYear)년도 <b>예산항목</b>과 부서 <b>자동분류 규칙</b>을 엑셀 2개 시트로 내려받고, 같은 양식으로 한 번에 복원(일괄입력)합니다.</p>
+                    </div>
+                </div>
+                <div class="settings-card-warm mb-5">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="settings-secondary-btn px-4 py-2" @onclick="DownloadSettingsExcel">
+                            <i class="bi bi-file-earmark-excel me-2"></i>환경설정 엑셀 다운로드
+                        </button>
+                        <button class="settings-gold-btn px-4 py-2" @onclick="TriggerSettingsImport" disabled="@_isSettingsImporting">
+                            @if (_isSettingsImporting) { <span class="spinner-border spinner-border-sm me-2"></span><span>업로드 중...</span> }
+                            else { <i class="bi bi-upload me-2"></i><span>환경설정 엑셀 일괄 업로드</span> }
+                        </button>
+                    </div>
+                </div>
+                <hr class="my-4" />
+
                 @if (CurrentUser?.IsSystemAdmin == true)
                 {
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">전체 시스템 데이터 백업 및 복원</h4>
@@ -759,8 +787,10 @@
             @* ──────────────────────────────
                [5] 탭: 사용자 관리 (시스템 관리자용)
             ────────────────────────────── *@
-            else if (_activeTab == "Users" && CurrentUser?.IsSystemAdmin == true)
+            else if (_activeTab == "Security")
             {
+                @if (CurrentUser?.IsSystemAdmin == true)
+                {
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">부서 계정 관리</h4>
                 <div class="settings-card-warm mb-4">
                     <div class="row g-2">
@@ -816,13 +846,10 @@
                         </tbody>
                     </table>
                 </div>
-            }
+                }
 
-            @* ──────────────────────────────
-               [6] 탭: 보안 및 암호 (구글 OTP 연동)
-            ────────────────────────────── *@
-            else if (_activeTab == "MyInfo")
-            {
+                @* ── 보안 및 암호 (구글 OTP 연동) ── *@
+                <hr class="my-5" />
                 <div class="row g-4 justify-content-center">
                     <div class="col-md-5">
                         <div class="settings-card border border-light p-4 h-100">
@@ -896,7 +923,7 @@
             @* ──────────────────────────────
                [7] 탭: 부서 임원 정보
             ────────────────────────────── *@
-            else if (_activeTab == "Officers")
+            else if (_activeTab == "Info" && (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true))
             {
                 <div class="col-md-10 mx-auto">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 부서 임원 관리</h4>
@@ -1023,13 +1050,9 @@
                         }
                     </div>
                 </div>
-            }
 
-            @* ──────────────────────────────
-               [8] 탭: 부서 계좌번호 설정
-            ────────────────────────────── *@
-            else if (_activeTab == "Account")
-            {
+                @* ── 부서 계좌번호 설정 (부서 기본 정보 통합) ── *@
+                <hr class="my-5" />
                 <div class="col-md-9 mx-auto mt-2">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">부서 계좌번호 설정</h4>
 
@@ -1106,10 +1129,12 @@
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
 
-    private Guid _bulkImportKey = Guid.NewGuid();
     private Guid _systemRestoreKey = Guid.NewGuid();
+    private Guid _settingsImportKey = Guid.NewGuid();
+    private bool _isSettingsImporting = false;
     private string _mappingType = "지출";
-    private string _activeTab = "Income";
+    private string _activeTab = "Budget";
+    private string _budgetType = "Income"; // Budget 탭 내부 수입/지출 전환
     private int _targetYear = DateTime.Now.Year;
     private bool _isImporting = false;
     private bool _isRestoring = false;
@@ -1124,7 +1149,7 @@
     private List<BudgetPlan> _budgetList = new();
     private IGrouping<int, BudgetPlan>[] _budgetHistory = Array.Empty<IGrouping<int, BudgetPlan>>();
 
-    private IEnumerable<BudgetPlan> CurrentYearBudgets => _budgetList.Where(b => b.Year == _targetYear && b.Type == _activeTab);
+    private IEnumerable<BudgetPlan> CurrentYearBudgets => _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetType);
     private IEnumerable<IGrouping<string, BudgetPlan>> GroupedBudgets => CurrentYearBudgets.GroupBy(b => b.Category);
 
     private IEnumerable<DataBackup> ManualBackups => _backupList.Where(b => b.DataType != "Auto").OrderByDescending(b => b.BackupDate);
@@ -1215,9 +1240,35 @@
     private int _analysisYear = DateTime.Now.Year;
     private int _analysisQuarter = 0; // 0 = 전체
     private int _analysisMonth = 0;   // 0 = 전체
+    private string _analysisType = "지출"; // 분석 대상 장부 구분(수입/지출)
     private bool _isAnalyzing = false;
     private bool _analysisRan = false;
     private List<KeywordSuggestion> _suggestions = new();
+
+    // 🚀 추천 결과 체크박스 일괄 등록용 (선택된 키워드 집합)
+    private HashSet<string> _selectedSuggestions = new();
+
+    private bool IsAllSuggestionsSelected => FilteredSuggestions.Any() && _selectedSuggestions.Count == FilteredSuggestions.Count();
+
+    private void ToggleAllSuggestions(ChangeEventArgs e)
+    {
+        bool isChecked = e.Value is bool b && b;
+        if (isChecked)
+        {
+            _selectedSuggestions = FilteredSuggestions.Select(s => s.Keyword).ToHashSet();
+        }
+        else
+        {
+            _selectedSuggestions.Clear();
+        }
+    }
+
+    private void ToggleSuggestion(string keyword, object? checkedValue)
+    {
+        bool isChecked = checkedValue is bool b && b;
+        if (isChecked) _selectedSuggestions.Add(keyword);
+        else _selectedSuggestions.Remove(keyword);
+    }
     // 프로그레스 바 색상 팔레트 (분포 세그먼트 순환용)
     private static readonly string[] _barPalette = { "#785600", "#b08500", "#5a8f3c", "#3c7d8f", "#8f5a3c", "#9c4f6e", "#6e6e6e" };
     private string BarColor(int idx) => _barPalette[idx % _barPalette.Length];
@@ -1291,9 +1342,9 @@
     {
         if (CurrentUser == null) return;
         
-        if (CurrentUser?.IsSystemAdmin == true) _activeTab = "Users";
-        else if (CurrentUser?.IsManager == true) _activeTab = "Income";
-        else _activeTab = "MyInfo";
+        if (CurrentUser?.IsManager == true) _activeTab = "Budget";
+        else if (CurrentUser?.IsAuditor == true) _activeTab = "Info";
+        else _activeTab = "Security";
        
         _targetYear = Math.Max(2024, DateTime.Now.Year);
         using var context = DbContextFactory.CreateDbContext();
@@ -1334,37 +1385,35 @@
             _quarterEndDates[i - 1] = range.End;
         }
 
-        if (CurrentUser?.IsSystemAdmin == true && _activeTab == "Users")
+        if (CurrentUser?.IsSystemAdmin == true && _activeTab == "Security")
         {
             _adminUserList = await AccService.GetAllUsersAsync();
             _adminDeptList = await AccService.GetDepartmentsAsync();
             return;
         }
 
-        if (_activeTab == "Income" || _activeTab == "Expense")
+        if (_activeTab == "Budget")
         {
             using var context = DbContextFactory.CreateDbContext();
             if (CurrentUser?.IsSystemAdmin == true)
             {
-                // Admin: 모든 부서 예산 로드
+                // Admin: 모든 부서 예산 로드 (수입/지출 모두 — 탭 내부에서 _budgetType으로 분기)
                 var allDepts = await context.Departments.AsNoTracking().Where(d => d.Name != "관리자").OrderBy(d => d.Id).ToListAsync();
                 _visibleDepartments = allDepts;
-                var allPlansForTab = await context.BudgetPlans.AsNoTracking()
-                    .Where(b => b.Type == _activeTab)
+                var allPlans = await context.BudgetPlans.AsNoTracking()
                     .OrderBy(b => b.Year).ThenBy(b => b.DepartmentId).ThenBy(b => b.Category).ToListAsync();
-                _budgetList = allPlansForTab;
-                _budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
-                var allCurrentYearPlans = await context.BudgetPlans.AsNoTracking()
-                    .Where(b => b.Year == _targetYear).ToListAsync();
+                _budgetList = allPlans;
+                _budgetHistory = allPlans.GroupBy(b => b.Year).ToArray();
+                var allCurrentYearPlans = allPlans.Where(b => b.Year == _targetYear).ToList();
                 _incomeCats = allCurrentYearPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
                 _expenseCats = allCurrentYearPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
             }
             else
             {
-                var allPlansForTab = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Type == _activeTab).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
-                _budgetList = allPlansForTab;
-                _budgetHistory = allPlansForTab.GroupBy(b => b.Year).ToArray();
-                var currentYearAllPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId && b.Year == _targetYear).ToListAsync();
+                var allPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == myDeptId).OrderBy(b => b.Year).ThenBy(b => b.Category).ToListAsync();
+                _budgetList = allPlans;
+                _budgetHistory = allPlans.GroupBy(b => b.Year).ToArray();
+                var currentYearAllPlans = allPlans.Where(b => b.Year == _targetYear).ToList();
                 _incomeCats = currentYearAllPlans.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
                 _expenseCats = currentYearAllPlans.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
             }
@@ -1401,7 +1450,7 @@
         { 
             _backupList = await AccService.GetBackupsAsync(myDeptId);
         }
-        else if (_activeTab == "Officers" || _activeTab == "Account")
+        else if (_activeTab == "Info")
         {
             using var context = DbContextFactory.CreateDbContext();
             var allDepts = await context.Departments.Where(d => d.Name != "관리자" && d.Name != "시스템").OrderBy(d => d.Id).ToListAsync();
@@ -1442,7 +1491,7 @@
         else _expandedCategories[category] = true;
     }
     
-    private void ExpandAll() { foreach (var c in _budgetList.Where(b => b.Year == _targetYear && b.Type == _activeTab).Select(b => b.Category).Distinct()) _expandedCategories[c] = true; }
+    private void ExpandAll() { foreach (var c in _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetType).Select(b => b.Category).Distinct()) _expandedCategories[c] = true; }
     private void CollapseAll() { _expandedCategories.Clear(); }
     private bool IsExpanded(string category) { return _expandedCategories.ContainsKey(category) && _expandedCategories[category]; }
 
@@ -1591,7 +1640,7 @@
         catch (Exception ex) { await ShowAlertAsync($"엑셀 백업 중 오류: {ex.Message}"); }
     }
 
-    private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _activeTab; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
+    private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _budgetType; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
     private async Task SaveQuarter(int q)
     {
         if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{_targetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return;
@@ -1638,115 +1687,45 @@
             await context.SaveChangesAsync(); await LoadData(); await ShowAlertAsync("직전년도 예산 불러오기 완료!");
         }
         catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
-        finally { _isImporting = false; _bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
+        finally { _isImporting = false; StateHasChanged(); }
     }
 
-    private async Task DownloadBulkTemplate()
+    // 🚀 환경설정(예산항목 + 자동분류) 엑셀 다운로드
+    private async Task DownloadSettingsExcel()
     {
         try
         {
-            using var workbook = new XLWorkbook();
-            var wsBudget = workbook.Worksheets.Add("예산일괄입력");
-            var headers1 = new[] { "구분", "항목", "상세내역", "산출근거", "금액" };
-            for (int i = 0; i < headers1.Length; i++) { wsBudget.Cell(1, i + 1).Value = headers1[i]; wsBudget.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsBudget.Cell(1, i + 1).Style.Font.Bold = true; }
-
-            wsBudget.Cell(2, 1).Value = "※업로드 전에 예시(3번 행까지)는 엑셀에서 반드시 삭제하세요!";
-            wsBudget.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
-            wsBudget.Range(2, 1, 2, 5).Merge(); 
-
-            wsBudget.Cell(3, 1).Value = "수입"; wsBudget.Cell(3, 2).Value = "주일헌금"; wsBudget.Cell(3, 3).Value = "예배"; wsBudget.Cell(3, 5).Value = 2600000;
-            wsBudget.Cell(4, 1).Value = "지출"; wsBudget.Cell(4, 2).Value = "행사비"; wsBudget.Cell(4, 3).Value = "성경학교"; wsBudget.Cell(4, 5).Value = 200000;
-            
-            // 수정: 예산 양식 칸 너비를 웹페이지와 유사한 비율로 고정
-            wsBudget.Column(1).Width = 10; // 구분
-            wsBudget.Column(2).Width = 20; // 항목
-            wsBudget.Column(3).Width = 30; // 상세내역
-            wsBudget.Column(4).Width = 35; // 산출근거
-            wsBudget.Column(5).Width = 15; // 금액
-
-            var wsMapping = workbook.Worksheets.Add("자동분류일괄입력");
-            var headers2 = new[] { "구분", "키워드", "분류될항목" };
-            for (int i = 0; i < headers2.Length; i++) { wsMapping.Cell(1, i + 1).Value = headers2[i]; wsMapping.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; wsMapping.Cell(1, i + 1).Style.Font.Bold = true; }
-
-            wsMapping.Cell(2, 1).Value = "※업로드 전에 예시(3번 행까지)는 엑셀에서 반드시 삭제하세요!";
-            wsMapping.Cell(2, 1).Style.Font.FontColor = XLColor.Red;
-            wsMapping.Range(2, 1, 2, 3).Merge();
-
-            wsMapping.Cell(3, 1).Value = "수입"; wsMapping.Cell(3, 2).Value = "인천중앙교회"; wsMapping.Cell(3, 3).Value = "교회보조금";
-            wsMapping.Cell(4, 1).Value = "지출"; wsMapping.Cell(4, 2).Value = "다이소"; wsMapping.Cell(4, 3).Value = "행사비";
-            
-            // 수정: 자동분류 양식 칸 너비 비율 고정
-            wsMapping.Column(1).Width = 10; // 구분
-            wsMapping.Column(2).Width = 40; // 키워드
-            wsMapping.Column(3).Width = 40; // 분류될 항목
-
-            using var stream = new MemoryStream(); workbook.SaveAs(stream);
-            var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", "일괄입력양식_통합.xlsx", base64);
+            var bytes = await AccService.ExportSettingsExcelAsync(CurrentUser?.DepartmentId ?? 0, _targetYear);
+            var base64 = Convert.ToBase64String(bytes);
+            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"환경설정백업_{_targetYear}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 양식 생성 오류: {ex.Message}"); }
-    }
-    
-    private async Task TriggerBulkImport() 
-    { 
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "다운로드하신 엑셀 파일 내의 '빨간색 글씨로 된 예시 행'은 엑셀에서 미리 다 지우셨나요?\n\n지우지 않고 올리면 오류가 발생할 수 있습니다. 계속 진행하시겠습니까?");
-        if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('bulkImportInput').click()"); }
+        catch (Exception ex) { await ShowAlertAsync($"엑셀 생성 오류: {ex.Message}"); }
     }
 
-    private async Task HandleBulkImport(InputFileChangeEventArgs e)
+    // 숨겨진 settingsImportInput 파일 선택창 트리거
+    private async Task TriggerSettingsImport()
+    {
+        if (_isSettingsImporting) return;
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "다운로드한 '환경설정 엑셀'(예산항목·자동분류 시트)을 업로드하여 현재 설정에 병합합니다.\n계속하시겠습니까?");
+        if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('settingsImportInput').click()"); }
+    }
+
+    // 🚀 환경설정 엑셀 일괄 업로드(복원)
+    private async Task HandleSettingsImport(InputFileChangeEventArgs e)
     {
         if (CurrentUser == null) return;
         var file = e.File; if (file == null) return;
-        _isImporting = true; StateHasChanged();
+        _isSettingsImporting = true; StateHasChanged();
         try
         {
-            System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
             using var memoryStream = new MemoryStream();
             await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream); memoryStream.Position = 0;
-            using var reader = ExcelReaderFactory.CreateReader(memoryStream); var result = reader.AsDataSet();
-            int budgetCount = 0; int mappingCount = 0;
-            int deptId = CurrentUser.DepartmentId;
-            using var context = DbContextFactory.CreateDbContext();
-
-            foreach (DataTable table in result.Tables)
-            {
-                if (table.TableName == "예산일괄입력")
-                {
-                    for (int i = 1; i < table.Rows.Count; i++)
-                    {
-                        var row = table.Rows[i];
-                        string type = row[0]?.ToString()?.Trim() ?? ""; 
-                        if (type.Contains("삭제하세요")) continue; 
-
-                        string cat = row[1]?.ToString()?.Trim() ?? ""; string sub = row[2]?.ToString()?.Trim() ?? ""; string calc = row[3]?.ToString()?.Trim() ?? ""; string amtStr = row[4]?.ToString()?.Trim() ?? "0";
-                        if (string.IsNullOrEmpty(cat)) continue;
-                        if (type == "수입") type = "Income"; if (type == "지출") type = "Expense";
-                        if (type != "Income" && type != "Expense") continue;
-                        decimal.TryParse(amtStr, out decimal amt);
-                        context.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = _targetYear, Type = type, Category = cat, SubCategory = sub, CalcDetail = calc, Amount = amt });
-                        budgetCount++;
-                    }
-                }
-                else if (table.TableName == "자동분류일괄입력")
-                {
-                    for (int i = 1; i < table.Rows.Count; i++)
-                    {
-                        var row = table.Rows[i];
-                        string type = row[0]?.ToString()?.Trim() ?? "";
-                        if (type.Contains("삭제하세요")) continue; 
-
-                        string keyword = row[1]?.ToString()?.Trim() ?? ""; string cat = row[2]?.ToString()?.Trim() ?? "";
-                        if (string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
-                        context.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = keyword, Category = cat }); mappingCount++;
-                    }
-                }
-            }
-            await context.SaveChangesAsync();
-            await LoadData(); 
-            await ShowAlertAsync($"일괄 입력 완료!\n- 예산: {budgetCount}건\n- 자동분류: {mappingCount}건");
+            var (budgetCount, mappingCount) = await AccService.ImportSettingsExcelAsync(CurrentUser.DepartmentId, _targetYear, memoryStream);
+            await LoadData();
+            await ShowAlertAsync($"환경설정 복원 완료!\n- 예산항목: {budgetCount}건\n- 자동분류: {mappingCount}건");
         }
         catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
-        finally { _isImporting = false; _bulkImportKey = Guid.NewGuid(); StateHasChanged(); }
+        finally { _isSettingsImporting = false; _settingsImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
     private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(_customBackupMemo) ? "사용자 수동 백업" : _customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); _customBackupMemo = ""; await LoadData(); await ShowAlertAsync("성공적으로 백업되었습니다."); }
@@ -1840,7 +1819,8 @@
         await Task.Delay(10);   // 🚀 UI 스레드에 양보하여 스피너가 실제로 표시되게 함
         try
         {
-            _suggestions = await AccService.AnalyzeMappingSuggestionsAsync(_mappingTargetDeptId, _analysisYear, _analysisQuarter, _analysisMonth);
+            _suggestions = await AccService.AnalyzeMappingSuggestionsAsync(_mappingTargetDeptId, _analysisYear, _analysisQuarter, _analysisMonth, _analysisType);
+            _selectedSuggestions.Clear(); // 새 분석 결과에 맞춰 선택 초기화
             _analysisRan = true;
         }
         finally
@@ -1864,6 +1844,39 @@
         });
         await LoadData(); // 상단 '지출 항목 자동분류 규칙' 목록(_mappingList) 갱신
         await ShowAlertAsync($"'{s.Keyword}' → '{s.RecommendedCategory}' 규칙이 등록되었습니다.");
+    }
+
+    // 🚀 체크된 추천 키워드들을 한 번에 규칙으로 등록
+    private async Task BulkAddSuggestedRulesAsync()
+    {
+        if (_selectedSuggestions.Count == 0) { await ShowAlertAsync("등록할 추천 항목을 선택하세요."); return; }
+
+        bool canEdit = CurrentUser?.IsSystemAdmin == true || _mappingTargetDeptId == (CurrentUser?.DepartmentId ?? 0);
+        if (!canEdit) { await ShowAlertAsync("해당 부서의 규칙을 등록할 권한이 없습니다."); return; }
+
+        // 선택된 항목 중 아직 등록되지 않은 것만 저장(중복 방지)
+        var targets = FilteredSuggestions
+            .Where(s => _selectedSuggestions.Contains(s.Keyword)
+                     && !_mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword))
+            .ToList();
+
+        int added = 0;
+        foreach (var s in targets)
+        {
+            await AccService.SaveMappingAsync(new CategoryMapping
+            {
+                DepartmentId = _mappingTargetDeptId,
+                Keyword = s.Keyword,
+                Category = s.RecommendedCategory
+                // MappingType 구분은 분석 대상(_analysisType)과 동일 → Category가 해당 구분 항목이므로 자동 귀속
+            });
+            added++;
+        }
+
+        _selectedSuggestions.Clear();
+        await LoadData();           // 상단 규칙 목록 갱신
+        await RunMappingAnalysis(); // 추천 리스트 재분석(이미 등록된 항목 배지 반영)
+        await ShowAlertAsync($"{added}건의 {_analysisType} 규칙이 일괄 등록되었습니다.");
     }
 
     private async Task HandlePasswordKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await ChangeMyPassword(); } }
