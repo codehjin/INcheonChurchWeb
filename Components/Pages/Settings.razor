@@ -420,6 +420,141 @@
                         </div>
                     </div>
                 </div>
+
+                @* ── 규칙 분석 (추천 시스템) ─────────────────────── *@
+                <hr class="my-5" />
+                <div class="d-flex align-items-center mb-3">
+                    <i class="bi bi-graph-up-arrow fs-4 me-2" style="color: #785600;"></i>
+                    <h5 class="fw-bold mb-0" style="color: #1b1c15;">규칙 분석 (추천 시스템)</h5>
+                </div>
+
+                <div class="settings-info-box mb-4">
+                    <i class="bi bi-lightbulb-fill fs-5 mt-1" style="color: #785600;"></i>
+                    <div>
+                        <div class="fw-bold mb-1" style="color: #1b1c15;">추천 원리</div>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">선택한 기간의 <b>지출 장부</b>에서 이미 분류된 내역을 학습하여, 같은 <b>적요(내역)</b>가 어떤 항목으로 가장 자주 분류됐는지 분석합니다. 가장 비율이 높은 항목을 <b>추천 규칙</b>으로 제안합니다.</p>
+                    </div>
+                </div>
+
+                <div class="settings-card-warm mb-4">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-bold mb-1 text-muted">연도</label>
+                            <select class="settings-input fw-bold" @bind="_analysisYear" style="color: #785600;">
+                                @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 3; y--)
+                                {
+                                    <option value="@y">@(y)년</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-bold mb-1 text-muted">분기</label>
+                            <select class="settings-input" @bind="_analysisQuarter">
+                                <option value="0">전체 분기</option>
+                                <option value="1">1분기</option>
+                                <option value="2">2분기</option>
+                                <option value="3">3분기</option>
+                                <option value="4">4분기</option>
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <label class="form-label small fw-bold mb-1 text-muted">월</label>
+                            <select class="settings-input" @bind="_analysisMonth">
+                                <option value="0">전체 월</option>
+                                @for (int mo = 1; mo <= 12; mo++)
+                                {
+                                    <option value="@mo">@(mo)월</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <button class="settings-gold-btn w-100 py-2" @onclick="RunMappingAnalysis" disabled="@_isAnalyzing">
+                                @if (_isAnalyzing)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span><span>분석 중...</span>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-arrow-clockwise me-1"></i><span>새로고침 (분석 실행)</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                @if (_isAnalyzing)
+                {
+                    <div class="text-center py-5 text-muted"><span class="spinner-border me-2" style="color:#785600;"></span>장부를 분석하고 있습니다...</div>
+                }
+                else if (_analysisRan && !_suggestions.Any())
+                {
+                    <div class="settings-info-box danger">
+                        <i class="bi bi-exclamation-triangle-fill fs-5 mt-1" style="color: #ba1a1a;"></i>
+                        <div><p class="mb-0" style="color: #4e4637; font-size: 0.9rem;">선택한 기간에 분석할 <b>분류된 지출 내역</b>이 없습니다. 기간을 바꾸거나 월별 장부에서 먼저 분류를 진행해 주세요.</p></div>
+                    </div>
+                }
+                else if (_suggestions.Any())
+                {
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="fw-bold" style="color: #4e4637;">총 @_suggestions.Count 개의 키워드 분석됨</span>
+                        <span class="badge bg-white text-muted border">기준: @(_analysisYear)년 @(_analysisQuarter == 0 ? "전체분기" : $"{_analysisQuarter}분기") @(_analysisMonth == 0 ? "" : $"{_analysisMonth}월")</span>
+                    </div>
+
+                    <div class="settings-table-container">
+                        <table class="settings-table" style="min-width: 760px;">
+                            <thead>
+                                <tr>
+                                    <th class="text-start ps-4" style="min-width: 160px;">키워드(적요)</th>
+                                    <th style="min-width: 280px;">분류 항목 분포</th>
+                                    <th style="min-width: 130px;">추천 분류</th>
+                                    <th width="120">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var s in _suggestions)
+                                {
+                                    bool alreadyMapped = _mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword);
+                                    <tr>
+                                        <td class="text-start ps-4 fw-bold" style="color: #1b1c15;">
+                                            @s.Keyword
+                                            <div class="text-muted small fw-normal">총 @s.TotalCount 건</div>
+                                        </td>
+                                        <td>
+                                            <div class="progress" style="height: 22px; background-color: #eae9dd;">
+                                                @{ int _ci = 0; }
+                                                @foreach (var d in s.Distribution)
+                                                {
+                                                    <div class="progress-bar" role="progressbar"
+                                                         style="width:@(d.Percentage.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%; background-color:@BarColor(_ci); overflow: visible;"
+                                                         title="@d.Category : @(d.Count)건 (@d.Percentage%)">
+                                                        <span class="small fw-bold text-nowrap px-1">@d.Category @d.Percentage%</span>
+                                                    </div>
+                                                    _ci++;
+                                                }
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <span class="fw-bold" style="color: #785600;">@s.RecommendedCategory</span>
+                                            <div class="text-muted small">@s.RecommendedPercentage% 일치</div>
+                                        </td>
+                                        <td>
+                                            @if (alreadyMapped)
+                                            {
+                                                <span class="badge bg-white border" style="color: #198754;"><i class="bi bi-check-circle me-1"></i>등록됨</span>
+                                            }
+                                            else
+                                            {
+                                                <button class="settings-gold-btn py-1 px-2" style="font-size: 0.75rem;" @onclick="() => AddSuggestedRule(s)">
+                                                    <i class="bi bi-plus-circle me-1"></i>규칙에 추가
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             }
 
             @* ──────────────────────────────
@@ -852,14 +987,14 @@
                                 {
                                     <h2 class="accordion-header" id="heading-acc-@dept.Id">
                                         <button class="accordion-button @(isExpanded ? "" : "collapsed")" type="button" @onclick="() => ToggleDept(dept.Id)">
-                                            ?? @dept.Name 계좌 
+                                            <i class="bi bi-people-fill me-1" style="color: #785600;"></i>@dept.Name 계좌
                                             @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-white text-muted border ms-3">@dept.BankName 등록됨</span> }
                                         </button>
                                     </h2>
                                 }
                                 else
                                 {
-                                    <h5 class="fw-bold text-dark mb-4">?? @dept.Name 계좌 
+                                    <h5 class="fw-bold text-dark mb-4"><i class="bi bi-people-fill me-1" style="color: #785600;"></i>@dept.Name 계좌
                                         @if(!string.IsNullOrEmpty(dept.BankName)) { <span class="badge bg-light text-muted border ms-2 fs-6">@dept.BankName 등록됨</span> }
                                     </h5>
                                 }
@@ -941,6 +1076,17 @@
     private BudgetPlan _newPlan = new();
     private List<CategoryMapping> _mappingList = new();
     private CategoryMapping _newMapping = new();
+
+    // 🚀 자동분류 규칙 분석(추천 시스템) 상태
+    private int _analysisYear = DateTime.Now.Year;
+    private int _analysisQuarter = 0; // 0 = 전체
+    private int _analysisMonth = 0;   // 0 = 전체
+    private bool _isAnalyzing = false;
+    private bool _analysisRan = false;
+    private List<KeywordSuggestion> _suggestions = new();
+    // 프로그레스 바 색상 팔레트 (분포 세그먼트 순환용)
+    private static readonly string[] _barPalette = { "#785600", "#b08500", "#5a8f3c", "#3c7d8f", "#8f5a3c", "#9c4f6e", "#6e6e6e" };
+    private string BarColor(int idx) => _barPalette[idx % _barPalette.Length];
     private List<DataBackup> _backupList = new();
 
     private List<User> _adminUserList = new();
@@ -1482,6 +1628,35 @@
     private async Task EditPlan(BudgetPlan p) { _newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; _expandedCategories[p.Category] = true; }
     private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = CurrentUser.DepartmentId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await ShowAlertAsync("키워드와 항목을 입력하세요."); } }
     private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
+
+    // 🚀 선택 기간의 지출 장부를 분석하여 키워드별 추천 분류 목록을 생성
+    private async Task RunMappingAnalysis()
+    {
+        if (CurrentUser == null) return;
+        _isAnalyzing = true;
+        try
+        {
+            _suggestions = await AccService.AnalyzeMappingSuggestionsAsync(CurrentUser.DepartmentId, _analysisYear, _analysisQuarter, _analysisMonth);
+            _analysisRan = true;
+        }
+        finally { _isAnalyzing = false; }
+    }
+
+    // 🚀 추천된 키워드/분류를 지출 자동분류 규칙 DB에 즉시 등록하고 상단 목록 갱신
+    private async Task AddSuggestedRule(KeywordSuggestion s)
+    {
+        if (CurrentUser == null) return;
+        if (_mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword)) { await ShowAlertAsync("이미 등록된 키워드입니다."); return; }
+
+        await AccService.SaveMappingAsync(new CategoryMapping
+        {
+            DepartmentId = CurrentUser.DepartmentId,
+            Keyword = s.Keyword,
+            Category = s.RecommendedCategory
+        });
+        await LoadData(); // 상단 '지출 항목 자동분류 규칙' 목록(_mappingList) 갱신
+        await ShowAlertAsync($"'{s.Keyword}' → '{s.RecommendedCategory}' 규칙이 등록되었습니다.");
+    }
 
     private async Task HandlePasswordKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await ChangeMyPassword(); } }
     

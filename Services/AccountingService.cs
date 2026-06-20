@@ -26,6 +26,24 @@ namespace INcheonChurchWeb.Services
     // [DTO] 단일 부서 통계용
     public class StatItem { public string Category { get; set; } = ""; public decimal Budget { get; set; } public decimal Spent { get; set; } }
 
+    // [DTO] 자동분류 규칙 분석(추천 시스템)용 — 키워드별 분류 빈도
+    public class CategoryFrequency
+    {
+        public string Category { get; set; } = "";
+        public int Count { get; set; }
+        public double Percentage { get; set; } // 0~100
+    }
+
+    // [DTO] 자동분류 규칙 분석(추천 시스템)용 — 키워드 한 건의 분석 결과
+    public class KeywordSuggestion
+    {
+        public string Keyword { get; set; } = "";          // 적요/내역 문구 (예: "파리바게트미추")
+        public int TotalCount { get; set; }                 // 해당 키워드의 총 분류 건수
+        public string RecommendedCategory { get; set; } = ""; // 비율이 가장 높은 추천 분류
+        public double RecommendedPercentage { get; set; }   // 추천 분류의 비율(%)
+        public List<CategoryFrequency> Distribution { get; set; } = new(); // 분류별 빈도(내림차순)
+    }
+
     // [DTO] 부서 단위 장부 백업/복구용
     public class DepartmentBackupDto
     {
@@ -699,6 +717,105 @@ namespace INcheonChurchWeb.Services
         {
             using var db = _dbFactory.CreateDbContext();
             var m = await db.CategoryMappings.FindAsync(id); if (m != null) { db.CategoryMappings.Remove(m); await db.SaveChangesAsync(); }
+        }
+
+        // =========================================================
+        // 🚀 [추천 시스템] 자동분류 규칙 분석
+        // 선택 기간의 '지출' 장부에서 이미 분류된 내역을 키워드(내역/비고)별로 그룹핑하여
+        // 어떤 분류 항목이 가장 자주 귀속되었는지 빈도/비율을 계산하고 추천 분류를 선정합니다.
+        // quarter / month 는 0이면 '전체'로 간주하여 필터를 적용하지 않습니다.
+        // =========================================================
+        public async Task<List<KeywordSuggestion>> AnalyzeMappingSuggestionsAsync(int deptId, int year, int quarter, int month)
+        {
+            using var db = _dbFactory.CreateDbContext();
+
+            var query = db.Transactions.AsNoTracking()
+                .Where(t => t.DepartmentId == deptId
+                         && t.FiscalYear == year
+                         && (t.Type == "지출" || t.Type == "Expense"));
+
+            if (quarter > 0) query = query.Where(t => t.Quarter == quarter);
+            if (month > 0) query = query.Where(t => t.Date.Month == month);
+
+            var rows = await query.ToListAsync();
+
+            // 🚀 [단어(Token) 기반 분석]
+            // 텍스트는 '내역(Description)' 우선, 비어있으면 '비고(Note)'를 사용.
+            // 이미 분류된 내역만 학습 대상으로 삼으므로 '미분류'와 빈 분류는 제외.
+            // 각 지출 건의 텍스트를 단어로 토큰화한 뒤, (단어 → 분류) 쌍으로 1:1 평탄화(SelectMany)한다.
+            // 한 건 안에서 같은 단어가 여러 번 나와도 1표만 인정하도록 건별로 Distinct 처리.
+            var tokenCategoryPairs = rows
+                .Select(t => new
+                {
+                    Text = !string.IsNullOrWhiteSpace(t.Description) ? t.Description : (t.Note ?? ""),
+                    Category = (t.Category ?? "").Trim()
+                })
+                .Where(x => !string.IsNullOrWhiteSpace(x.Category) && x.Category != "미분류")
+                .SelectMany(x => Tokenize(x.Text).Distinct().Select(token => new { Token = token, x.Category }));
+
+            var suggestions = new List<KeywordSuggestion>();
+
+            foreach (var grp in tokenCategoryPairs.GroupBy(p => p.Token))
+            {
+                int total = grp.Count();
+
+                // 🚀 노이즈 제거: 전체 지출에서 2번 이상 등장한 단어만 추천 대상으로 인정.
+                if (total < 2) continue;
+
+                var distribution = grp.GroupBy(p => p.Category)
+                    .Select(cg => new CategoryFrequency
+                    {
+                        Category = cg.Key,
+                        Count = cg.Count(),
+                        Percentage = Math.Round(cg.Count() * 100.0 / total, 1)
+                    })
+                    .OrderByDescending(c => c.Count)
+                    .ThenBy(c => c.Category)
+                    .ToList();
+
+                var top = distribution.First();
+
+                suggestions.Add(new KeywordSuggestion
+                {
+                    Keyword = grp.Key,
+                    TotalCount = total,
+                    RecommendedCategory = top.Category,
+                    RecommendedPercentage = top.Percentage,
+                    Distribution = distribution
+                });
+            }
+
+            // 분석 가치가 높은(자주 등장한) 단어부터 위로 정렬
+            return suggestions
+                .OrderByDescending(s => s.TotalCount)
+                .ThenByDescending(s => s.RecommendedPercentage)
+                .ToList();
+        }
+
+        // 회계 장부에서 분류 단서가 되지 못하는 불용어(Stopwords) — 토큰화 후 제외.
+        private static readonly HashSet<string> _analysisStopwords = new()
+        {
+            "지출", "결제", "구입", "구매", "비용", "이체", "송금", "대금", "지급", "현금", "카드", "사용", "기타"
+        };
+
+        // 🚀 텍스트 정제 및 토큰화:
+        // ① 한글·영문·숫자가 아닌 모든 문자(괄호·쉼표·하이픈·언더스코어 등)를 공백으로 치환
+        // ② 공백 기준 분리(빈 항목 제거)
+        // ③ 1글자 단어 제외 + 불용어 제외
+        private static IEnumerable<string> Tokenize(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return Enumerable.Empty<string>();
+
+            var sb = new StringBuilder(text.Length);
+            foreach (char c in text)
+            {
+                sb.Append(char.IsLetterOrDigit(c) ? c : ' ');
+            }
+
+            return sb.ToString()
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length >= 2)                       // 1글자 단어 제외
+                .Where(w => !_analysisStopwords.Contains(w));     // 불용어 제외
         }
 
         // =========================================================
