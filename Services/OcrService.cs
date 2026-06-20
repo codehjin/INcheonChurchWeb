@@ -20,8 +20,8 @@ namespace INcheonChurchWeb.Services
     public class OcrService
     {
         // 💡 오직 날짜와 금액 관련 키워드만 남겼습니다.
-        private readonly string[] DateKeywords = { "결제일시", "승인일시", "결제일자", "거래일시", "거래일자", "판매일시", "일자", "주문일시", "결제일", "판매일", "승인일" };
-        private readonly string[] AmountKeywords = { "총결제금액", "결제금액", "승인금액", "합계금액", "받을금액", "판매총액", "이체금액", "청구금액", "결제합계", "카드결제", "판매합계", "받은금액", "과세합계", "총액", "합계" };
+        private readonly string[] _dateKeywords = { "결제일시", "승인일시", "결제일자", "거래일시", "거래일자", "판매일시", "일자", "주문일시", "결제일", "판매일", "승인일" };
+        private readonly string[] _amountKeywords = { "총결제금액", "결제금액", "승인금액", "합계금액", "받을금액", "판매총액", "이체금액", "청구금액", "결제합계", "카드결제", "판매합계", "받은금액", "과세합계", "총액", "합계" };
 
         public async Task<OcrResult> ProcessReceiptAsync(byte[] imageBytes)
         {
@@ -92,7 +92,7 @@ namespace INcheonChurchWeb.Services
             // 1순위: '결제일시' 등 키워드가 있는 줄 먼저 검색
             foreach (var line in lines)
             {
-                if (DateKeywords.Any(k => line.Replace(" ", "").Contains(k)))
+                if (_dateKeywords.Any(k => line.Replace(" ", "").Contains(k)))
                 {
                     var match = dateRegex.Match(line);
                     if (match.Success) return ParseDateString(match);
@@ -127,7 +127,7 @@ namespace INcheonChurchWeb.Services
             foreach (var line in lines)
             {
                 string cleanLine = line.Replace(" ", "");
-                if (AmountKeywords.Any(k => cleanLine.Contains(k)))
+                if (_amountKeywords.Any(k => cleanLine.Contains(k)))
                 {
                     // 1순위: 키워드와 같은 줄 검색
                     var matches = looseNumRegex.Matches(cleanLine);
