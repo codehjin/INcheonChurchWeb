@@ -1,0 +1,57 @@
+name: Deploy to Docker Server
+
+# main 브랜치에 push 이벤트가 발생할 때만 실행
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: 코드 체크아웃
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: .NET 8.0 SDK 설정
+      - name: Setup .NET 8.0 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # (사전) 의존성 복원 — --no-restore 사용을 위해 먼저 실행
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # Step 3: 빌드 및 퍼블리시
+      - name: Publish project
+        run: dotnet publish -c Release -o ./publish --no-restore
+
+      # Step 4: 리눅스 서버로 파일 전송 (church.db 등 기존 데이터는 publish에 없으므로 보존됨)
+      - name: Copy files to server via SCP
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "./publish/*"
+          target: "/home/ubuntu/church"
+          strip_components: 1
+
+      # Step 5: 도커 컨테이너 재빌드 및 실행
+      - name: Rebuild and run Docker container via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: |
+            cd /home/ubuntu/church
+            sudo docker-compose down
+            sudo chmod -R 777 /home/ubuntu/church
+            sudo docker-compose up -d --build
+            sudo docker ps
