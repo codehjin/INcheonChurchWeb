@@ -400,37 +400,57 @@
 
                 <div class="row g-4">
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #5a4000;"><i class="bi bi-tags-fill me-1"></i>수입 항목 자동분류 규칙</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                            <h6 class="fw-bold mb-0" style="color: #5a4000;"><i class="bi bi-tags-fill me-1"></i>수입 항목 자동분류 규칙</h6>
+                            <select class="settings-input fw-bold" style="width: auto; max-width: 170px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #785600;" @bind="_incomeFilterCategory">
+                                <option value="">전체보기</option>
+                                @foreach (var c in _incomeCats) { <option value="@c">@c</option> }
+                            </select>
+                        </div>
                         <div class="settings-table-container">
                             <table class="settings-table">
-                                <thead><tr><th width="40%">키워드(적요)</th><th width="40%">분류될 항목</th><th width="20%">관리</th></tr></thead>
+                                <thead><tr>
+                                    <th width="40%" style="cursor: pointer;" @onclick='() => SortIncomeRules("Keyword")'>키워드(적요) <i class="bi @IncomeKeywordIcon"></i></th>
+                                    <th width="40%" style="cursor: pointer;" @onclick='() => SortIncomeRules("Category")'>분류될 항목 <i class="bi @IncomeCategoryIcon"></i></th>
+                                    <th width="20%">관리</th>
+                                </tr></thead>
                                 <tbody>
-                                    @foreach (var m in _mappingList.Where(x => _incomeCats.Contains(x.Category ?? "")))
+                                    @foreach (var m in IncomeRules)
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #785600;">@m.Category</td>
                                             <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
                                         </tr>
                                     }
-                                    @if (!_mappingList.Any(x => _incomeCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">등록된 수입 규칙이 없습니다.</td></tr> }
+                                    @if (!IncomeRules.Any()) { <tr><td colspan="3" class="text-muted py-4">@(string.IsNullOrEmpty(_incomeFilterCategory) ? "등록된 수입 규칙이 없습니다." : "선택한 분류의 규칙이 없습니다.")</td></tr> }
                                 </tbody>
                             </table>
                         </div>
                     </div>
                     <div class="col-md-6">
-                        <h6 class="fw-bold mb-3" style="color: #ba1a1a;"><i class="bi bi-tags-fill me-1"></i>지출 항목 자동분류 규칙</h6>
+                        <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+                            <h6 class="fw-bold mb-0" style="color: #ba1a1a;"><i class="bi bi-tags-fill me-1"></i>지출 항목 자동분류 규칙</h6>
+                            <select class="settings-input fw-bold" style="width: auto; max-width: 170px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #ba1a1a;" @bind="_expenseFilterCategory">
+                                <option value="">전체보기</option>
+                                @foreach (var c in _expenseCats) { <option value="@c">@c</option> }
+                            </select>
+                        </div>
                         <div class="settings-table-container">
                             <table class="settings-table">
-                                <thead><tr><th width="40%">키워드(적요)</th><th width="40%">분류될 항목</th><th width="20%">관리</th></tr></thead>
+                                <thead><tr>
+                                    <th width="40%" style="cursor: pointer;" @onclick='() => SortExpenseRules("Keyword")'>키워드(적요) <i class="bi @ExpenseKeywordIcon"></i></th>
+                                    <th width="40%" style="cursor: pointer;" @onclick='() => SortExpenseRules("Category")'>분류될 항목 <i class="bi @ExpenseCategoryIcon"></i></th>
+                                    <th width="20%">관리</th>
+                                </tr></thead>
                                 <tbody>
-                                    @foreach (var m in _mappingList.Where(x => _expenseCats.Contains(x.Category ?? "")))
+                                    @foreach (var m in ExpenseRules)
                                     {
                                         <tr>
                                             <td class="fw-bold">@m.Keyword</td><td class="fw-bold" style="color: #ba1a1a;">@m.Category</td>
                                             <td><button class="settings-secondary-btn py-1 px-2 me-1" style="font-size: 0.75rem;" @onclick="() => EditMapping(m)">수정</button><button class="settings-danger-btn py-1 px-2" @onclick="() => DeleteMapping(m.Id)">삭제</button></td>
                                         </tr>
                                     }
-                                    @if (!_mappingList.Any(x => _expenseCats.Contains(x.Category ?? ""))) { <tr><td colspan="3" class="text-muted py-4">등록된 지출 규칙이 없습니다.</td></tr> }
+                                    @if (!ExpenseRules.Any()) { <tr><td colspan="3" class="text-muted py-4">@(string.IsNullOrEmpty(_expenseFilterCategory) ? "등록된 지출 규칙이 없습니다." : "선택한 분류의 규칙이 없습니다.")</td></tr> }
                                 </tbody>
                             </table>
                         </div>
@@ -1095,6 +1115,48 @@
 
     // 🚀 자동분류 설정 '관리 대상 부서' — 최고관리자는 타 부서로 전환 가능(0이면 본인 부서로 초기화)
     private int _mappingTargetDeptId = 0;
+
+    // 🚀 규칙 테이블 정렬/필터 상태 (수입용 / 지출용 각각)
+    private string _incomeSortColumn = "Keyword";
+    private bool _incomeSortAscending = true;
+    private string _incomeFilterCategory = "";
+    private string _expenseSortColumn = "Keyword";
+    private bool _expenseSortAscending = true;
+    private string _expenseFilterCategory = "";
+
+    // 헤더 클릭 시 정렬 토글 (같은 컬럼이면 방향 반전, 다른 컬럼이면 오름차순부터)
+    private void SortIncomeRules(string column)
+    {
+        if (_incomeSortColumn == column) _incomeSortAscending = !_incomeSortAscending;
+        else { _incomeSortColumn = column; _incomeSortAscending = true; }
+    }
+    private void SortExpenseRules(string column)
+    {
+        if (_expenseSortColumn == column) _expenseSortAscending = !_expenseSortAscending;
+        else { _expenseSortColumn = column; _expenseSortAscending = true; }
+    }
+
+    // 필터(카테고리) + 정렬(키워드/항목)을 적용한 최종 표시용 목록
+    private IEnumerable<CategoryMapping> IncomeRules =>
+        ApplyRuleSortFilter(_mappingList.Where(x => _incomeCats.Contains(x.Category ?? "")), _incomeFilterCategory, _incomeSortColumn, _incomeSortAscending);
+    private IEnumerable<CategoryMapping> ExpenseRules =>
+        ApplyRuleSortFilter(_mappingList.Where(x => _expenseCats.Contains(x.Category ?? "")), _expenseFilterCategory, _expenseSortColumn, _expenseSortAscending);
+
+    private static IEnumerable<CategoryMapping> ApplyRuleSortFilter(IEnumerable<CategoryMapping> src, string filterCategory, string sortColumn, bool ascending)
+    {
+        if (!string.IsNullOrEmpty(filterCategory)) src = src.Where(x => x.Category == filterCategory);
+        Func<CategoryMapping, string> keySelector = sortColumn == "Category" ? (x => x.Category ?? "") : (x => x.Keyword ?? "");
+        return ascending ? src.OrderBy(keySelector) : src.OrderByDescending(keySelector);
+    }
+
+    // 정렬 상태 아이콘: 비활성 컬럼은 양방향, 활성 컬럼은 오름/내림 알파벳 아이콘
+    private static string RuleSortIcon(string activeColumn, string thisColumn, bool ascending)
+        => activeColumn != thisColumn ? "bi-arrow-down-up text-muted" : (ascending ? "bi-sort-alpha-down" : "bi-sort-alpha-up");
+
+    private string IncomeKeywordIcon => RuleSortIcon(_incomeSortColumn, "Keyword", _incomeSortAscending);
+    private string IncomeCategoryIcon => RuleSortIcon(_incomeSortColumn, "Category", _incomeSortAscending);
+    private string ExpenseKeywordIcon => RuleSortIcon(_expenseSortColumn, "Keyword", _expenseSortAscending);
+    private string ExpenseCategoryIcon => RuleSortIcon(_expenseSortColumn, "Category", _expenseSortAscending);
 
     // 🚀 자동분류 규칙 분석(추천 시스템) 상태
     private int _analysisYear = DateTime.Now.Year;
