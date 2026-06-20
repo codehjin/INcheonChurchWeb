@@ -67,6 +67,13 @@
     .accordion-button:focus { box-shadow: 0 0 0 0.25rem rgba(120, 86, 0, 0.25); }
     .accordion-item { border-color: #eae9dd; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.5rem; }
 
+    /* 서브 탭(2-Depth) nav-pills — 모바일에서 가로 스크롤, 줄바꿈 방지 */
+    .sub-nav { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0.25rem; }
+    .sub-nav::-webkit-scrollbar { height: 4px; }
+    .sub-nav .nav-link { white-space: nowrap; color: #4e4637; font-weight: 700; border-radius: 0.5rem; padding: 0.5rem 0.9rem; }
+    .sub-nav .nav-link:hover { background-color: #eae9dd; }
+    .sub-nav .nav-link.active { background-color: #785600; color: #ffffff; box-shadow: 0 2px 6px rgba(120, 86, 0, 0.2); }
+
     /* 연도 선택기 */
     .year-selector { display: inline-flex; align-items: center; background-color: #ffffff; border-radius: 0.5rem; padding: 0.25rem; border: 1px solid #eae9dd; }
     .year-btn { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 0.25rem; color: #785600; border: none; background: transparent; cursor: pointer; transition: background 0.2s; font-size: 1rem; font-weight: bold; }
@@ -124,26 +131,30 @@
             ────────────────────────────── *@
             @if (_activeTab == "Budget" && CurrentUser?.IsManager == true)
             {
-                var currentCats = _budgetType == "Income" ? _incomeCats : _expenseCats;
+                <ul class="nav nav-pills sub-nav mb-4">
+                    <li class="nav-item"><button class="nav-link @(_budgetSubTab == "Income" ? "active" : "")" @onclick='() => _budgetSubTab = "Income"'><i class="bi bi-graph-up-arrow me-1"></i>수입 예산</button></li>
+                    <li class="nav-item"><button class="nav-link @(_budgetSubTab == "Expense" ? "active" : "")" @onclick='() => _budgetSubTab = "Expense"'><i class="bi bi-graph-down-arrow me-1"></i>지출 예산</button></li>
+                    <li class="nav-item"><button class="nav-link @(_budgetSubTab == "Quarter" ? "active" : "")" @onclick='() => _budgetSubTab = "Quarter"'><i class="bi bi-calendar3 me-1"></i>분기(회계) 설정</button></li>
+                </ul>
 
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
-                    <div class="settings-tab-bar" style="padding: 0.25rem;">
-                        <button class="settings-tab @(_budgetType == "Income" ? "active" : "")" @onclick='() => _budgetType = "Income"'><i class="bi bi-graph-up-arrow me-1"></i>수입 예산</button>
-                        <button class="settings-tab @(_budgetType == "Expense" ? "active" : "")" @onclick='() => _budgetType = "Expense"'><i class="bi bi-graph-down-arrow me-1"></i>지출 예산</button>
+                @if (_budgetSubTab == "Income" || _budgetSubTab == "Expense")
+                {
+                    var currentCats = _budgetSubTab == "Income" ? _incomeCats : _expenseCats;
+
+                    <div class="d-flex justify-content-end mb-3">
+                        <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.85rem;" @onclick="SafeImportPreviousYearBudget" disabled="@_isImporting">
+                            @if (_isImporting) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            else { <i class="bi bi-arrow-clockwise me-1"></i><span>직전년도 예산 불러오기</span> }
+                        </button>
                     </div>
-                    <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.85rem;" @onclick="SafeImportPreviousYearBudget" disabled="@_isImporting">
-                        @if (_isImporting) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        else { <i class="bi bi-arrow-clockwise me-1"></i><span>직전년도 예산 불러오기</span> }
-                    </button>
-                </div>
 
-                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 @(_budgetType == "Income" ? "수입" : "지출") 예산 편집</h4>
+                <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 @(_budgetSubTab == "Income" ? "수입" : "지출") 예산 편집</h4>
 
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-info-circle-fill fs-5 mt-1" style="color: #785600;"></i>
                     <div>
                         <div class="fw-bold mb-1" style="color: #1b1c15;">사용법 안내</div>
-                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">1년 동안 사용할 수입/지출 예산을 항목별로 등록합니다. 상단의 <b>[엑셀양식 다운로드]</b> 후 <b>[일괄입력]</b>을 사용하시면 매우 편리합니다.</p>
+                        <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">1년 동안 사용할 수입/지출 예산을 항목별로 등록합니다. 엑셀 일괄 백업·복원은 <b>[데이터 및 엑셀 관리]</b> 탭의 <b>[환경설정 엑셀 관리]</b>에서 할 수 있습니다.</p>
                     </div>
                 </div>
 
@@ -174,7 +185,7 @@
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="fw-bold" style="color: #4e4637;">총 @(_budgetList.Count(b => b.Year == _targetYear && b.Type == _budgetType))건의 예산 내역</span>
+                        <span class="fw-bold" style="color: #4e4637;">총 @(_budgetList.Count(b => b.Year == _targetYear && b.Type == _budgetSubTab))건의 예산 내역</span>
                         <div class="d-flex gap-2">
                             <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="ExpandAll"><i class="bi bi-arrows-expand me-1"></i> 전체 나열</button>
                             <button class="settings-secondary-btn py-1 px-3" style="font-size: 0.75rem;" @onclick="CollapseAll"><i class="bi bi-arrows-collapse me-1"></i> 전체 축소</button>
@@ -252,7 +263,7 @@
                         @foreach (var dept in _visibleDepartments)
                         {
                             bool isDeptExpanded = _expandedDepts.ContainsKey(dept.Id) && _expandedDepts[dept.Id];
-                            var deptBudgets = _budgetList.Where(b => b.DepartmentId == dept.Id && b.Year == _targetYear && b.Type == _budgetType).ToList();
+                            var deptBudgets = _budgetList.Where(b => b.DepartmentId == dept.Id && b.Year == _targetYear && b.Type == _budgetSubTab).ToList();
                             decimal deptTotal = deptBudgets.Sum(b => b.Amount);
 
                             <div class="accordion-item">
@@ -324,9 +335,11 @@
                         }
                     </div>
                 }
+                }
 
-                @* ── 회계 기준: 분기 날짜 설정 (분기설정 탭 통합) ── *@
-                <hr class="my-5" />
+                @* ── 분기(회계) 설정 서브 탭 ── *@
+                @if (_budgetSubTab == "Quarter")
+                {
                 <div class="col-12">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 분기 날짜 설정</h4>
 
@@ -381,6 +394,7 @@
                         }
                     </div>
                 </div>
+                }
             }
 
             @* ──────────────────────────────
@@ -411,6 +425,14 @@
                     </div>
                 }
 
+                <ul class="nav nav-pills sub-nav mb-4">
+                    <li class="nav-item"><button class="nav-link @(_mappingSubTab == "Income" ? "active" : "")" @onclick='() => _mappingSubTab = "Income"'><i class="bi bi-tags-fill me-1"></i>수입 규칙</button></li>
+                    <li class="nav-item"><button class="nav-link @(_mappingSubTab == "Expense" ? "active" : "")" @onclick='() => _mappingSubTab = "Expense"'><i class="bi bi-tags-fill me-1"></i>지출 규칙</button></li>
+                    <li class="nav-item"><button class="nav-link @(_mappingSubTab == "Analyze" ? "active" : "")" @onclick='() => _mappingSubTab = "Analyze"'><i class="bi bi-graph-up-arrow me-1"></i>규칙 분석·일괄등록</button></li>
+                </ul>
+
+                @if (_mappingSubTab != "Analyze")
+                {
                 <div class="settings-info-box mb-4">
                     <i class="bi bi-magic fs-5 mt-1" style="color: #785600;"></i>
                     <div>
@@ -441,9 +463,11 @@
                         </div>
                     </div>
                 </div>
+                }
 
-                <div class="row g-4">
-                    <div class="col-md-6">
+                @if (_mappingSubTab == "Income")
+                {
+                    <div>
                         <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
                             <h6 class="fw-bold mb-0" style="color: #5a4000;"><i class="bi bi-tags-fill me-1"></i>수입 항목 자동분류 규칙</h6>
                             <select class="settings-input fw-bold" style="width: auto; max-width: 170px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #785600;" @bind="_incomeFilterCategory">
@@ -480,7 +504,11 @@
                             </table>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                }
+
+                @if (_mappingSubTab == "Expense")
+                {
+                    <div>
                         <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
                             <h6 class="fw-bold mb-0" style="color: #ba1a1a;"><i class="bi bi-tags-fill me-1"></i>지출 항목 자동분류 규칙</h6>
                             <select class="settings-input fw-bold" style="width: auto; max-width: 170px; font-size: 0.8rem; padding: 0.25rem 0.5rem; color: #ba1a1a;" @bind="_expenseFilterCategory">
@@ -517,10 +545,11 @@
                             </table>
                         </div>
                     </div>
-                </div>
+                }
 
-                @* ── 규칙 분석 (추천 시스템) ─────────────────────── *@
-                <hr class="my-5" />
+                @* ── 규칙 분석·일괄등록 서브 탭 ── *@
+                @if (_mappingSubTab == "Analyze")
+                {
                 <div class="d-flex align-items-center mb-3">
                     <i class="bi bi-graph-up-arrow fs-4 me-2" style="color: #785600;"></i>
                     <h5 class="fw-bold mb-0" style="color: #1b1c15;">규칙 분석 (추천 시스템)</h5>
@@ -679,6 +708,7 @@
                         </table>
                     </div>
                 }
+                }
             }
 
             @* ──────────────────────────────
@@ -686,7 +716,14 @@
             ────────────────────────────── *@
             else if (_activeTab == "Backup" && CurrentUser?.IsManager == true)
             {
-                @* ── 환경설정 엑셀 백업 및 복원 (신규) ── *@
+                <ul class="nav nav-pills sub-nav mb-4">
+                    <li class="nav-item"><button class="nav-link @(_backupSubTab == "Ledger" ? "active" : "")" @onclick='() => _backupSubTab = "Ledger"'><i class="bi bi-hdd-fill me-1"></i>월별 장부 백업</button></li>
+                    <li class="nav-item"><button class="nav-link @(_backupSubTab == "Settings" ? "active" : "")" @onclick='() => _backupSubTab = "Settings"'><i class="bi bi-file-earmark-spreadsheet me-1"></i>환경설정 엑셀 관리</button></li>
+                </ul>
+
+                @if (_backupSubTab == "Settings")
+                {
+                @* ── 환경설정 엑셀 백업 및 복원 ── *@
                 <h4 class="fw-bold mb-3" style="color: #1b1c15;">환경설정 엑셀 백업 및 복원</h4>
                 <div class="settings-info-box mb-3">
                     <i class="bi bi-file-earmark-spreadsheet fs-5 mt-1" style="color: #785600;"></i>
@@ -706,8 +743,10 @@
                         </button>
                     </div>
                 </div>
-                <hr class="my-4" />
+                }
 
+                @if (_backupSubTab == "Ledger")
+                {
                 @if (CurrentUser?.IsSystemAdmin == true)
                 {
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">전체 시스템 데이터 백업 및 복원</h4>
@@ -782,6 +821,7 @@
                         </table>
                     </div>
                 }
+                }
             }
 
             @* ──────────────────────────────
@@ -789,7 +829,15 @@
             ────────────────────────────── *@
             else if (_activeTab == "Security")
             {
-                @if (CurrentUser?.IsSystemAdmin == true)
+                <ul class="nav nav-pills sub-nav mb-4">
+                    <li class="nav-item"><button class="nav-link @(_securitySubTab == "Password" ? "active" : "")" @onclick='() => _securitySubTab = "Password"'><i class="bi bi-key-fill me-1"></i>비밀번호 및 OTP</button></li>
+                    @if (CurrentUser?.IsSystemAdmin == true)
+                    {
+                        <li class="nav-item"><button class="nav-link @(_securitySubTab == "Users" ? "active" : "")" @onclick='() => _securitySubTab = "Users"'><i class="bi bi-people-fill me-1"></i>사용자 계정 관리</button></li>
+                    }
+                </ul>
+
+                @if (_securitySubTab == "Users" && CurrentUser?.IsSystemAdmin == true)
                 {
                 <h4 class="fw-bold mb-4" style="color: #1b1c15;">부서 계정 관리</h4>
                 <div class="settings-card-warm mb-4">
@@ -848,8 +896,9 @@
                 </div>
                 }
 
-                @* ── 보안 및 암호 (구글 OTP 연동) ── *@
-                <hr class="my-5" />
+                @* ── 비밀번호 및 OTP 서브 탭 ── *@
+                @if (_securitySubTab == "Password")
+                {
                 <div class="row g-4 justify-content-center">
                     <div class="col-md-5">
                         <div class="settings-card border border-light p-4 h-100">
@@ -918,6 +967,7 @@
                         </div>
                     </div>
                 </div>
+                }
             }
 
             @* ──────────────────────────────
@@ -925,6 +975,13 @@
             ────────────────────────────── *@
             else if (_activeTab == "Info" && (CurrentUser?.IsManager == true || CurrentUser?.IsAuditor == true))
             {
+                <ul class="nav nav-pills sub-nav mb-4">
+                    <li class="nav-item"><button class="nav-link @(_infoSubTab == "Officers" ? "active" : "")" @onclick='() => _infoSubTab = "Officers"'><i class="bi bi-person-badge me-1"></i>임원 정보</button></li>
+                    <li class="nav-item"><button class="nav-link @(_infoSubTab == "Account" ? "active" : "")" @onclick='() => _infoSubTab = "Account"'><i class="bi bi-bank me-1"></i>계좌 번호</button></li>
+                </ul>
+
+                @if (_infoSubTab == "Officers")
+                {
                 <div class="col-md-10 mx-auto">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">@(_targetYear)년도 부서 임원 관리</h4>
                     
@@ -1051,8 +1108,11 @@
                     </div>
                 </div>
 
-                @* ── 부서 계좌번호 설정 (부서 기본 정보 통합) ── *@
-                <hr class="my-5" />
+                }
+
+                @* ── 계좌 번호 서브 탭 ── *@
+                @if (_infoSubTab == "Account")
+                {
                 <div class="col-md-9 mx-auto mt-2">
                     <h4 class="fw-bold mb-4" style="color: #1b1c15;">부서 계좌번호 설정</h4>
 
@@ -1106,6 +1166,7 @@
                         }
                     </div>
                 </div>
+                }
             }
         </div>
     </div>
@@ -1134,7 +1195,14 @@
     private bool _isSettingsImporting = false;
     private string _mappingType = "지출";
     private string _activeTab = "Budget";
-    private string _budgetType = "Income"; // Budget 탭 내부 수입/지출 전환
+
+    // 🚀 메인 탭별 서브 탭(2-Depth) 상태
+    private string _infoSubTab = "Officers";      // Officers, Account
+    private string _budgetSubTab = "Income";      // Income, Expense, Quarter (구 _budgetType 대체)
+    private string _mappingSubTab = "Income";     // Income, Expense, Analyze
+    private string _backupSubTab = "Ledger";      // Ledger, Settings
+    private string _securitySubTab = "Password";  // Password, Users
+
     private int _targetYear = DateTime.Now.Year;
     private bool _isImporting = false;
     private bool _isRestoring = false;
@@ -1149,7 +1217,7 @@
     private List<BudgetPlan> _budgetList = new();
     private IGrouping<int, BudgetPlan>[] _budgetHistory = Array.Empty<IGrouping<int, BudgetPlan>>();
 
-    private IEnumerable<BudgetPlan> CurrentYearBudgets => _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetType);
+    private IEnumerable<BudgetPlan> CurrentYearBudgets => _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetSubTab);
     private IEnumerable<IGrouping<string, BudgetPlan>> GroupedBudgets => CurrentYearBudgets.GroupBy(b => b.Category);
 
     private IEnumerable<DataBackup> ManualBackups => _backupList.Where(b => b.DataType != "Auto").OrderByDescending(b => b.BackupDate);
@@ -1397,7 +1465,7 @@
             using var context = DbContextFactory.CreateDbContext();
             if (CurrentUser?.IsSystemAdmin == true)
             {
-                // Admin: 모든 부서 예산 로드 (수입/지출 모두 — 탭 내부에서 _budgetType으로 분기)
+                // Admin: 모든 부서 예산 로드 (수입/지출 모두 — 탭 내부에서 _budgetSubTab으로 분기)
                 var allDepts = await context.Departments.AsNoTracking().Where(d => d.Name != "관리자").OrderBy(d => d.Id).ToListAsync();
                 _visibleDepartments = allDepts;
                 var allPlans = await context.BudgetPlans.AsNoTracking()
@@ -1491,7 +1559,7 @@
         else _expandedCategories[category] = true;
     }
     
-    private void ExpandAll() { foreach (var c in _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetType).Select(b => b.Category).Distinct()) _expandedCategories[c] = true; }
+    private void ExpandAll() { foreach (var c in _budgetList.Where(b => b.Year == _targetYear && b.Type == _budgetSubTab).Select(b => b.Category).Distinct()) _expandedCategories[c] = true; }
     private void CollapseAll() { _expandedCategories.Clear(); }
     private bool IsExpanded(string category) { return _expandedCategories.ContainsKey(category) && _expandedCategories[category]; }
 
@@ -1640,7 +1708,7 @@
         catch (Exception ex) { await ShowAlertAsync($"엑셀 백업 중 오류: {ex.Message}"); }
     }
 
-    private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _budgetType; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
+    private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _budgetSubTab; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
     private async Task SaveQuarter(int q)
     {
         if (await JSRuntime.InvokeAsync<bool?>("confirm", $"{_targetYear}년도 {q}분기 기간을 변경하시겠습니까?") != true) return;
