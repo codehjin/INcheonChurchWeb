@@ -726,52 +726,63 @@ namespace INcheonChurchWeb.Services
         // 🚀 환경설정 엑셀 백업/복원 — 2개 시트(예산항목 / 자동분류)
         // =========================================================
 
-        // 해당 연도 예산항목 + 부서 자동분류 규칙을 2개 시트 엑셀로 내보냅니다.
-        public async Task<byte[]> ExportSettingsExcelAsync(int deptId, int year)
+        // 해당 연도 예산항목 + 자동분류 규칙을 2개 시트 엑셀로 내보냅니다.
+        // isSystemAdmin == true: 전체 부서 데이터를 내보냄 / false: 해당 deptId만.
+        // 모든 시트의 A열에 '부서명'을 출력합니다.
+        public async Task<byte[]> ExportSettingsExcelAsync(int deptId, int year, bool isSystemAdmin)
         {
             using var db = _dbFactory.CreateDbContext();
 
-            var budgets = await db.BudgetPlans.AsNoTracking()
-                .Where(b => b.DepartmentId == deptId && b.Year == year)
-                .OrderBy(b => b.Type).ThenBy(b => b.Category).ToListAsync();
-
+            var budgetQuery = db.BudgetPlans.AsNoTracking().Where(b => b.Year == year);
             // 분기설정(Quarter_*) 등 시스템용 매핑은 제외하고 실제 자동분류 규칙만 내보냄
-            var mappings = await db.CategoryMappings.AsNoTracking()
-                .Where(m => m.DepartmentId == deptId && !m.Keyword.StartsWith("Quarter_"))
-                .OrderBy(m => m.Category).ThenBy(m => m.Keyword).ToListAsync();
+            var mappingQuery = db.CategoryMappings.AsNoTracking().Where(m => !m.Keyword.StartsWith("Quarter_"));
 
-            // 자동분류의 구분(수입/지출)은 항목명이 수입 예산 항목군에 속하는지로 추론
-            var incomeCats = budgets.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).ToHashSet();
+            if (!isSystemAdmin)
+            {
+                budgetQuery = budgetQuery.Where(b => b.DepartmentId == deptId);
+                mappingQuery = mappingQuery.Where(m => m.DepartmentId == deptId);
+            }
+
+            var budgets = await budgetQuery.OrderBy(b => b.DepartmentId).ThenBy(b => b.Type).ThenBy(b => b.Category).ToListAsync();
+            var mappings = await mappingQuery.OrderBy(m => m.DepartmentId).ThenBy(m => m.Category).ThenBy(m => m.Keyword).ToListAsync();
+
+            var deptNames = await db.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name);
+            string DeptName(int id) => deptNames.TryGetValue(id, out var n) ? n : "";
+
+            // 자동분류 구분(수입/지출)은 (부서, 항목)이 해당 부서 수입 예산 항목군에 속하는지로 추론
+            var incomeKey = budgets.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => (b.DepartmentId, b.Category)).ToHashSet();
 
             using var wb = new XLWorkbook();
 
-            // Sheet 1: 예산항목
+            // Sheet 1: 예산항목 — 부서명 | 구분 | 항목명 | 예산금액
             var ws1 = wb.Worksheets.Add("예산항목");
-            string[] h1 = { "구분", "항목명", "예산금액" };
+            string[] h1 = { "부서명", "구분", "항목명", "예산금액" };
             for (int i = 0; i < h1.Length; i++) { ws1.Cell(1, i + 1).Value = h1[i]; ws1.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws1.Cell(1, i + 1).Style.Font.Bold = true; }
             int r1 = 2;
             foreach (var b in budgets)
             {
-                ws1.Cell(r1, 1).Value = (b.Type == "Income" || b.Type == "수입") ? "수입" : "지출";
-                ws1.Cell(r1, 2).Value = b.Category;
-                ws1.Cell(r1, 3).Value = b.Amount;
+                ws1.Cell(r1, 1).Value = DeptName(b.DepartmentId);
+                ws1.Cell(r1, 2).Value = (b.Type == "Income" || b.Type == "수입") ? "수입" : "지출";
+                ws1.Cell(r1, 3).Value = b.Category;
+                ws1.Cell(r1, 4).Value = b.Amount;
                 r1++;
             }
-            ws1.Column(1).Width = 10; ws1.Column(2).Width = 30; ws1.Column(3).Width = 18;
+            ws1.Column(1).Width = 18; ws1.Column(2).Width = 10; ws1.Column(3).Width = 30; ws1.Column(4).Width = 18;
 
-            // Sheet 2: 자동분류
+            // Sheet 2: 자동분류 — 부서명 | 구분 | 키워드 | 분류될항목
             var ws2 = wb.Worksheets.Add("자동분류");
-            string[] h2 = { "구분", "키워드", "분류될항목" };
+            string[] h2 = { "부서명", "구분", "키워드", "분류될항목" };
             for (int i = 0; i < h2.Length; i++) { ws2.Cell(1, i + 1).Value = h2[i]; ws2.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws2.Cell(1, i + 1).Style.Font.Bold = true; }
             int r2 = 2;
             foreach (var m in mappings)
             {
-                ws2.Cell(r2, 1).Value = incomeCats.Contains(m.Category) ? "수입" : "지출";
-                ws2.Cell(r2, 2).Value = m.Keyword;
-                ws2.Cell(r2, 3).Value = m.Category;
+                ws2.Cell(r2, 1).Value = DeptName(m.DepartmentId);
+                ws2.Cell(r2, 2).Value = incomeKey.Contains((m.DepartmentId, m.Category)) ? "수입" : "지출";
+                ws2.Cell(r2, 3).Value = m.Keyword;
+                ws2.Cell(r2, 4).Value = m.Category;
                 r2++;
             }
-            ws2.Column(1).Width = 10; ws2.Column(2).Width = 40; ws2.Column(3).Width = 30;
+            ws2.Column(1).Width = 18; ws2.Column(2).Width = 10; ws2.Column(3).Width = 40; ws2.Column(4).Width = 30;
 
             using var stream = new MemoryStream();
             wb.SaveAs(stream);
@@ -779,13 +790,24 @@ namespace INcheonChurchWeb.Services
         }
 
         // 업로드된 엑셀(예산항목/자동분류 시트)을 파싱하여 병합/업데이트합니다.
+        // A열 = 부서명. isSystemAdmin == true: A열 부서명대로 각 부서에 분배 /
+        // false: 보안상 엑셀 부서명을 무시하고 무조건 currentDeptId에만 반영.
         // 반환: (예산항목 처리 건수, 자동분류 추가 건수)
-        public async Task<(int budgetCount, int mappingCount)> ImportSettingsExcelAsync(int deptId, int year, Stream fileStream)
+        public async Task<(int budgetCount, int mappingCount)> ImportSettingsExcelAsync(int currentDeptId, int year, bool isSystemAdmin, Stream fileStream)
         {
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
 
             using var db = _dbFactory.CreateDbContext();
             int budgetCount = 0, mappingCount = 0;
+
+            // 부서명 → DepartmentId 매핑(관리자 전체 분배용)
+            var depts = await db.Departments.AsNoTracking().ToListAsync();
+            int ResolveDeptId(string name)
+            {
+                if (!isSystemAdmin) return currentDeptId; // 일반 사용자는 무조건 본인 부서로 강제(보안)
+                var hit = depts.FirstOrDefault(d => d.Name.Trim() == (name ?? "").Trim());
+                return hit?.Id ?? 0;
+            }
 
             using var reader = ExcelReaderFactory.CreateReader(fileStream);
             var ds = reader.AsDataSet();
@@ -797,10 +819,15 @@ namespace INcheonChurchWeb.Services
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
                         var row = table.Rows[i];
-                        string typeStr = row[0]?.ToString()?.Trim() ?? "";
-                        string cat = (table.Columns.Count > 1 ? row[1]?.ToString()?.Trim() : "") ?? "";
-                        string amtStr = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "0") ?? "0";
+                        // A열=부서명, B열=구분, C열=항목명, D열=예산금액
+                        string deptName = row[0]?.ToString()?.Trim() ?? "";
+                        string typeStr = (table.Columns.Count > 1 ? row[1]?.ToString()?.Trim() : "") ?? "";
+                        string cat = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "") ?? "";
+                        string amtStr = (table.Columns.Count > 3 ? row[3]?.ToString()?.Trim() : "0") ?? "0";
                         if (string.IsNullOrEmpty(cat)) continue;
+
+                        int targetDeptId = ResolveDeptId(deptName);
+                        if (targetDeptId == 0) continue; // 관리자인데 매칭되는 부서명이 없으면 스킵
 
                         string type = (typeStr == "수입" || typeStr == "Income") ? "Income"
                                     : (typeStr == "지출" || typeStr == "Expense") ? "Expense" : "";
@@ -808,8 +835,8 @@ namespace INcheonChurchWeb.Services
                         decimal.TryParse(amtStr, out decimal amt);
 
                         // 동일 부서/연도/구분/항목명이면 금액 업데이트, 없으면 신규 추가(병합)
-                        var existing = await db.BudgetPlans.FirstOrDefaultAsync(b => b.DepartmentId == deptId && b.Year == year && b.Type == type && b.Category == cat);
-                        if (existing == null) db.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = year, Type = type, Category = cat, Amount = amt });
+                        var existing = await db.BudgetPlans.FirstOrDefaultAsync(b => b.DepartmentId == targetDeptId && b.Year == year && b.Type == type && b.Category == cat);
+                        if (existing == null) db.BudgetPlans.Add(new BudgetPlan { DepartmentId = targetDeptId, Year = year, Type = type, Category = cat, Amount = amt });
                         else existing.Amount = amt;
                         budgetCount++;
                     }
@@ -819,14 +846,19 @@ namespace INcheonChurchWeb.Services
                     for (int i = 1; i < table.Rows.Count; i++)
                     {
                         var row = table.Rows[i];
-                        string keyword = (table.Columns.Count > 1 ? row[1]?.ToString()?.Trim() : "") ?? "";
-                        string cat = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "") ?? "";
+                        // A열=부서명, B열=구분(참고용), C열=키워드, D열=분류될항목
+                        string deptName = row[0]?.ToString()?.Trim() ?? "";
+                        string keyword = (table.Columns.Count > 2 ? row[2]?.ToString()?.Trim() : "") ?? "";
+                        string cat = (table.Columns.Count > 3 ? row[3]?.ToString()?.Trim() : "") ?? "";
                         if (string.IsNullOrEmpty(keyword) || string.IsNullOrEmpty(cat)) continue;
 
+                        int targetDeptId = ResolveDeptId(deptName);
+                        if (targetDeptId == 0) continue;
+
                         // 키워드 중복 방지: 동일 부서에 같은 키워드가 이미 있으면 건너뜀
-                        bool exists = await db.CategoryMappings.AnyAsync(m => m.DepartmentId == deptId && m.Keyword == keyword);
+                        bool exists = await db.CategoryMappings.AnyAsync(m => m.DepartmentId == targetDeptId && m.Keyword == keyword);
                         if (exists) continue;
-                        db.CategoryMappings.Add(new CategoryMapping { DepartmentId = deptId, Keyword = keyword, Category = cat });
+                        db.CategoryMappings.Add(new CategoryMapping { DepartmentId = targetDeptId, Keyword = keyword, Category = cat });
                         mappingCount++;
                     }
                 }
