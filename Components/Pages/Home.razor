@@ -126,7 +126,7 @@
     }
 
     .dash-list-wrap {
-        overflow: hidden;
+        overflow-x: auto;
         border-radius: 1rem;
         background-color: rgba(255,255,255,0.5);
     }
@@ -141,6 +141,7 @@
         background-color: var(--surface-lowest);
         box-shadow: 0 2px 8px rgba(48,49,41,0.04);
         border: none !important;
+        white-space: nowrap;
     }
 
     .dash-list-body tr {
@@ -224,7 +225,7 @@
         </div>
 
         @* ── Hero Metrics (지출 / 수입) ── *@
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
             @* 지출 실적 카드 *@
             <article class="dash-hero-card">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -269,7 +270,7 @@
         </div>
 
         @* ── 항목별 상세 (지출 / 수입) ── *@
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
 
             @* 지출 항목별 상세 *@
             <div class="dash-detail-card">
@@ -355,7 +356,7 @@
 
             @* No-Line 테이블 *@
             <div class="dash-list-wrap">
-                <table style="width: 100%; text-align: left; border-collapse: collapse;">
+                <table style="width: 100%; min-width: 560px; text-align: left; border-collapse: collapse;">
                     <thead>
                         <tr class="dash-list-head">
                             <th>작성일</th>
@@ -370,16 +371,16 @@
                             @foreach (var req in _subsidyRequests)
                             {
                                 <tr>
-                                    <td style="font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.75;">
+                                    <td style="font-variant-numeric: tabular-nums; font-weight: 500; opacity: 0.75; white-space: nowrap;">
                                         @req.RequestDate.ToShortDateString()
                                     </td>
                                     <td style="font-weight: 700; color: var(--on-surface);">
                                         @req.Title
                                     </td>
-                                    <td style="text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--on-surface);">
+                                    <td style="text-align: right; font-weight: 900; font-variant-numeric: tabular-nums; color: var(--on-surface); white-space: nowrap;">
                                         ₩@req.Amount.ToString("N0")
                                     </td>
-                                    <td style="text-align: center;">
+                                    <td style="text-align: center; white-space: nowrap;">
                                         @if (req.DepositDate.HasValue)
                                         {
                                             <span class="dash-status-done">@req.DepositDate.Value.ToString("yyyy.MM.dd")</span>
