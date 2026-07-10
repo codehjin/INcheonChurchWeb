@@ -1,11 +1,13 @@
 name: Deploy to Docker Server
 
 # main 브랜치에 push 이벤트가 발생할 때만 실행
+# on:
+#  push:
+#    branches:
+#      - main
 on:
-  push:
-    branches:
-      - main
-
+  workflow_dispatch:   # ← 이 두 줄 추가 (수동 실행용)
+  
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -49,9 +51,11 @@ jobs:
           username: ${{ secrets.SERVER_USERNAME }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT }}
+          command_timeout: 30m
           script: |
             cd /home/ubuntu/church
-            sudo docker-compose down
             sudo chmod -R 777 /home/ubuntu/church
-            sudo docker-compose up -d --build
-            sudo docker ps
+            # down(끄기) 명령어 삭제됨!
+            sudo docker-compose build   # 백그라운드에서 조용히 먼저 빌드
+            sudo docker-compose up -d   # 빌드가 끝나면 1~2초 만에 스위칭(재시작)
+            sudo docker image prune -f  # 남은 찌꺼기 청소
