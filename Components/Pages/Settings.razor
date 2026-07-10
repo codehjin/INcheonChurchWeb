@@ -763,6 +763,56 @@
                             </button>
                         </div>
                     </div>
+
+                    @* ── 🚀 [1회성/최고관리자] 레거시 장부 → 신규 통합 장부(LedgerTransaction) 이관 ── *@
+                    <h4 class="fw-bold mb-3 mt-5" style="color: #1b1c15;">기존 장부 데이터 이관 <span class="badge bg-warning text-dark align-middle">1회성</span></h4>
+                    <div class="settings-info-box mb-3">
+                        <i class="bi bi-database-fill-gear fs-5 mt-1" style="color: #785600;"></i>
+                        <div>
+                            <div class="fw-bold mb-1" style="color: #1b1c15;">레거시 월별 장부 → 통합 생명주기 장부</div>
+                            <p class="mb-0" style="color: #4e4637; font-size: 0.875rem;">기존 월별 장부(LedgerEntry) 데이터를 신규 통합 재정 장부(LedgerTransaction)로 복사·매핑합니다. <b>중복 실행은 자동 차단</b>되며, 신규 테이블 스키마가 적용된 뒤에만 동작합니다(미적용 시 안내).</p>
+                        </div>
+                    </div>
+                    <div class="settings-card-warm mb-5">
+                        <button class="settings-gold-btn px-4 py-3 fs-6" @onclick="MigrateLedgerData" disabled="@_isMigratingLedger">
+                            @if (_isMigratingLedger) { <span class="spinner-border spinner-border-sm me-2"></span><span>이관 중...</span> }
+                            else { <i class="bi bi-database-fill-up me-2"></i><span>기존 장부 데이터 이관</span> }
+                        </button>
+
+                        @if (_ledgerMigrationResult is not null)
+                        {
+                            var r = _ledgerMigrationResult;
+                            @if (!r.SchemaReady)
+                            {
+                                <div class="mt-4 p-3 rounded" style="background-color:#ffedea; border:1px solid #ba1a1a;">
+                                    <div class="fw-bold mb-1" style="color:#ba1a1a;"><i class="bi bi-exclamation-triangle-fill me-2"></i>스키마 미적용 — 이관 불가</div>
+                                    <p class="mb-0 small" style="color:#5a4000;">@r.Message</p>
+                                </div>
+                            }
+                            else if (r.AlreadyMigrated > 0)
+                            {
+                                <div class="mt-4 p-3 rounded bg-white border">
+                                    <div class="fw-bold mb-1" style="color:#785600;"><i class="bi bi-info-circle-fill me-2"></i>이미 이관됨 (중복 차단)</div>
+                                    <p class="mb-0 small" style="color:#4e4637;">@r.Message</p>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="mt-4 p-3 rounded bg-white border">
+                                    <div class="fw-bold mb-2" style="color:#1b1c15;"><i class="bi bi-check-circle-fill me-2 text-success"></i>이관 완료</div>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <span class="badge bg-success px-3 py-2 fs-6">이관 @(r.Migrated)건</span>
+                                        <span class="badge bg-primary px-3 py-2 fs-6">예산항목 연결 @(r.LinkedToBudget)건</span>
+                                        <span class="badge bg-warning text-dark px-3 py-2 fs-6">이상치 격리 @(r.Quarantined)건</span>
+                                    </div>
+                                    @if (r.Quarantined > 0)
+                                    {
+                                        <p class="mb-0 mt-2 small text-muted"><i class="bi bi-funnel me-1"></i>이상치(양쪽 금액 0 / 양쪽 입력 / 음수) @(r.Quarantined)건은 안전을 위해 이관에서 제외했습니다.</p>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
                 }
                 else
                 {
@@ -1808,6 +1858,35 @@
     }
 
     private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(_customBackupMemo) ? "사용자 수동 백업" : _customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); _customBackupMemo = ""; await LoadData(); await ShowAlertAsync("성공적으로 백업되었습니다."); }
+
+    // 🚀 [최고관리자/1회성] 레거시 장부(LedgerEntry) → 신규 통합 장부(LedgerTransaction) 이관
+    private bool _isMigratingLedger = false;
+    private LedgerMigrationResult? _ledgerMigrationResult;
+
+    private async Task MigrateLedgerData()
+    {
+        // 권한 가드(이중 안전장치): 최고관리자만 실행 허용
+        if (CurrentUser?.IsSystemAdmin != true) { await ShowAlertAsync("최고 관리자만 실행할 수 있습니다."); return; }
+
+        _isMigratingLedger = true;
+        _ledgerMigrationResult = null;
+        StateHasChanged();      // 로딩 스피너 즉시 렌더
+        try
+        {
+            _ledgerMigrationResult = await AccService.MigrateLedgerDataAsync();
+            await ShowAlertAsync(_ledgerMigrationResult.Message);
+        }
+        catch (Exception ex)
+        {
+            _ledgerMigrationResult = new LedgerMigrationResult { SchemaReady = false, Message = $"이관 중 오류가 발생했습니다: {ex.Message}" };
+            await ShowAlertAsync($"이관 실패: {ex.Message}");
+        }
+        finally
+        {
+            _isMigratingLedger = false;
+            StateHasChanged();
+        }
+    }
     private async Task RestoreData(DataBackup b)
     {
         if (string.IsNullOrWhiteSpace(b.JsonData))

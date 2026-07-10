@@ -8,7 +8,13 @@ namespace INcheonChurchWeb.Data
     {
         public static void Initialize(AppDbContext context)
         {
-            context.Database.EnsureCreated();
+            // 🚀 [표준화] EnsureCreated() → Migrate() 전환.
+            //   - 신규 환경: 마이그레이션 전체를 적용해 스키마+__EFMigrationsHistory 를 일관되게 생성.
+            //   - 기존 환경: 보류 중인 마이그레이션만 적용(이미 적용된 건 자동 스킵).
+            //   ⚠️ 주의: 기존 church.db 는 과거 EnsureCreated 로 만들어져 __EFMigrationsHistory 가 없으므로,
+            //      앱 기동 전 반드시 '기존 마이그레이션 6건 베이스라인 등록' 절차를 1회 수행해야 한다.
+            //      (베이스라인 없이 기동하면 레거시 테이블에 대해 'table already exists' 로 실패)
+            context.Database.Migrate();
 
             // 0. 🚀 인코딩 손상 찌꺼기 1회성 정화 보정
             // (부서명/계좌 정보에 끼어든 연속된 물음표·유니코드 대체문자 등을 제거)
