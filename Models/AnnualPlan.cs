@@ -23,8 +23,11 @@ namespace INcheonChurchWeb.Models
         // 소속 부서. 부서별로 계획을 분리 관리한다.
         public int DepartmentId { get; set; }
 
-        // 행사 날짜. 이 날짜로부터 회계연도·분기·주차를 자동 계산한다.
+        // 행사 시작일. 이 날짜로부터 회계연도·분기·주차를 자동 계산한다.
         public DateTime EventDate { get; set; }
+
+        // 행사 종료일 (선택). null이면 하루짜리 행사.
+        public DateTime? EndDate { get; set; }
 
         public int FiscalYear { get; set; }   // 회계연도
         public int WeekNo { get; set; }       // 주차 (1~52)

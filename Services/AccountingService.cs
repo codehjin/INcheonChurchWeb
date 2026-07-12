@@ -1444,6 +1444,7 @@ namespace INcheonChurchWeb.Services
                 if (existing == null) return;
                 existing.DepartmentId = plan.DepartmentId;
                 existing.EventDate = plan.EventDate;
+                existing.EndDate = plan.EndDate;
                 existing.FiscalYear = plan.FiscalYear;
                 existing.WeekNo = plan.WeekNo;
                 existing.Quarter = plan.Quarter;

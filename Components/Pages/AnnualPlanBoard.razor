@@ -223,16 +223,22 @@
                         <input class="ap-input" @bind="_editing.Title" placeholder="예: 여름성경학교" />
                     </div>
 
-                    <div class="ap-field">
-                        <label>행사 날짜</label>
-                        <input type="date" class="ap-input" @bind="_editDate" @bind:after="RecalcDateInfo" />
+                    <div class="ap-row2">
+                        <div class="ap-field">
+                            <label>시작일</label>
+                            <input type="date" class="ap-input" @bind="_editDate" @bind:after="RecalcDateInfo" />
+                        </div>
+                        <div class="ap-field">
+                            <label>종료일 <span style="font-weight:400; color:var(--on-surface-muted);">(하루면 비움)</span></label>
+                            <input type="date" class="ap-input" @bind="_editEndDate" />
+                        </div>
                     </div>
 
                     @if (_dateInfo != null)
                     {
                         <div class="ap-calc-hint">
                             <i class="bi bi-magic me-1"></i>
-                            자동 계산: <b>@_dateInfo.FiscalYear 회계연도</b> ·
+                            시작일 기준: <b>@(_dateInfo.FiscalYear) 회계연도</b> ·
                             <b>@(_dateInfo.Month)월 @(_dateInfo.MonthWeek)주차</b> ·
                             <b>@(_dateInfo.Quarter)분기</b> (연중 @(_dateInfo.WeekNo)주)
                         </div>
@@ -307,7 +313,8 @@
 
     private bool _showModal = false;
     private AnnualPlan _editing = new();
-    private DateTime _editDate = DateTime.Now;
+    private DateTime _editDate = DateTime.Today;
+    private DateTime? _editEndDate = null;
     private AccountingService.PlanDateInfo? _dateInfo;
     private string _modalError = "";
 
@@ -356,20 +363,21 @@
     private void SetQuarter(int q) { _filterQuarter = q; ApplyFilter(); }
 
     // ── 모달 ──
-    private void OpenAdd()
+    private async Task OpenAdd()
     {
         _editing = new AnnualPlan
         {
             DepartmentId = _viewDeptId,
             Status = PlanStatus.Planned
         };
-        _editDate = DateTime.Now;
+        _editDate = DateTime.Today;
+        _editEndDate = null;
         _modalError = "";
         _showModal = true;
-        _ = RecalcDateInfo();
+        await RecalcDateInfo();
     }
 
-    private void OpenEdit(AnnualPlan p)
+    private async Task OpenEdit(AnnualPlan p)
     {
         // 조회 목록은 AsNoTracking이므로 편집용 복사본을 만든다.
         _editing = new AnnualPlan
@@ -377,6 +385,7 @@
             Id = p.Id,
             DepartmentId = p.DepartmentId,
             EventDate = p.EventDate,
+            EndDate = p.EndDate,
             FiscalYear = p.FiscalYear,
             WeekNo = p.WeekNo,
             Quarter = p.Quarter,
@@ -386,16 +395,18 @@
             PlannedExpense = p.PlannedExpense,
             Status = p.Status
         };
-        _editDate = p.EventDate == default ? DateTime.Now : p.EventDate;
+        _editDate = p.EventDate == default ? DateTime.Today : p.EventDate;
+        _editEndDate = p.EndDate;
         _modalError = "";
         _showModal = true;
-        _ = RecalcDateInfo();
+        await RecalcDateInfo();
     }
 
+    // 시작일 기준으로 회계연도·분기·주차를 계산한다.
+    // (@bind:after 가 자동으로 리렌더하므로 StateHasChanged 를 부르지 않는다)
     private async Task RecalcDateInfo()
     {
         _dateInfo = await Accounting.CalcPlanDateInfoAsync(_editing.DepartmentId, _editDate);
-        StateHasChanged();
     }
 
     private void CloseModal() { _showModal = false; }
@@ -403,10 +414,16 @@
     private async Task SavePlan()
     {
         if (string.IsNullOrWhiteSpace(_editing.Title)) { _modalError = "행사명을 입력하세요."; return; }
+        if (_editEndDate.HasValue && _editEndDate.Value < _editDate)
+        {
+            _modalError = "종료일이 시작일보다 빠릅니다.";
+            return;
+        }
 
-        // 날짜 → 회계연도·분기·주차 최종 반영
+        // 시작일 → 회계연도·분기·주차 최종 반영
         var info = await Accounting.CalcPlanDateInfoAsync(_editing.DepartmentId, _editDate);
         _editing.EventDate = _editDate;
+        _editing.EndDate = _editEndDate;
         _editing.FiscalYear = info.FiscalYear;
         _editing.Quarter = info.Quarter;
         _editing.WeekNo = info.WeekNo;
@@ -430,12 +447,21 @@
     }
 
     // ── 표시 헬퍼 ──
+    // 하루짜리: "7월 3주차 · 3분기"  /  기간: "7/26~7/28 · 3분기"
     private string WhenLabel(AnnualPlan p)
     {
+        if (p.EventDate == default) return $"{p.Quarter}분기";
+
+        if (p.EndDate.HasValue && p.EndDate.Value.Date > p.EventDate.Date)
+        {
+            string end = p.EndDate.Value.Month == p.EventDate.Month
+                ? $"{p.EndDate.Value.Day}일"
+                : $"{p.EndDate.Value.Month}/{p.EndDate.Value.Day}";
+            return $"{p.EventDate.Month}/{p.EventDate.Day}~{end} · {p.Quarter}분기";
+        }
+
         int monthWeek = AccountingService.GetWeekOfMonth(p.EventDate);
-        return p.EventDate == default
-            ? $"{p.Quarter}분기"
-            : $"{p.EventDate.Month}월 {monthWeek}주차 · {p.Quarter}분기";
+        return $"{p.EventDate.Month}월 {monthWeek}주차 · {p.Quarter}분기";
     }
 
     private string StatusClass(PlanStatus s) => s switch
