@@ -1,0 +1,464 @@
+@page "/annual-plan"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>연간 계획 · 인천중앙교회 재정 시스템</PageTitle>
+
+<style>
+    .ap-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .ap-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .ap-head-icon {
+        width: 44px; height: 44px; border-radius: 0.65rem;
+        background: var(--gold-gradient); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+    }
+    .ap-head-title { font-size: 1.35rem; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
+    .ap-head-sub { font-size: 0.85rem; color: var(--on-surface-muted); }
+
+    .ap-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
+    .ap-select {
+        height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
+        padding: 0 0.75rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+    .ap-chip {
+        border: 1px solid var(--outline-variant); border-radius: 9999px;
+        padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+        background: var(--surface-lowest); color: var(--on-surface-muted); transition: all 0.15s;
+    }
+    .ap-chip.active { background: var(--gold-gradient); color: #fff; border-color: transparent; }
+
+    .ap-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    .ap-sum-card {
+        background: var(--surface-lowest); border-radius: 0.65rem; padding: 0.9rem 1.1rem;
+        box-shadow: var(--shadow-ambient);
+    }
+    .ap-sum-label {
+        font-size: 0.72rem; font-weight: 700; color: var(--primary-gold);
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem;
+    }
+    .ap-sum-value { font-size: 1.4rem; font-weight: 900; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+
+    .ap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.85rem; }
+
+    .ap-card {
+        background: var(--surface-lowest); border-radius: 0.75rem; padding: 1rem 1.1rem;
+        box-shadow: var(--shadow-ambient); border-left: 4px solid var(--outline-variant);
+        cursor: pointer; transition: transform 0.12s, box-shadow 0.12s; position: relative;
+    }
+    .ap-card:hover { transform: translateY(-2px); box-shadow: var(--elevation-shadow); }
+    .ap-card.status-inprogress { border-left-color: var(--primary-gold); }
+    .ap-card.status-done { border-left-color: var(--tertiary); }
+    .ap-card.status-closed { border-left-color: var(--on-surface-muted); }
+
+    .ap-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; }
+    .ap-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; font-size: 0.72rem; font-weight: 700; }
+    .ap-badge.planned { background: var(--surface-high); color: var(--on-surface-muted); }
+    .ap-badge.inprogress { background: var(--primary-dim); color: var(--primary); }
+    .ap-badge.done { background: #dceafe; color: var(--tertiary); }
+    .ap-badge.closed { background: var(--surface-highest); color: var(--on-surface-sub); }
+    .ap-card-when { font-size: 0.75rem; color: var(--on-surface-muted); }
+    .ap-card-title { font-size: 0.98rem; font-weight: 700; color: var(--on-surface); margin-bottom: 0.65rem; }
+    .ap-card-figs { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--on-surface-muted); }
+    .ap-card-figs b { color: var(--on-surface); font-weight: 700; }
+
+    .ap-add-card {
+        background: var(--surface); border-radius: 0.75rem; border: 1.5px dashed var(--outline-variant);
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        min-height: 118px; color: var(--primary-gold); cursor: pointer; transition: background 0.15s;
+    }
+    .ap-add-card:hover { background: var(--surface-low); }
+    .ap-add-card i { font-size: 1.5rem; }
+    .ap-add-card span { font-size: 0.85rem; font-weight: 700; margin-top: 0.25rem; }
+
+    .ap-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
+
+    /* 모달 */
+    .ap-modal-body { padding: 1.25rem 1.5rem; }
+    .ap-field { margin-bottom: 1rem; }
+    .ap-field label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--on-surface-sub); margin-bottom: 0.35rem; }
+    .ap-input {
+        width: 100%; height: 40px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
+        padding: 0 0.75rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+    textarea.ap-input { height: auto; padding: 0.6rem 0.75rem; resize: vertical; }
+    .ap-calc-hint {
+        background: var(--surface-low); border-radius: 0.5rem; padding: 0.6rem 0.85rem;
+        font-size: 0.82rem; color: var(--on-surface-sub); margin-bottom: 1rem;
+    }
+    .ap-calc-hint b { color: var(--primary-gold); }
+    .ap-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .ap-gold-btn {
+        background: var(--gold-gradient); color: #fff; border: none; border-radius: 0.5rem;
+        padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+    .ap-ghost-btn {
+        background: var(--surface-lowest); color: var(--on-surface-sub); border: 1px solid var(--outline-variant);
+        border-radius: 0.5rem; padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+    .ap-del-btn {
+        background: transparent; color: var(--error); border: 1px solid var(--error);
+        border-radius: 0.5rem; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+</style>
+
+<CascadingValue Value="CurrentUser">
+<div class="ap-wrap">
+
+    <div class="ap-head">
+        <div class="ap-head-icon"><i class="bi bi-calendar-event"></i></div>
+        <div>
+            <div class="ap-head-title">연간 계획</div>
+            <div class="ap-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
+        </div>
+    </div>
+
+    @* ── 필터 ── *@
+    <div class="ap-filters">
+        <select class="ap-select" @onchange="OnYearChanged">
+            @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 3; y--)
+            {
+                <option value="@y" selected="@(y == _targetYear)">@(y)년</option>
+            }
+        </select>
+
+        @if (_canPickDept)
+        {
+            <select class="ap-select" @onchange="OnDeptChanged">
+                @foreach (var d in _departments)
+                {
+                    <option value="@d.Id" selected="@(d.Id == _viewDeptId)">@d.Name</option>
+                }
+            </select>
+        }
+
+        <div style="width:1px; height:24px; background:var(--outline-variant); margin:0 0.25rem;"></div>
+
+        <button class="ap-chip @(_filterQuarter == 0 ? "active" : "")" @onclick="() => SetQuarter(0)">전체</button>
+        <button class="ap-chip @(_filterQuarter == 1 ? "active" : "")" @onclick="() => SetQuarter(1)">1분기</button>
+        <button class="ap-chip @(_filterQuarter == 2 ? "active" : "")" @onclick="() => SetQuarter(2)">2분기</button>
+        <button class="ap-chip @(_filterQuarter == 3 ? "active" : "")" @onclick="() => SetQuarter(3)">3분기</button>
+        <button class="ap-chip @(_filterQuarter == 4 ? "active" : "")" @onclick="() => SetQuarter(4)">4분기</button>
+    </div>
+
+    @* ── 요약 ── *@
+    <div class="ap-summary">
+        <div class="ap-sum-card">
+            <div class="ap-sum-label">계획</div>
+            <div class="ap-sum-value">@_visiblePlans.Count 건</div>
+        </div>
+        <div class="ap-sum-card">
+            <div class="ap-sum-label">목표수입</div>
+            <div class="ap-sum-value">@_visiblePlans.Sum(p => p.PlannedIncome).ToString("N0")</div>
+        </div>
+        <div class="ap-sum-card">
+            <div class="ap-sum-label">편성지출</div>
+            <div class="ap-sum-value">@_visiblePlans.Sum(p => p.PlannedExpense).ToString("N0")</div>
+        </div>
+    </div>
+
+    @* ── 카드 그리드 ── *@
+    @if (_isLoading)
+    {
+        <div class="ap-empty">불러오는 중…</div>
+    }
+    else
+    {
+        <div class="ap-grid">
+            @foreach (var p in _visiblePlans)
+            {
+                <div class="ap-card @StatusClass(p.Status)" @onclick="() => OpenEdit(p)">
+                    <div class="ap-card-top">
+                        <span class="ap-badge @StatusBadge(p.Status)">@StatusLabel(p.Status)</span>
+                        <span class="ap-card-when">@WhenLabel(p)</span>
+                    </div>
+                    <div class="ap-card-title">@p.Title</div>
+                    <div class="ap-card-figs">
+                        <span>지출 <b>@p.PlannedExpense.ToString("N0")</b></span>
+                        <i class="bi bi-pencil-square" style="color:var(--primary-gold);"></i>
+                    </div>
+                </div>
+            }
+
+            @if (_canEdit)
+            {
+                <div class="ap-add-card" @onclick="OpenAdd">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>계획 추가</span>
+                </div>
+            }
+        </div>
+
+        @if (!_visiblePlans.Any() && !_canEdit)
+        {
+            <div class="ap-empty">등록된 연간 계획이 없습니다.</div>
+        }
+    }
+
+</div>
+
+@* ══════════════ 추가/수정 모달 ══════════════ *@
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55);" @onclick="CloseModal">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content border-0" style="border-radius: 0.9rem; overflow: hidden;">
+                <div class="modal-header border-0" style="background: var(--surface-low);">
+                    <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
+                        <i class="bi @(_editing.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-1" style="color: var(--primary-gold);"></i>
+                        @(_editing.Id == 0 ? "계획 추가" : "계획 수정")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+
+                <div class="ap-modal-body">
+                    <div class="ap-field">
+                        <label>행사명</label>
+                        <input class="ap-input" @bind="_editing.Title" placeholder="예: 여름성경학교" />
+                    </div>
+
+                    <div class="ap-field">
+                        <label>행사 날짜</label>
+                        <input type="date" class="ap-input" @bind="_editDate" @bind:after="RecalcDateInfo" />
+                    </div>
+
+                    @if (_dateInfo != null)
+                    {
+                        <div class="ap-calc-hint">
+                            <i class="bi bi-magic me-1"></i>
+                            자동 계산: <b>@_dateInfo.FiscalYear 회계연도</b> ·
+                            <b>@(_dateInfo.Month)월 @(_dateInfo.MonthWeek)주차</b> ·
+                            <b>@(_dateInfo.Quarter)분기</b> (연중 @(_dateInfo.WeekNo)주)
+                        </div>
+                    }
+
+                    <div class="ap-field">
+                        <label>추진 내용 <span style="font-weight:400; color:var(--on-surface-muted);">(선택)</span></label>
+                        <textarea class="ap-input" rows="2" @bind="_editing.Description" placeholder="행사 개요·준비 사항 등"></textarea>
+                    </div>
+
+                    <div class="ap-row2">
+                        <div class="ap-field">
+                            <label>목표 수입</label>
+                            <input type="number" class="ap-input" @bind="_editing.PlannedIncome" />
+                        </div>
+                        <div class="ap-field">
+                            <label>편성 지출</label>
+                            <input type="number" class="ap-input" @bind="_editing.PlannedExpense" />
+                        </div>
+                    </div>
+
+                    <div class="ap-field">
+                        <label>상태</label>
+                        <select class="ap-input" @bind="_editing.Status">
+                            <option value="@PlanStatus.Planned">계획</option>
+                            <option value="@PlanStatus.InProgress">진행</option>
+                            <option value="@PlanStatus.Done">완료</option>
+                            <option value="@PlanStatus.Closed">마감</option>
+                        </select>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div style="color: var(--error); font-size: 0.83rem; margin-bottom: 0.75rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>@_modalError
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer border-0" style="justify-content: space-between;">
+                    <div>
+                        @if (_editing.Id != 0)
+                        {
+                            <button class="ap-del-btn" @onclick="DeletePlan"><i class="bi bi-trash me-1"></i>삭제</button>
+                        }
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="ap-ghost-btn" @onclick="CloseModal">취소</button>
+                        <button class="ap-gold-btn" @onclick="SavePlan">저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+</CascadingValue>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int _targetYear = DateTime.Now.Year;
+    private int _filterQuarter = 0;          // 0=전체
+    private int _viewDeptId;                  // 현재 조회 중인 부서
+    private string _currentDeptName = "";
+    private bool _canEdit;                    // Manager/Admin
+    private bool _canPickDept;               // Admin/Auditor → 부서 선택 가능
+    private bool _isLoading = true;
+
+    private List<Department> _departments = new();
+    private List<AnnualPlan> _allPlans = new();
+    private List<AnnualPlan> _visiblePlans = new();
+
+    private bool _showModal = false;
+    private AnnualPlan _editing = new();
+    private DateTime _editDate = DateTime.Now;
+    private AccountingService.PlanDateInfo? _dateInfo;
+    private string _modalError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _canEdit = CurrentUser?.CanEdit == true;
+        _canPickDept = CurrentUser?.CanViewAll == true;
+
+        _departments = await Accounting.GetDepartmentsAsync();
+        _viewDeptId = CurrentUser?.DepartmentId ?? (_departments.FirstOrDefault()?.Id ?? 0);
+
+        await LoadPlans();
+    }
+
+    private async Task LoadPlans()
+    {
+        _isLoading = true;
+        _currentDeptName = _departments.FirstOrDefault(d => d.Id == _viewDeptId)?.Name ?? "";
+
+        if (_canPickDept && CurrentUser?.IsSystemAdmin == true && _viewDeptId == 0)
+            _allPlans = await Accounting.GetAllAnnualPlansAsync(_targetYear);
+        else
+            _allPlans = await Accounting.GetAnnualPlansAsync(_viewDeptId, _targetYear);
+
+        ApplyFilter();
+        _isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        _visiblePlans = _filterQuarter == 0
+            ? _allPlans
+            : _allPlans.Where(p => p.Quarter == _filterQuarter).ToList();
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var y)) { _targetYear = y; await LoadPlans(); }
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { _viewDeptId = id; await LoadPlans(); }
+    }
+
+    private void SetQuarter(int q) { _filterQuarter = q; ApplyFilter(); }
+
+    // ── 모달 ──
+    private void OpenAdd()
+    {
+        _editing = new AnnualPlan
+        {
+            DepartmentId = _viewDeptId,
+            Status = PlanStatus.Planned
+        };
+        _editDate = DateTime.Now;
+        _modalError = "";
+        _showModal = true;
+        _ = RecalcDateInfo();
+    }
+
+    private void OpenEdit(AnnualPlan p)
+    {
+        // 조회 목록은 AsNoTracking이므로 편집용 복사본을 만든다.
+        _editing = new AnnualPlan
+        {
+            Id = p.Id,
+            DepartmentId = p.DepartmentId,
+            EventDate = p.EventDate,
+            FiscalYear = p.FiscalYear,
+            WeekNo = p.WeekNo,
+            Quarter = p.Quarter,
+            Title = p.Title,
+            Description = p.Description,
+            PlannedIncome = p.PlannedIncome,
+            PlannedExpense = p.PlannedExpense,
+            Status = p.Status
+        };
+        _editDate = p.EventDate == default ? DateTime.Now : p.EventDate;
+        _modalError = "";
+        _showModal = true;
+        _ = RecalcDateInfo();
+    }
+
+    private async Task RecalcDateInfo()
+    {
+        _dateInfo = await Accounting.CalcPlanDateInfoAsync(_editing.DepartmentId, _editDate);
+        StateHasChanged();
+    }
+
+    private void CloseModal() { _showModal = false; }
+
+    private async Task SavePlan()
+    {
+        if (string.IsNullOrWhiteSpace(_editing.Title)) { _modalError = "행사명을 입력하세요."; return; }
+
+        // 날짜 → 회계연도·분기·주차 최종 반영
+        var info = await Accounting.CalcPlanDateInfoAsync(_editing.DepartmentId, _editDate);
+        _editing.EventDate = _editDate;
+        _editing.FiscalYear = info.FiscalYear;
+        _editing.Quarter = info.Quarter;
+        _editing.WeekNo = info.WeekNo;
+
+        await Accounting.SaveAnnualPlanAsync(_editing, CurrentUser?.Username);
+        _showModal = false;
+
+        // 저장한 계획의 회계연도로 화면을 맞춰 바로 보이게 함
+        _targetYear = info.FiscalYear;
+        await LoadPlans();
+    }
+
+    private async Task DeletePlan()
+    {
+        if (_editing.Id == 0) return;
+        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 계획을 삭제할까요?");
+        if (!ok) return;
+        await Accounting.DeleteAnnualPlanAsync(_editing.Id, CurrentUser?.Username);
+        _showModal = false;
+        await LoadPlans();
+    }
+
+    // ── 표시 헬퍼 ──
+    private string WhenLabel(AnnualPlan p)
+    {
+        int monthWeek = AccountingService.GetWeekOfMonth(p.EventDate);
+        return p.EventDate == default
+            ? $"{p.Quarter}분기"
+            : $"{p.EventDate.Month}월 {monthWeek}주차 · {p.Quarter}분기";
+    }
+
+    private string StatusClass(PlanStatus s) => s switch
+    {
+        PlanStatus.InProgress => "status-inprogress",
+        PlanStatus.Done => "status-done",
+        PlanStatus.Closed => "status-closed",
+        _ => ""
+    };
+
+    private string StatusBadge(PlanStatus s) => s switch
+    {
+        PlanStatus.InProgress => "inprogress",
+        PlanStatus.Done => "done",
+        PlanStatus.Closed => "closed",
+        _ => "planned"
+    };
+
+    private string StatusLabel(PlanStatus s) => s switch
+    {
+        PlanStatus.InProgress => "진행",
+        PlanStatus.Done => "완료",
+        PlanStatus.Closed => "마감",
+        _ => "계획"
+    };
+}

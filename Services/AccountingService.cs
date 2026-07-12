@@ -1358,5 +1358,114 @@ namespace INcheonChurchWeb.Services
 
             return updatedCount;
         }
+
+        // ══════════════════════════════════════════════════════════════
+        // 🚀 연간 계획(AnnualPlan) — 조회 / 저장 / 삭제 + 날짜 자동계산
+        //   회계연도·분기는 부서별 분기 설정을 따르는 기존 메서드
+        //   (CalculateFiscalYearAsync / GetQuarterNumberAsync)를 그대로 재사용한다.
+        // ══════════════════════════════════════════════════════════════
+
+        // [DTO] 연간 계획 화면에 필요한 계산값 묶음 (날짜 → 회계연도/분기/주차)
+        public class PlanDateInfo
+        {
+            public int FiscalYear { get; set; }
+            public byte Quarter { get; set; }
+            public int WeekNo { get; set; }       // 연중 주차 (1~53, 일요일 시작)
+            public int MonthWeek { get; set; }    // 그 달의 몇째 주 (화면 표시용)
+            public int Month { get; set; }        // 화면 표시용 월
+        }
+
+        // 행사 날짜 하나로 회계연도·분기·주차를 한 번에 계산.
+        public async Task<PlanDateInfo> CalcPlanDateInfoAsync(int deptId, DateTime date)
+        {
+            int fy = await CalculateFiscalYearAsync(deptId, date);
+            int q = await GetQuarterNumberAsync(deptId, fy, date);
+            return new PlanDateInfo
+            {
+                FiscalYear = fy,
+                Quarter = (byte)q,
+                WeekNo = GetWeekOfYear(date),
+                MonthWeek = GetWeekOfMonth(date),
+                Month = date.Month
+            };
+        }
+
+        // 연중 주차 (1월 1일부터, 일요일을 한 주의 시작으로).
+        public static int GetWeekOfYear(DateTime date)
+        {
+            var first = new DateTime(date.Year, 1, 1);
+            int firstSunOffset = (int)first.DayOfWeek; // 일=0 … 토=6
+            int dayOfYear = date.DayOfYear;            // 1~366
+            return (dayOfYear + firstSunOffset - 1) / 7 + 1;
+        }
+
+        // 그 달의 몇째 주 (그 달 1일이 속한 주 = 1주차, 일요일 시작).
+        public static int GetWeekOfMonth(DateTime date)
+        {
+            var first = new DateTime(date.Year, date.Month, 1);
+            int firstSunOffset = (int)first.DayOfWeek;
+            return (date.Day + firstSunOffset - 1) / 7 + 1;
+        }
+
+        // 특정 부서·회계연도의 연간 계획 목록 (분기·주차 순 정렬).
+        public async Task<List<AnnualPlan>> GetAnnualPlansAsync(int deptId, int fiscalYear)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.AnnualPlans
+                .AsNoTracking()
+                .Where(p => p.DepartmentId == deptId && p.FiscalYear == fiscalYear)
+                .OrderBy(p => p.Quarter).ThenBy(p => p.WeekNo)
+                .ToListAsync();
+        }
+
+        // 전체 부서(관리자/감사 조회용) 연간 계획 목록.
+        public async Task<List<AnnualPlan>> GetAllAnnualPlansAsync(int fiscalYear)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.AnnualPlans
+                .AsNoTracking()
+                .Where(p => p.FiscalYear == fiscalYear)
+                .OrderBy(p => p.Quarter).ThenBy(p => p.WeekNo)
+                .ToListAsync();
+        }
+
+        // 연간 계획 저장 (Id==0 신규 추가 / 그 외 수정). 감사 필드는 DbContext가 자동 처리.
+        public async Task SaveAnnualPlanAsync(AnnualPlan plan, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            if (plan.Id == 0)
+            {
+                plan.CreatedBy = actorUsername;
+                db.AnnualPlans.Add(plan);
+            }
+            else
+            {
+                var existing = await db.AnnualPlans.FirstOrDefaultAsync(p => p.Id == plan.Id);
+                if (existing == null) return;
+                existing.DepartmentId = plan.DepartmentId;
+                existing.EventDate = plan.EventDate;
+                existing.FiscalYear = plan.FiscalYear;
+                existing.WeekNo = plan.WeekNo;
+                existing.Quarter = plan.Quarter;
+                existing.Title = plan.Title;
+                existing.Description = plan.Description;
+                existing.PlannedIncome = plan.PlannedIncome;
+                existing.PlannedExpense = plan.PlannedExpense;
+                existing.Status = plan.Status;
+                existing.UpdatedBy = actorUsername;
+            }
+            await db.SaveChangesAsync();
+        }
+
+        // 연간 계획 소프트 삭제 (IsDeleted = true → 글로벌 쿼리 필터로 자동 제외).
+        public async Task DeleteAnnualPlanAsync(int planId, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var plan = await db.AnnualPlans.FirstOrDefaultAsync(p => p.Id == planId);
+            if (plan == null) return;
+            plan.IsDeleted = true;
+            plan.UpdatedBy = actorUsername;
+            await db.SaveChangesAsync();
+        }
     }
 }

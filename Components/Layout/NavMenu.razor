@@ -20,6 +20,10 @@
 
     @if (CurrentUser?.CanEdit == true)
     {
+        <NavLink class="stitch-nav-item" href="annual-plan">
+            <span class="nav-icon-wrap"><i class="bi bi-calendar-event"></i></span>
+            <span class="nav-label">연간 계획</span>
+        </NavLink>
         <NavLink class="stitch-nav-item" href="expense-report-quarterly">
             <span class="nav-icon-wrap"><i class="bi bi-file-earmark-text-fill"></i></span>
             <span class="nav-label">지출결의서</span>
