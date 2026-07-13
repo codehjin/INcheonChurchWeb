@@ -1484,5 +1484,60 @@ namespace INcheonChurchWeb.Services
             plan.UpdatedBy = actorUsername;
             await db.SaveChangesAsync();
         }
+
+        // ══════════════════════════════════════════════════════════════
+        // 🚀 주간 회의록(WeeklyMeeting) — 조회 / 저장 / 삭제
+        // ══════════════════════════════════════════════════════════════
+
+        public async Task<List<WeeklyMeeting>> GetWeeklyMeetingsAsync(int deptId, int fiscalYear)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var q1 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 1);
+            var q4 = await GetQuarterDateRangeAsync(deptId, fiscalYear, 4);
+
+            return await db.WeeklyMeetings
+                .AsNoTracking()
+                .Include(m => m.AnnualPlan)
+                .Where(m => m.DepartmentId == deptId
+                            && m.MeetingDate >= q1.Start
+                            && m.MeetingDate <= q4.End)
+                .OrderByDescending(m => m.MeetingDate)
+                .ThenBy(m => m.Id)
+                .ToListAsync();
+        }
+
+        public async Task SaveWeeklyMeetingAsync(WeeklyMeeting meeting, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            if (meeting.Id == 0)
+            {
+                meeting.CreatedBy = actorUsername;
+                db.WeeklyMeetings.Add(meeting);
+            }
+            else
+            {
+                var existing = await db.WeeklyMeetings.FirstOrDefaultAsync(m => m.Id == meeting.Id);
+                if (existing == null) return;
+                existing.DepartmentId = meeting.DepartmentId;
+                existing.MeetingDate = meeting.MeetingDate;
+                existing.FreeMemo = meeting.FreeMemo;
+                existing.EventDateTime = meeting.EventDateTime;
+                existing.EventLocation = meeting.EventLocation;
+                existing.ExpectedAttendees = meeting.ExpectedAttendees;
+                existing.AnnualPlanId = meeting.AnnualPlanId;
+                existing.UpdatedBy = actorUsername;
+            }
+            await db.SaveChangesAsync();
+        }
+
+        public async Task DeleteWeeklyMeetingAsync(int meetingId, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var m = await db.WeeklyMeetings.FirstOrDefaultAsync(x => x.Id == meetingId);
+            if (m == null) return;
+            m.IsDeleted = true;
+            m.UpdatedBy = actorUsername;
+            await db.SaveChangesAsync();
+        }
     }
 }

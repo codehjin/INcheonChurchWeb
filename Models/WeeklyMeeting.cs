@@ -11,6 +11,9 @@ namespace INcheonChurchWeb.Models
         [Key]
         public int Id { get; set; }
 
+        // 소속 부서. 행사와 무관한 일반 회의도 부서별로 분리 관리해야 하므로 필수.
+        public int DepartmentId { get; set; }
+
         public DateTime MeetingDate { get; set; }  // 회의 일자
         public string? FreeMemo { get; set; }      // 자유형 메모
 

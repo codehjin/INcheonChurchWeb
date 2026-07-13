@@ -1,0 +1,470 @@
+@page "/weekly-meeting"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>주간 회의록 · 인천중앙교회 재정 시스템</PageTitle>
+
+<style>
+    .wm-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .wm-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .wm-head-icon {
+        width: 44px; height: 44px; border-radius: 0.65rem;
+        background: var(--gold-gradient); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+    }
+    .wm-head-title { font-size: 1.35rem; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
+    .wm-head-sub { font-size: 0.85rem; color: var(--on-surface-muted); }
+
+    .wm-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
+    .wm-select {
+        height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
+        padding: 0 0.75rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+    .wm-chip {
+        border: 1px solid var(--outline-variant); border-radius: 9999px;
+        padding: 0.45rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+        background: var(--surface-lowest); color: var(--on-surface-muted); transition: all 0.15s;
+    }
+    .wm-chip.active { background: var(--gold-gradient); color: #fff; border-color: transparent; }
+
+    /* 회의 날짜 그룹 헤더 */
+    .wm-group { margin-bottom: 1.5rem; }
+    .wm-group-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.65rem; }
+    .wm-date-badge {
+        background: var(--gold-gradient); color: #fff; border-radius: 0.45rem;
+        padding: 0.25rem 0.7rem; font-size: 0.85rem; font-weight: 800;
+    }
+    .wm-date-badge.old { background: var(--surface-high); color: var(--on-surface-sub); }
+    .wm-group-meta { font-size: 0.78rem; color: var(--on-surface-muted); }
+    .wm-group-line { flex: 1; height: 1px; background: var(--outline-variant); }
+
+    .wm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.7rem; }
+
+    .wm-card {
+        background: var(--surface-lowest); border-radius: 0.7rem; padding: 0.9rem 1rem;
+        box-shadow: var(--shadow-ambient); border-left: 4px solid var(--primary-gold);
+        cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .wm-card:hover { transform: translateY(-2px); box-shadow: var(--elevation-shadow); }
+    .wm-card.general { border-left-color: var(--outline-variant); }
+
+    .wm-card-tag { display: flex; align-items: center; gap: 0.3rem; margin-bottom: 0.45rem; }
+    .wm-card-tag i { font-size: 0.85rem; color: var(--primary-gold); }
+    .wm-card-tag span { font-size: 0.78rem; font-weight: 800; color: var(--primary-gold); }
+    .wm-card.general .wm-card-tag i,
+    .wm-card.general .wm-card-tag span { color: var(--on-surface-muted); }
+
+    .wm-card-memo {
+        font-size: 0.82rem; color: var(--on-surface-sub); line-height: 1.5; margin-bottom: 0.55rem;
+        display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+        white-space: pre-wrap; min-height: 1.2rem;
+    }
+    .wm-card-foot {
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.75rem; color: var(--on-surface-muted);
+    }
+
+    .wm-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
+
+    /* 모달 */
+    .wm-modal-body { padding: 1.25rem 1.5rem; }
+    .wm-field { margin-bottom: 1rem; }
+    .wm-field label { display: block; font-size: 0.8rem; font-weight: 700; color: var(--on-surface-sub); margin-bottom: 0.35rem; }
+    .wm-input {
+        width: 100%; height: 40px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
+        padding: 0 0.75rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+    textarea.wm-input { height: auto; padding: 0.6rem 0.75rem; resize: vertical; }
+    .wm-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+    .wm-hint {
+        background: var(--surface-low); border-radius: 0.5rem; padding: 0.6rem 0.85rem;
+        font-size: 0.8rem; color: var(--on-surface-sub); margin-bottom: 1rem;
+    }
+    .wm-gold-btn {
+        background: var(--gold-gradient); color: #fff; border: none; border-radius: 0.5rem;
+        padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+    .wm-ghost-btn {
+        background: var(--surface-lowest); color: var(--on-surface-sub); border: 1px solid var(--outline-variant);
+        border-radius: 0.5rem; padding: 0.6rem 1.25rem; font-size: 0.9rem; font-weight: 700; cursor: pointer;
+    }
+    .wm-del-btn {
+        background: transparent; color: var(--error); border: 1px solid var(--error);
+        border-radius: 0.5rem; padding: 0.6rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+</style>
+
+<CascadingValue Value="CurrentUser">
+<div class="wm-wrap">
+
+    <div class="wm-head">
+        <div class="wm-head-icon"><i class="bi bi-journal-text"></i></div>
+        <div>
+            <div class="wm-head-title">주간 회의록</div>
+            <div class="wm-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
+        </div>
+        @if (_canEdit)
+        {
+            <button class="wm-gold-btn" style="margin-left:auto;" @onclick="OpenAdd">
+                <i class="bi bi-plus-lg me-1"></i>기록 추가
+            </button>
+        }
+    </div>
+
+    @* ── 필터 ── *@
+    <div class="wm-filters">
+        <select class="wm-select" @onchange="OnYearChanged">
+            @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 3; y--)
+            {
+                <option value="@y" selected="@(y == _targetYear)">@(y)년</option>
+            }
+        </select>
+
+        @if (_canPickDept)
+        {
+            <select class="wm-select" @onchange="OnDeptChanged">
+                @foreach (var d in _departments)
+                {
+                    <option value="@d.Id" selected="@(d.Id == _viewDeptId)">@d.Name</option>
+                }
+            </select>
+        }
+
+        @* 행사별 필터 *@
+        <select class="wm-select" @onchange="OnPlanFilterChanged">
+            <option value="0" selected="@(_filterPlanId == 0)">전체 행사</option>
+            <option value="-1" selected="@(_filterPlanId == -1)">일반 안건만</option>
+            @foreach (var p in _plans)
+            {
+                <option value="@p.Id" selected="@(p.Id == _filterPlanId)">@p.Title</option>
+            }
+        </select>
+    </div>
+
+    @* ── 날짜별 그룹 ── *@
+    @if (_isLoading)
+    {
+        <div class="wm-empty">불러오는 중…</div>
+    }
+    else if (!_visible.Any())
+    {
+        <div class="wm-empty">
+            <i class="bi bi-journal-x" style="font-size:1.8rem; display:block; margin-bottom:0.5rem; opacity:0.5;"></i>
+            등록된 회의록이 없습니다.
+            @if (_canEdit)
+            {
+                <text> 우측 상단 [기록 추가]로 시작하세요.</text>
+            }
+        </div>
+    }
+    else
+    {
+        @foreach (var g in _visible.GroupBy(m => m.MeetingDate.Date).OrderByDescending(g => g.Key))
+        {
+            <div class="wm-group">
+                <div class="wm-group-head">
+                    <div class="wm-date-badge @(g.Key == _latestDate ? "" : "old")">
+                        @(g.Key.Month)월 @(g.Key.Day)일
+                    </div>
+                    <div class="wm-group-meta">@DayLabel(g.Key) · @g.Count()건</div>
+                    <div class="wm-group-line"></div>
+                </div>
+
+                <div class="wm-grid">
+                    @foreach (var m in g)
+                    {
+                        <div class="wm-card @(m.AnnualPlanId == null ? "general" : "")" @onclick="() => OpenEdit(m)">
+                            <div class="wm-card-tag">
+                                <i class="bi @(m.AnnualPlanId == null ? "bi-sticky" : "bi-calendar-event")"></i>
+                                <span>@(m.AnnualPlan?.Title ?? "일반 안건")</span>
+                            </div>
+
+                            <div class="wm-card-memo">@(string.IsNullOrWhiteSpace(m.FreeMemo) ? "(내용 없음)" : m.FreeMemo)</div>
+
+                            <div class="wm-card-foot">
+                                <span>
+                                    @if (!string.IsNullOrWhiteSpace(m.EventLocation) || m.ExpectedAttendees.HasValue)
+                                    {
+                                        <i class="bi bi-geo-alt"></i>
+                                        <text> </text>
+                                        @(string.IsNullOrWhiteSpace(m.EventLocation) ? "미정" : m.EventLocation)
+                                        @if (m.ExpectedAttendees.HasValue)
+                                        {
+                                            <text> · @(m.ExpectedAttendees.Value)명</text>
+                                        }
+                                    }
+                                </span>
+                                <i class="bi bi-pencil-square" style="color:var(--primary-gold);"></i>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    }
+
+</div>
+
+@* ══════════════ 추가/수정 모달 ══════════════ *@
+@if (_showModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55);">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0" style="border-radius: 0.9rem; overflow: hidden;">
+                <div class="modal-header border-0" style="background: var(--surface-low);">
+                    <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
+                        <i class="bi @(_editing.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-1" style="color: var(--primary-gold);"></i>
+                        @(_editing.Id == 0 ? "회의 기록 추가" : "회의 기록 수정")
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseModal"></button>
+                </div>
+
+                <div class="wm-modal-body">
+                    <div class="wm-row2">
+                        <div class="wm-field">
+                            <label>회의 날짜</label>
+                            <input type="date" class="wm-input" @bind="_editDate" />
+                        </div>
+                        <div class="wm-field">
+                            <label>연결할 행사</label>
+                            <select class="wm-input" @bind="_editPlanId">
+                                <option value="0">일반 안건 (행사 없음)</option>
+                                @foreach (var p in _plans)
+                                {
+                                    <option value="@p.Id">@p.Title</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (_editPlanId == 0)
+                    {
+                        <div class="wm-hint">
+                            <i class="bi bi-info-circle me-1"></i>
+                            행사와 무관한 일반 안건입니다. 메모만 기록됩니다.
+                        </div>
+                    }
+
+                    <div class="wm-field">
+                        <label>회의 내용</label>
+                        <textarea class="wm-input" rows="4" @bind="_editing.FreeMemo"
+                                  placeholder="논의 사항, 결정 사항, 준비할 일 등"></textarea>
+                    </div>
+
+                    @if (_editPlanId != 0)
+                    {
+                        <div class="wm-field">
+                            <label>행사 일시 <span style="font-weight:400; color:var(--on-surface-muted);">(선택)</span></label>
+                            <input type="datetime-local" class="wm-input" @bind="_editEventDateTime" />
+                        </div>
+
+                        <div class="wm-row2">
+                            <div class="wm-field">
+                                <label>장소 <span style="font-weight:400; color:var(--on-surface-muted);">(선택)</span></label>
+                                <input class="wm-input" @bind="_editing.EventLocation" placeholder="예: 웅진플레이도시" />
+                            </div>
+                            <div class="wm-field">
+                                <label>예상 인원 <span style="font-weight:400; color:var(--on-surface-muted);">(선택)</span></label>
+                                <input type="number" class="wm-input" @bind="_editAttendees" placeholder="예: 38" />
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_modalError))
+                    {
+                        <div style="color: var(--error); font-size: 0.83rem; margin-bottom: 0.75rem;">
+                            <i class="bi bi-exclamation-circle me-1"></i>@_modalError
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer border-0" style="justify-content: space-between;">
+                    <div>
+                        @if (_editing.Id != 0)
+                        {
+                            <button class="wm-del-btn" @onclick="DeleteMeeting"><i class="bi bi-trash me-1"></i>삭제</button>
+                        }
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="wm-ghost-btn" @onclick="CloseModal">취소</button>
+                        <button class="wm-gold-btn" @onclick="SaveMeeting">저장</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+</CascadingValue>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int _targetYear = DateTime.Now.Year;
+    private int _viewDeptId;
+    private string _currentDeptName = "";
+    private bool _canEdit;
+    private bool _canPickDept;
+    private bool _isLoading = true;
+
+    private int _filterPlanId = 0;    // 0=전체, -1=일반 안건만, 그 외=해당 행사
+
+    private List<Department> _departments = new();
+    private List<AnnualPlan> _plans = new();          // 연결 대상 행사 목록
+    private List<WeeklyMeeting> _all = new();
+    private List<WeeklyMeeting> _visible = new();
+    private DateTime _latestDate;                      // 가장 최근 회의일 (배지 강조용)
+
+    private bool _showModal = false;
+    private WeeklyMeeting _editing = new();
+    private DateTime _editDate = DateTime.Today;
+    private int _editPlanId = 0;                       // 0 = 일반 안건
+    private DateTime? _editEventDateTime;
+    private int? _editAttendees;
+    private string _modalError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _canEdit = CurrentUser?.CanEdit == true;
+        _canPickDept = CurrentUser?.CanViewAll == true;
+
+        _departments = await Accounting.GetDepartmentsAsync();
+        _viewDeptId = CurrentUser?.DepartmentId ?? (_departments.FirstOrDefault()?.Id ?? 0);
+
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        _isLoading = true;
+        _currentDeptName = _departments.FirstOrDefault(d => d.Id == _viewDeptId)?.Name ?? "";
+
+        // 연결 대상 행사 목록 (같은 부서·연도)
+        _plans = await Accounting.GetAnnualPlansAsync(_viewDeptId, _targetYear);
+
+        _all = await Accounting.GetWeeklyMeetingsAsync(_viewDeptId, _targetYear);
+        _latestDate = _all.Any() ? _all.Max(m => m.MeetingDate.Date) : DateTime.MinValue;
+
+        ApplyFilter();
+        _isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        _visible = _filterPlanId switch
+        {
+            0 => _all,                                                    // 전체
+            -1 => _all.Where(m => m.AnnualPlanId == null).ToList(),       // 일반 안건만
+            _ => _all.Where(m => m.AnnualPlanId == _filterPlanId).ToList()
+        };
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var y)) { _targetYear = y; await LoadAll(); }
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { _viewDeptId = id; await LoadAll(); }
+    }
+
+    private void OnPlanFilterChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { _filterPlanId = id; ApplyFilter(); }
+    }
+
+    // ── 모달 ──
+    private void OpenAdd()
+    {
+        _editing = new WeeklyMeeting { DepartmentId = _viewDeptId };
+        _editDate = DateTime.Today;          // 기본값: 오늘
+        _editPlanId = 0;
+        _editEventDateTime = null;
+        _editAttendees = null;
+        _modalError = "";
+        _showModal = true;
+    }
+
+    private void OpenEdit(WeeklyMeeting m)
+    {
+        // 목록은 AsNoTracking 이므로 편집용 복사본을 만든다.
+        _editing = new WeeklyMeeting
+        {
+            Id = m.Id,
+            DepartmentId = m.DepartmentId,
+            MeetingDate = m.MeetingDate,
+            FreeMemo = m.FreeMemo,
+            EventDateTime = m.EventDateTime,
+            EventLocation = m.EventLocation,
+            ExpectedAttendees = m.ExpectedAttendees,
+            AnnualPlanId = m.AnnualPlanId
+        };
+        _editDate = m.MeetingDate == default ? DateTime.Today : m.MeetingDate;
+        _editPlanId = m.AnnualPlanId ?? 0;
+        _editEventDateTime = m.EventDateTime;
+        _editAttendees = m.ExpectedAttendees;
+        _modalError = "";
+        _showModal = true;
+    }
+
+    private void CloseModal() { _showModal = false; }
+
+    private async Task SaveMeeting()
+    {
+        if (string.IsNullOrWhiteSpace(_editing.FreeMemo))
+        {
+            _modalError = "회의 내용을 입력하세요.";
+            return;
+        }
+
+        _editing.DepartmentId = _viewDeptId;
+        _editing.MeetingDate = _editDate;
+        _editing.AnnualPlanId = _editPlanId == 0 ? null : _editPlanId;
+
+        // 일반 안건이면 행사 개요 필드는 비운다.
+        if (_editPlanId == 0)
+        {
+            _editing.EventDateTime = null;
+            _editing.EventLocation = null;
+            _editing.ExpectedAttendees = null;
+        }
+        else
+        {
+            _editing.EventDateTime = _editEventDateTime;
+            _editing.ExpectedAttendees = _editAttendees;
+        }
+
+        await Accounting.SaveWeeklyMeetingAsync(_editing, CurrentUser?.Username);
+        _showModal = false;
+        await LoadAll();
+    }
+
+    private async Task DeleteMeeting()
+    {
+        if (_editing.Id == 0) return;
+        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 회의 기록을 삭제할까요?");
+        if (!ok) return;
+        await Accounting.DeleteWeeklyMeetingAsync(_editing.Id, CurrentUser?.Username);
+        _showModal = false;
+        await LoadAll();
+    }
+
+    // ── 표시 헬퍼 ──
+    private string DayLabel(DateTime d) => d.DayOfWeek switch
+    {
+        DayOfWeek.Sunday => "주일",
+        DayOfWeek.Monday => "월요일",
+        DayOfWeek.Tuesday => "화요일",
+        DayOfWeek.Wednesday => "수요일",
+        DayOfWeek.Thursday => "목요일",
+        DayOfWeek.Friday => "금요일",
+        _ => "토요일"
+    };
+}
