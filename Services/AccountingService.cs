@@ -1458,6 +1458,22 @@ namespace INcheonChurchWeb.Services
             await db.SaveChangesAsync();
         }
 
+        // 연간 계획 일괄 저장 (엑셀/CSV 가져오기용). 저장된 건수를 반환한다.
+        public async Task<int> AddAnnualPlansBulkAsync(List<AnnualPlan> plans, string? actorUsername)
+        {
+            if (plans == null || plans.Count == 0) return 0;
+
+            using var db = _dbFactory.CreateDbContext();
+            foreach (var p in plans)
+            {
+                p.Id = 0;                     // 신규 삽입 강제
+                p.CreatedBy = actorUsername;
+            }
+            db.AnnualPlans.AddRange(plans);
+            await db.SaveChangesAsync();
+            return plans.Count;
+        }
+
         // 연간 계획 소프트 삭제 (IsDeleted = true → 글로벌 쿼리 필터로 자동 제외).
         public async Task DeleteAnnualPlanAsync(int planId, string? actorUsername)
         {

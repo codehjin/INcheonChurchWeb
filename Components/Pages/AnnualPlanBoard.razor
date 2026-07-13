@@ -3,6 +3,9 @@
 @using INcheonChurchWeb.Services
 @using INcheonChurchWeb.Data
 @using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Forms
+@using ClosedXML.Excel
+@using System.IO
 @inject AccountingService Accounting
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IJSRuntime JSRuntime
@@ -117,6 +120,12 @@
             <div class="ap-head-title">연간 계획</div>
             <div class="ap-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
         </div>
+        @if (_canEdit)
+        {
+            <button class="ap-ghost-btn" style="margin-left:auto;" @onclick="OpenImport">
+                <i class="bi bi-upload me-1"></i>일괄 등록
+            </button>
+        }
     </div>
 
     @* ── 필터 ── *@
@@ -145,6 +154,16 @@
         <button class="ap-chip @(_filterQuarter == 2 ? "active" : "")" @onclick="() => SetQuarter(2)">2분기</button>
         <button class="ap-chip @(_filterQuarter == 3 ? "active" : "")" @onclick="() => SetQuarter(3)">3분기</button>
         <button class="ap-chip @(_filterQuarter == 4 ? "active" : "")" @onclick="() => SetQuarter(4)">4분기</button>
+    </div>
+
+    @* ── 상태 필터 ── *@
+    <div class="ap-filters" style="margin-top:-0.4rem;">
+        <span style="font-size:0.78rem; font-weight:700; color:var(--on-surface-muted); margin-right:0.15rem;">상태</span>
+        <button class="ap-chip @(_filterStatus == null ? "active" : "")" @onclick="() => SetStatus(null)">전체</button>
+        <button class="ap-chip @(_filterStatus == PlanStatus.Planned ? "active" : "")" @onclick="() => SetStatus(PlanStatus.Planned)">계획</button>
+        <button class="ap-chip @(_filterStatus == PlanStatus.InProgress ? "active" : "")" @onclick="() => SetStatus(PlanStatus.InProgress)">진행</button>
+        <button class="ap-chip @(_filterStatus == PlanStatus.Done ? "active" : "")" @onclick="() => SetStatus(PlanStatus.Done)">완료</button>
+        <button class="ap-chip @(_filterStatus == PlanStatus.Closed ? "active" : "")" @onclick="() => SetStatus(PlanStatus.Closed)">마감</button>
     </div>
 
     @* ── 요약 ── *@
@@ -206,8 +225,10 @@
 @* ══════════════ 추가/수정 모달 ══════════════ *@
 @if (_showModal)
 {
-    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55);" @onclick="CloseModal">
-        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+    @* 배경 클릭으로 닫지 않는다. (입력란 클릭 시 이벤트 전파로 모달이 닫히는 문제 방지)
+       닫기는 우측 상단 X 또는 취소 버튼으로만 한다. *@
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55);">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0" style="border-radius: 0.9rem; overflow: hidden;">
                 <div class="modal-header border-0" style="background: var(--surface-low);">
                     <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
@@ -226,7 +247,7 @@
                     <div class="ap-row2">
                         <div class="ap-field">
                             <label>시작일</label>
-                            <input type="date" class="ap-input" @bind="_editDate" @bind:after="RecalcDateInfo" />
+                            <input type="date" class="ap-input" @bind="_editDate" @bind:after="OnStartDateChanged" />
                         </div>
                         <div class="ap-field">
                             <label>종료일 <span style="font-weight:400; color:var(--on-surface-muted);">(하루면 비움)</span></label>
@@ -294,6 +315,92 @@
         </div>
     </div>
 }
+@* ══════════════ 일괄 등록(엑셀/CSV) 모달 ══════════════ *@
+@if (_showImport)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.55);">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0" style="border-radius: 0.9rem; overflow: hidden;">
+                <div class="modal-header border-0" style="background: var(--surface-low);">
+                    <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
+                        <i class="bi bi-upload me-1" style="color: var(--primary-gold);"></i>연간 계획 일괄 등록
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="CloseImport"></button>
+                </div>
+
+                <div class="ap-modal-body">
+                    <div class="ap-calc-hint" style="margin-bottom:1rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        엑셀(.xlsx) 또는 CSV 파일로 여러 계획을 한 번에 등록합니다.
+                        <b>@_currentDeptName</b> 부서로 등록되며, 회계연도·분기·주차는 시작일에서 자동 계산됩니다.
+                    </div>
+
+                    <div class="ap-field">
+                        <label>1단계 · 양식 내려받기</label>
+                        <button class="ap-ghost-btn" @onclick="DownloadTemplate">
+                            <i class="bi bi-download me-1"></i>엑셀 양식 받기
+                        </button>
+                        <div style="font-size:0.78rem; color:var(--on-surface-muted); margin-top:0.4rem;">
+                            열 순서: 행사명 · 시작일 · 종료일 · 추진내용 · 목표수입 · 편성지출 · 상태
+                        </div>
+                    </div>
+
+                    <div class="ap-field">
+                        <label>2단계 · 파일 선택</label>
+                        <InputFile OnChange="HandleImportFile" class="ap-input" style="height:auto; padding:0.5rem;"
+                                   accept=".xlsx,.csv" />
+                    </div>
+
+                    @if (_importRows.Any())
+                    {
+                        <div class="ap-field">
+                            <label>3단계 · 미리보기 (@_importRows.Count 건)</label>
+                            <div style="max-height:220px; overflow-y:auto; border:1px solid var(--outline-variant); border-radius:0.5rem;">
+                                <table style="width:100%; font-size:0.8rem; border-collapse:collapse;">
+                                    <thead style="background:var(--surface-low); position:sticky; top:0;">
+                                        <tr>
+                                            <th style="text-align:left; padding:6px 8px;">행사명</th>
+                                            <th style="text-align:left; padding:6px 8px;">기간</th>
+                                            <th style="text-align:right; padding:6px 8px;">지출</th>
+                                            <th style="text-align:center; padding:6px 8px;">분기</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var r in _importRows)
+                                        {
+                                            <tr style="border-top:1px solid var(--outline-variant);">
+                                                <td style="padding:6px 8px;">@r.Title</td>
+                                                <td style="padding:6px 8px; color:var(--on-surface-muted);">
+                                                    @r.EventDate.ToString("MM/dd")@(r.EndDate.HasValue ? "~" + r.EndDate.Value.ToString("MM/dd") : "")
+                                                </td>
+                                                <td style="padding:6px 8px; text-align:right;">@r.PlannedExpense.ToString("N0")</td>
+                                                <td style="padding:6px 8px; text-align:center;">@(r.Quarter)분기</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(_importMessage))
+                    {
+                        <div style="color:@(_importIsError ? "var(--error)" : "var(--primary-gold)"); font-size:0.83rem; margin-bottom:0.75rem;">
+                            <i class="bi @(_importIsError ? "bi-exclamation-circle" : "bi-check-circle") me-1"></i>@_importMessage
+                        </div>
+                    }
+                </div>
+
+                <div class="modal-footer border-0" style="justify-content: flex-end; gap:0.5rem;">
+                    <button class="ap-ghost-btn" @onclick="CloseImport">취소</button>
+                    <button class="ap-gold-btn" disabled="@(!_importRows.Any() || _isImporting)" @onclick="ConfirmImport">
+                        @(_isImporting ? "등록 중…" : $"{_importRows.Count}건 등록")
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 </CascadingValue>
 
 @code {
@@ -301,6 +408,7 @@
 
     private int _targetYear = DateTime.Now.Year;
     private int _filterQuarter = 0;          // 0=전체
+    private PlanStatus? _filterStatus = null; // null=전체
     private int _viewDeptId;                  // 현재 조회 중인 부서
     private string _currentDeptName = "";
     private bool _canEdit;                    // Manager/Admin
@@ -345,10 +453,18 @@
 
     private void ApplyFilter()
     {
-        _visiblePlans = _filterQuarter == 0
-            ? _allPlans
-            : _allPlans.Where(p => p.Quarter == _filterQuarter).ToList();
+        IEnumerable<AnnualPlan> q = _allPlans;
+
+        if (_filterQuarter != 0)
+            q = q.Where(p => p.Quarter == _filterQuarter);
+
+        if (_filterStatus.HasValue)
+            q = q.Where(p => p.Status == _filterStatus.Value);
+
+        _visiblePlans = q.ToList();
     }
+
+    private void SetStatus(PlanStatus? s) { _filterStatus = s; ApplyFilter(); }
 
     private async Task OnYearChanged(ChangeEventArgs e)
     {
@@ -371,7 +487,7 @@
             Status = PlanStatus.Planned
         };
         _editDate = DateTime.Today;
-        _editEndDate = null;
+        _editEndDate = DateTime.Today.AddDays(1);   // 기본: 시작일 다음날
         _modalError = "";
         _showModal = true;
         await RecalcDateInfo();
@@ -402,8 +518,19 @@
         await RecalcDateInfo();
     }
 
-    // 시작일 기준으로 회계연도·분기·주차를 계산한다.
+    // 시작일이 바뀌면: 회계연도·분기·주차를 다시 계산하고,
+    // 종료일도 시작일 다음날로 자동 조정한다(사용자가 직접 바꾸면 그 값이 유지됨).
     // (@bind:after 가 자동으로 리렌더하므로 StateHasChanged 를 부르지 않는다)
+    private async Task OnStartDateChanged()
+    {
+        // 종료일이 비어있거나, 시작일보다 앞서면 → 시작일 다음날로 자동 설정
+        if (!_editEndDate.HasValue || _editEndDate.Value.Date < _editDate.Date)
+        {
+            _editEndDate = _editDate.AddDays(1);
+        }
+        await RecalcDateInfo();
+    }
+
     private async Task RecalcDateInfo()
     {
         _dateInfo = await Accounting.CalcPlanDateInfoAsync(_editing.DepartmentId, _editDate);
@@ -444,6 +571,205 @@
         await Accounting.DeleteAnnualPlanAsync(_editing.Id, CurrentUser?.Username);
         _showModal = false;
         await LoadPlans();
+    }
+
+    // ══════════════ 일괄 등록(엑셀/CSV) ══════════════
+    private bool _showImport = false;
+    private bool _isImporting = false;
+    private List<AnnualPlan> _importRows = new();
+    private string _importMessage = "";
+    private bool _importIsError = false;
+
+    private void OpenImport()
+    {
+        _importRows.Clear();
+        _importMessage = "";
+        _importIsError = false;
+        _showImport = true;
+    }
+
+    private void CloseImport() { _showImport = false; }
+
+    // 엑셀 양식(.xlsx) 생성 후 다운로드
+    private async Task DownloadTemplate()
+    {
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add("연간계획");
+
+        string[] headers = { "행사명", "시작일", "종료일", "추진내용", "목표수입", "편성지출", "상태" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cell(1, i + 1).Value = headers[i];
+            ws.Cell(1, i + 1).Style.Font.Bold = true;
+            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#F5F4E8");
+        }
+
+        // 예시 행 (사용자가 지우고 쓰면 됨)
+        ws.Cell(2, 1).Value = "여름성경학교";
+        ws.Cell(2, 2).Value = new DateTime(DateTime.Today.Year, 7, 26);
+        ws.Cell(2, 3).Value = new DateTime(DateTime.Today.Year, 7, 28);
+        ws.Cell(2, 4).Value = "주제: 살아가요 하나님 나라";
+        ws.Cell(2, 5).Value = 1500000;
+        ws.Cell(2, 6).Value = 3148000;
+        ws.Cell(2, 7).Value = "계획";
+
+        ws.Cell(4, 1).Value = "※ 상태는 계획 / 진행 / 완료 / 마감 중 하나. 비우면 '계획'";
+        ws.Cell(5, 1).Value = "※ 종료일을 비우면 하루짜리 행사로 등록됩니다.";
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        wb.SaveAs(ms);
+        var bytes = ms.ToArray();
+
+        await JSRuntime.InvokeVoidAsync("downloadExcelFile",
+            "연간계획_양식.xlsx", Convert.ToBase64String(bytes));
+    }
+
+    // 파일 선택 → 파싱 → 미리보기 목록 생성
+    private async Task HandleImportFile(InputFileChangeEventArgs e)
+    {
+        _importRows.Clear();
+        _importMessage = "";
+        _importIsError = false;
+
+        var file = e.File;
+        if (file == null) return;
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var raw = file.Name.ToLower().EndsWith(".csv")
+                ? ParseCsv(ms)
+                : ParseXlsx(ms);
+
+            if (!raw.Any())
+            {
+                _importMessage = "읽을 수 있는 행이 없습니다. 양식을 확인해 주세요.";
+                _importIsError = true;
+                return;
+            }
+
+            // 각 행의 회계연도·분기·주차를 시작일 기준으로 계산
+            foreach (var r in raw)
+            {
+                var info = await Accounting.CalcPlanDateInfoAsync(_viewDeptId, r.EventDate);
+                r.DepartmentId = _viewDeptId;
+                r.FiscalYear = info.FiscalYear;
+                r.Quarter = info.Quarter;
+                r.WeekNo = info.WeekNo;
+                _importRows.Add(r);
+            }
+
+            _importMessage = $"{_importRows.Count}건을 읽었습니다. 내용을 확인하고 등록하세요.";
+        }
+        catch (Exception ex)
+        {
+            _importMessage = $"파일을 읽지 못했습니다: {ex.Message}";
+            _importIsError = true;
+        }
+    }
+
+    // .xlsx 파싱 (1행=헤더, 2행부터 데이터)
+    private List<AnnualPlan> ParseXlsx(Stream stream)
+    {
+        var list = new List<AnnualPlan>();
+        using var wb = new XLWorkbook(stream);
+        var ws = wb.Worksheets.First();
+
+        foreach (var row in ws.RowsUsed().Skip(1))
+        {
+            string title = row.Cell(1).GetString().Trim();
+            if (string.IsNullOrWhiteSpace(title) || title.StartsWith("※")) continue;
+            if (!row.Cell(2).TryGetValue<DateTime>(out var start)) continue;
+
+            DateTime? end = row.Cell(3).TryGetValue<DateTime>(out var e2) ? e2 : (DateTime?)null;
+
+            list.Add(new AnnualPlan
+            {
+                Title = title,
+                EventDate = start.Date,
+                EndDate = end?.Date,
+                Description = row.Cell(4).GetString().Trim(),
+                PlannedIncome = row.Cell(5).TryGetValue<decimal>(out var inc) ? inc : 0m,
+                PlannedExpense = row.Cell(6).TryGetValue<decimal>(out var exp) ? exp : 0m,
+                Status = ParseStatus(row.Cell(7).GetString())
+            });
+        }
+        return list;
+    }
+
+    // .csv 파싱 (1행=헤더)
+    private List<AnnualPlan> ParseCsv(Stream stream)
+    {
+        var list = new List<AnnualPlan>();
+        using var reader = new StreamReader(stream, System.Text.Encoding.UTF8);
+
+        bool first = true;
+        while (!reader.EndOfStream)
+        {
+            var line = reader.ReadLine();
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (first) { first = false; continue; }   // 헤더 건너뜀
+
+            var c = line.Split(',');
+            if (c.Length < 2) continue;
+
+            string title = c[0].Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(title) || title.StartsWith("※")) continue;
+            if (!DateTime.TryParse(c[1].Trim().Trim('"'), out var start)) continue;
+
+            DateTime? end = null;
+            if (c.Length > 2 && DateTime.TryParse(c[2].Trim().Trim('"'), out var e2)) end = e2.Date;
+
+            list.Add(new AnnualPlan
+            {
+                Title = title,
+                EventDate = start.Date,
+                EndDate = end,
+                Description = c.Length > 3 ? c[3].Trim().Trim('"') : "",
+                PlannedIncome = c.Length > 4 && decimal.TryParse(c[4].Trim().Trim('"'), out var inc) ? inc : 0m,
+                PlannedExpense = c.Length > 5 && decimal.TryParse(c[5].Trim().Trim('"'), out var exp) ? exp : 0m,
+                Status = ParseStatus(c.Length > 6 ? c[6] : "")
+            });
+        }
+        return list;
+    }
+
+    private PlanStatus ParseStatus(string? s) => (s ?? "").Trim() switch
+    {
+        "진행" => PlanStatus.InProgress,
+        "완료" => PlanStatus.Done,
+        "마감" => PlanStatus.Closed,
+        _ => PlanStatus.Planned
+    };
+
+    // 미리보기 목록을 실제로 저장
+    private async Task ConfirmImport()
+    {
+        if (!_importRows.Any()) return;
+
+        _isImporting = true;
+        try
+        {
+            int n = await Accounting.AddAnnualPlansBulkAsync(_importRows, CurrentUser?.Username);
+            _showImport = false;
+            _importRows.Clear();
+            await LoadPlans();
+            await JSRuntime.InvokeVoidAsync("alert", $"{n}건이 등록되었습니다.");
+        }
+        catch (Exception ex)
+        {
+            _importMessage = $"등록 실패: {ex.Message}";
+            _importIsError = true;
+        }
+        finally
+        {
+            _isImporting = false;
+        }
     }
 
     // ── 표시 헬퍼 ──
