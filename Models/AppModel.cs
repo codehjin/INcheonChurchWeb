@@ -65,6 +65,9 @@ namespace INcheonChurchWeb.Models
         public int Quarter { get; set; }
         public string Type { get; set; } = "";
         public string Category { get; set; } = "";
+        // 🚀 세부 분류. 수입: 어느 행사의 회비/찬조금인지(예: 여름성경학교, QT책).
+        //    지출: 비용 종류(예: 식사, 선물비). 예산(BudgetPlan.SubCategory)과 짝을 이룬다.
+        public string? SubCategory { get; set; }
         public string Description { get; set; } = "";
         public decimal Income { get; set; }
         public decimal Expense { get; set; }

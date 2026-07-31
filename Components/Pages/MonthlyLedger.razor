@@ -1404,7 +1404,7 @@
     private void StartEdit(LedgerEntry item)
     {
         _editingItemId = item.Id;
-        _editBuffer = new LedgerEntry { Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, Description = item.Description ?? "", Note = item.Note ?? "", Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter };
+        _editBuffer = new LedgerEntry { Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, SubCategory = item.SubCategory, Description = item.Description ?? "", Note = item.Note ?? "", Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter };
     }
 
     private void CancelEdit() { _editingItemId = null; _editBuffer = null; }
