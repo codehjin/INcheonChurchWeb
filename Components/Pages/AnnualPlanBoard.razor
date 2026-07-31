@@ -241,7 +241,18 @@
                 <div class="ap-modal-body">
                     <div class="ap-field">
                         <label>행사명</label>
-                        <input class="ap-input" @bind="_editing.Title" placeholder="예: 여름성경학교" />
+                        <input class="ap-input" @bind="_editing.Title" list="event-categories"
+                               placeholder="예산 항목에서 선택하거나 직접 입력" autocomplete="off" />
+                        <datalist id="event-categories">
+                            @foreach (var cat in _eventCategories)
+                            {
+                                <option value="@cat" />
+                            }
+                        </datalist>
+                        <div style="font-size:0.75rem; color:var(--on-surface-muted); margin-top:0.3rem;">
+                            <i class="bi bi-lightbulb me-1"></i>
+                            예산에 등록된 항목을 고르면 나중에 지출·보고서가 자동 연결됩니다.
+                        </div>
                     </div>
 
                     <div class="ap-row2">
@@ -418,6 +429,7 @@
     private List<Department> _departments = new();
     private List<AnnualPlan> _allPlans = new();
     private List<AnnualPlan> _visiblePlans = new();
+    private List<string> _eventCategories = new();   // 예산·장부의 지출 카테고리(=행사명) 제안 목록
 
     private bool _showModal = false;
     private AnnualPlan _editing = new();
@@ -441,6 +453,9 @@
     {
         _isLoading = true;
         _currentDeptName = _departments.FirstOrDefault(d => d.Id == _viewDeptId)?.Name ?? "";
+
+        // 행사명 제안 목록(예산+장부의 지출 카테고리) — 드롭다운 자동완성용
+        _eventCategories = await Accounting.GetCategorySuggestionsAsync(_viewDeptId, "Expense");
 
         if (_canPickDept && CurrentUser?.IsSystemAdmin == true && _viewDeptId == 0)
             _allPlans = await Accounting.GetAllAnnualPlansAsync(_targetYear);
