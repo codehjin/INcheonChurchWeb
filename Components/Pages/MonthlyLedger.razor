@@ -568,9 +568,10 @@
                             <col style="width: 4%;" />
                             <col style="width: 8%;" />
                             <col style="width: 5%;" />
-                            <col style="width: 10%;" />
-                            <col style="width: 20%;" />
-                            <col style="width: 10%;" />
+                            <col style="width: 8%;" />
+                            <col style="width: 7%;" />
+                            <col style="width: 25%;" />
+                            <col style="width: 9%;" />
                             <col style="width: 9%;" />
                             <col style="width: 9%;" />
                             <col style="width: 10%;" />
@@ -594,6 +595,7 @@
                                 <th>날짜</th>
                                 <th>구분</th>
                                 <th>분류항목</th>
+                                <th>세부</th>
                                 <th>내역</th>
                                 <th>비고</th>
                                 <th>수입</th>
@@ -624,6 +626,7 @@
                                     </select>
                                 </th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterCategory" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
+                                <th></th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterDescription" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterNote" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 <th></th>
@@ -659,6 +662,7 @@
                                         <td><input type="date" class="form-control form-control-sm px-1" @bind="_editBuffer.Date" /></td>
                                         <td><select class="form-select form-select-sm px-1" @bind="_editBuffer.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
                                         <td><ComboBox @bind-Value="_editBuffer.Category" Options="@(_editBuffer.Type == "수입" ? _incomeCats : _expenseCats)" InputClass="form-control form-control-sm px-1 fw-bold" /></td>
+                                        <td><ComboBox @bind-Value="_editSubCategory" Options="@SubOptions(_editBuffer.Type, _editBuffer.Category)" Placeholder="세부" InputClass="form-control form-control-sm px-1" /></td>
                                         <td><input class="form-control form-control-sm px-1" @bind="_editBuffer.Description" /></td>
                                         <td><input class="form-control form-control-sm px-1" @bind="_editBuffer.Note" /></td>
                                         <td>
@@ -718,6 +722,9 @@
                                             <div class="text-truncate-custom" title="@t.Category">@t.Category</div>
                                         </td>
                                         <td>
+                                            <div class="text-truncate-custom" title="@t.SubCategory" style="color: var(--on-surface-muted); font-size: 0.85em;">@t.SubCategory</div>
+                                        </td>
+                                        <td>
                                             <div class="fw-bold text-truncate-custom" title="@t.Description" style="color: #1b1c15;">@t.Description</div>
                                         </td>
                                         <td>
@@ -774,6 +781,7 @@
                                     <td><input type="date" class="form-control form-control-sm ledger-tabular px-1" @bind="_newItem.Date" /></td>
                                     <td><select class="form-select form-select-sm fw-bold px-1" @bind="_newItem.Type"><option value="수입">수입</option><option value="지출">지출</option></select></td>
                                     <td><ComboBox @bind-Value="_newItem.Category" Options="@(_newItem.Type == "수입" ? _incomeCats : _expenseCats)" Placeholder="분류입력" InputClass="form-control form-control-sm fw-bold px-1" /></td>
+                                    <td><ComboBox @bind-Value="_newSubCategory" Options="@SubOptions(_newItem.Type, _newItem.Category)" Placeholder="세부(선택)" InputClass="form-control form-control-sm px-1" /></td>
                                     <td><input class="form-control form-control-sm fw-bold px-1" @bind="_newItem.Description" placeholder="내역(필수)" /></td>
                                     <td><input class="form-control form-control-sm px-1" @bind="_newItem.Note" placeholder="비고(선택)" /></td>
                                     <td>
@@ -827,7 +835,7 @@
                         <tfoot>
                             <tr style="background-color: #eae9dd; border-top: 2px solid #d2c5b2;">
                                 @{
-                                    int tfColspan = 6; if (_isBatchEditMode) tfColspan++;
+                                    int tfColspan = 7; if (_isBatchEditMode) tfColspan++;
                                 }
                                 <td colspan="@tfColspan" class="text-end fw-bold" style="color: #4e4637; padding: 1rem 0.75rem;">조회 기간 합계</td>
                                 <td class="text-end ledger-tabular fw-bold" style="color: #785600; padding: 1rem 0.5rem;">₩@_filtered_entries.Sum(t => t.Income).ToString("N0")</td>
@@ -997,7 +1005,7 @@
                             seq++;
                         }
                         <tr style="background-color: #f9f9f9 !important; font-weight: bold;">
-                            <td colspan="5" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
+                            <td colspan="6" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
                             <td class="money-cell-print">@mI.ToString("N0")</td>
                             <td class="money-cell-print">@mEx.ToString("N0")</td>
                             <td class="money-cell-print">@rb.ToString("N0")</td>
@@ -1099,6 +1107,24 @@
 
     private List<string> _incomeCats = new();
     private List<string> _expenseCats = new();
+    // 🚀 세부(SubCategory) 자동완성: 분류(Category) → 세부 목록
+    //   지출 → 그 행사에 편성된 비용 종류만, 수입 → 행사명 목록
+    private Dictionary<string, List<string>> _incomeSubMap = new();
+    private Dictionary<string, List<string>> _expenseSubMap = new();
+
+    // 선택된 구분·분류에 해당하는 세부 후보를 돌려준다.
+    private List<string> SubOptions(string type, string? category)
+    {
+        var map = type == "수입" ? _incomeSubMap : _expenseSubMap;
+        if (!string.IsNullOrWhiteSpace(category) && map.TryGetValue(category.Trim(), out var list))
+            return list;
+        // 분류 미선택/미등록이면 전체 후보를 합쳐 보여준다(입력을 막지 않기 위해)
+        return map.Values.SelectMany(v => v).Distinct().OrderBy(s => s).ToList();
+    }
+
+    // ComboBox는 non-nullable string을 받으므로 중간 변수를 둔다(SubCategory는 string?).
+    private string _editSubCategory = "";
+    private string _newSubCategory = "";
     private List<string> _uniqueCategories = new();
 
     private string _filterType = "";
@@ -1198,6 +1224,33 @@
             if (!_incomeCats.Any()) _incomeCats = new List<string> { "주일헌금", "십일조", "감사헌금", "절기특별헌금", "기타수입" };
             if (!_expenseCats.Any()) _expenseCats = new List<string> { "예배", "교육비", "부서운영비", "기타지출" };
 
+            // 🚀 세부(SubCategory) 자동완성 — 분류(Category)별로 나눠 담는다.
+            //   지출: "겨울성경학교" → [식사, 프로그램준비비, 예비비] 처럼 해당 행사의 비용만 제안
+            _expenseSubMap = bp.Where(b => (b.Type == "Expense" || b.Type == "지출")
+                                           && !string.IsNullOrWhiteSpace(b.Category)
+                                           && !string.IsNullOrWhiteSpace(b.SubCategory))
+                               .GroupBy(b => b.Category.Trim())
+                               .ToDictionary(g => g.Key,
+                                             g => g.Select(b => b.SubCategory!.Trim()).Distinct().OrderBy(s => s).ToList());
+
+            //   수입: "회비수입" → [겨울성경학교, 여름성경학교 …] 어느 행사의 회비인지 지정
+            var eventNames = _expenseCats.Where(c => !string.IsNullOrWhiteSpace(c))
+                                         .Select(c => c.Trim()).Distinct().OrderBy(s => s).ToList();
+            _incomeSubMap = _incomeCats.Where(c => !string.IsNullOrWhiteSpace(c))
+                                       .Select(c => c.Trim()).Distinct()
+                                       .ToDictionary(c => c, _ => new List<string>(eventNames));
+
+            // 장부에 이미 쓰인 값도 해당 분류의 후보에 포함(예산에 없는 항목 대응)
+            foreach (var t in allYearData.Where(x => !string.IsNullOrWhiteSpace(x.SubCategory)
+                                                     && !string.IsNullOrWhiteSpace(x.Category)))
+            {
+                var map = t.Income > 0 ? _incomeSubMap : _expenseSubMap;
+                var key = t.Category.Trim();
+                if (!map.TryGetValue(key, out var list)) { list = new List<string>(); map[key] = list; }
+                var sub = t.SubCategory!.Trim();
+                if (!list.Contains(sub)) { list.Add(sub); list.Sort(StringComparer.Ordinal); }
+            }
+
             decimal baseCarryOver = bp.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
 
             var totalPrevData = await context.Transactions.AsNoTracking()
@@ -1274,6 +1327,7 @@
             DateTime def;
             try { def = new DateTime(y, m, d); } catch { def = DateTime.Now; }
             _newItem = new LedgerEntry { Date = def, Type = "지출", Income = 0, Expense = 0, DepartmentId = _selectedDepartmentId, Category = "", Description = "", Note = "" };
+            _newSubCategory = "";
         }
     }
 
@@ -1379,6 +1433,7 @@
         if (string.IsNullOrWhiteSpace(_newItem.Description)) { await ShowAlertAsync("내역을 입력해주세요."); return; }
         if (CurrentUser?.CanViewAll == true && _newItem.DepartmentId == 0) { await ShowAlertAsync("부서를 선택해주세요."); return; }
         if (string.IsNullOrWhiteSpace(_newItem.Category)) _newItem.Category = "미분류";
+        _newItem.SubCategory = string.IsNullOrWhiteSpace(_newSubCategory) ? null : _newSubCategory.Trim();
 
         _newItem.DepartmentId = CurrentUser?.CanViewAll == true ? _newItem.DepartmentId : (_selectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : _selectedDepartmentId);
 
@@ -1398,6 +1453,7 @@
         await context.SaveChangesAsync();
         _isAddingNew = false;
         _newItem = new LedgerEntry { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
+        _newSubCategory = "";
         await LoadData();
     }
 
@@ -1405,6 +1461,7 @@
     {
         _editingItemId = item.Id;
         _editBuffer = new LedgerEntry { Id = item.Id, Date = item.Date, Type = item.Type, Category = item.Category, SubCategory = item.SubCategory, Description = item.Description ?? "", Note = item.Note ?? "", Income = item.Income, Expense = item.Expense, DepartmentId = item.DepartmentId, FiscalYear = item.FiscalYear, Quarter = item.Quarter };
+        _editSubCategory = item.SubCategory ?? "";
     }
 
     private void CancelEdit() { _editingItemId = null; _editBuffer = null; }
@@ -1421,6 +1478,7 @@
             ex.Date = _editBuffer.Date;
             ex.Type = _editBuffer.Type;
             ex.Category = string.IsNullOrWhiteSpace(_editBuffer.Category) ? "미분류" : _editBuffer.Category;
+            ex.SubCategory = string.IsNullOrWhiteSpace(_editSubCategory) ? null : _editSubCategory.Trim();
             ex.Description = _editBuffer.Description ?? "";
             ex.Note = _editBuffer.Note ?? "";
             if (ex.Type == "수입") { ex.Expense = 0; ex.Income = _editBuffer.Income; } else { ex.Income = 0; ex.Expense = _editBuffer.Expense; }
