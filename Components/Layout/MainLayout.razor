@@ -119,11 +119,26 @@
                 </CascadingValue>
             </article>
 
-            @* 📱 모바일 전용 하단 탭 바 *@
+            @* 📱 모바일 전용 하단 탭 바 — 항목이 많아 가로 스크롤로 표시 *@
             <nav class="mobile-bottom-nav">
                 <NavLink class="mobile-tab-item" href="" Match="NavLinkMatch.All">
                     <i class="bi bi-grid-1x2-fill tab-icon"></i>
                     <span>홈</span>
+                </NavLink>
+
+                <NavLink class="mobile-tab-item" href="annual-plan">
+                    <i class="bi bi-calendar-event tab-icon"></i>
+                    <span>연간계획</span>
+                </NavLink>
+
+                <NavLink class="mobile-tab-item" href="weekly-meeting">
+                    <i class="bi bi-journal-text tab-icon"></i>
+                    <span>회의록</span>
+                </NavLink>
+
+                <NavLink class="mobile-tab-item" href="event-report">
+                    <i class="bi bi-clipboard-data tab-icon"></i>
+                    <span>보고서</span>
                 </NavLink>
 
                 @if (_currentUser?.CanEdit == true)

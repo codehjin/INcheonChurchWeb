@@ -79,6 +79,21 @@
         transition: width 0.5s ease-out;
     }
 
+    /* 📱 라벨과 수치를 양끝 배치. 좁은 화면(폴드 커버 등)에서는 위아래로 쌓아
+       글자가 세로로 쪼개지는 것을 막는다. */
+    .dash-meta-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    @@media (max-width: 480px) {
+        .dash-meta-row { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
+        .dash-meta-row .dash-meta-label { text-align: left !important; font-size: 0.9rem; }
+    }
+
     .dash-meta-label {
         font-size: 1rem;
         font-weight: 600;
@@ -236,9 +251,9 @@
                     <span class="dash-badge-pct">예산 대비 @_progressPercentage.ToString("0")%</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span class="dash-meta-label">진행률</span>
-                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">
+                    <div class="dash-meta-row">
+                        <span class="dash-meta-label" style="flex-shrink: 0; white-space: nowrap;">진행률</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums; text-align: right;">
                             한도: ₩@_totalBudget.ToString("N0") &nbsp;|&nbsp; 잔여: ₩@RemainingBudget.ToString("N0")
                         </span>
                     </div>
@@ -258,9 +273,9 @@
                     <span class="dash-badge-pct">보조금 신청 @_incomeRate%</span>
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span class="dash-meta-label">신청액 / 예산</span>
-                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums;">₩@_subsidyRequested.ToString("N0") / ₩@_subsidyBudget.ToString("N0")</span>
+                    <div class="dash-meta-row">
+                        <span class="dash-meta-label" style="flex-shrink: 0; white-space: nowrap;">신청액 / 예산</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums; text-align: right;">₩@_subsidyRequested.ToString("N0") / ₩@_subsidyBudget.ToString("N0")</span>
                     </div>
                     <div class="dash-progress-bg">
                         <div class="dash-progress-fill" style="width: @(Math.Min(_incomeRate, 100))%;"></div>

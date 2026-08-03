@@ -523,15 +523,29 @@ a, .btn-link {
         backdrop-filter: blur(12px);
         -webkit-backdrop-filter: blur(12px);
         display: flex;
-        justify-content: space-around;
+        justify-content: flex-start;     /* 스크롤 시작점을 왼쪽으로 */
         align-items: center;
-        padding: 0 0.5rem;
+        padding: 0 0.25rem;
         z-index: 95;
         box-shadow: 0 -4px 16px rgba(48, 49, 41, 0.06);
+        /* 📱 항목이 많아 화면을 넘치면 가로 스크롤 */
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;              /* Firefox */
+        scroll-snap-type: x proximity;
     }
 
+        .mobile-bottom-nav::-webkit-scrollbar { display: none; }
+
+        /* 탭이 화면 폭보다 적으면 가운데로 모으고, 넘치면 왼쪽부터 스크롤 */
+        .mobile-bottom-nav > :first-child { margin-left: auto; }
+        .mobile-bottom-nav > :last-child { margin-right: auto; }
+
     .mobile-tab-item {
-        flex: 1;
+        flex: 0 0 auto;                     /* 줄어들지 않게 — 글자 뭉개짐 방지 */
+        min-width: 4.5rem;                  /* 탭 최소 폭 */
+        scroll-snap-align: start;
         display: flex;
         flex-direction: column;
         align-items: center;
