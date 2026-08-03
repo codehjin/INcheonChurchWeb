@@ -94,9 +94,23 @@
         {
             // 🚀 핵심: Department 정보를 함께 로드
             using var context = DbContextFactory.CreateDbContext();
+
+            // 🔐 비밀번호는 DB에서 직접 비교하지 않는다(해시라 SQL 비교가 불가).
+            //    아이디로 사용자를 먼저 찾고, 애플리케이션에서 검증한다.
             var user = await context.Users
                 .Include(u => u.Department)
-                .FirstOrDefaultAsync(u => u.Username == _username && u.Password == _password);
+                .FirstOrDefaultAsync(u => u.Username == _username);
+
+            if (user != null && !PasswordHasher.Verify(_password, user.Password))
+                user = null;   // 비밀번호 불일치 → 기존과 동일하게 "없음"으로 처리
+
+            // 🔐 자동 이행: 평문으로 저장돼 있던 계정은 로그인 성공 시 해시로 바꿔 저장한다.
+            //    (기존 사용자가 로그인하지 못하는 일 없이 점진적으로 전환된다)
+            if (user != null && !PasswordHasher.IsHashed(user.Password))
+            {
+                user.Password = PasswordHasher.Hash(_password);
+                await context.SaveChangesAsync();
+            }
 
             if (user != null)
             {

@@ -1,4 +1,5 @@
 ﻿using INcheonChurchWeb.Models;
+using INcheonChurchWeb.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
 
@@ -42,13 +43,13 @@ namespace INcheonChurchWeb.Data
 
                 var defaultUsers = new User[]
                 {
-                    new User { Username = "admin", Password = "1234", Role = "Admin", FullName = "최고 관리자", DepartmentId = GetDeptId("관리자") },
-                    new User { Username = "manager", Password = "1234", Role = "User", FullName = "운영팀장", DepartmentId = GetDeptId("교회학교 운영팀") },
-                    new User { Username = "child", Password = "1234", Role = "User", FullName = "유년부 회계", DepartmentId = GetDeptId("유년부") },
-                    new User { Username = "infant", Password = "1234", Role = "User", FullName = "영유아부 회계", DepartmentId = GetDeptId("영유아부") },
-                    new User { Username = "kinder", Password = "1234", Role = "User", FullName = "유치부 회계", DepartmentId = GetDeptId("유치부") },
-                    new User { Username = "elementary", Password = "1234", Role = "User", FullName = "초등부 회계", DepartmentId = GetDeptId("초등부") },
-                    new User { Username = "middle", Password = "1234", Role = "User", FullName = "중고등부 회계", DepartmentId = GetDeptId("중고등부") }
+                    new User { Username = "admin", Password = PasswordHasher.Hash("1234"), Role = "Admin", FullName = "최고 관리자", DepartmentId = GetDeptId("관리자") },
+                    new User { Username = "manager", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "운영팀장", DepartmentId = GetDeptId("교회학교 운영팀") },
+                    new User { Username = "child", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "유년부 회계", DepartmentId = GetDeptId("유년부") },
+                    new User { Username = "infant", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "영유아부 회계", DepartmentId = GetDeptId("영유아부") },
+                    new User { Username = "kinder", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "유치부 회계", DepartmentId = GetDeptId("유치부") },
+                    new User { Username = "elementary", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "초등부 회계", DepartmentId = GetDeptId("초등부") },
+                    new User { Username = "middle", Password = PasswordHasher.Hash("1234"), Role = "User", FullName = "중고등부 회계", DepartmentId = GetDeptId("중고등부") }
                 };
                 context.Users.AddRange(defaultUsers);
                 context.SaveChanges();

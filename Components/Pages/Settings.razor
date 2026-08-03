@@ -958,7 +958,9 @@
                             <h5 class="fw-bold mb-4 text-center" style="color: #1b1c15;"><i class="bi bi-key-fill me-1"></i>비밀번호 변경</h5>
                             
                             <div class="p-3 text-center mb-4 rounded" style="background-color: #f5f4e8; color: #4e4637;">
-                                현재 비밀번호: <strong class="fs-5 ms-2" style="color: #1b1c15;">[ @_currentVisiblePassword ]</strong>
+                                <i class="bi bi-shield-lock-fill me-1" style="color: #785600;"></i>
+                                비밀번호는 <strong style="color: #1b1c15;">암호화되어 저장</strong>되므로 화면에 표시되지 않습니다.<br />
+                                <span style="font-size: 0.875rem;">잊으셨다면 관리자에게 초기화를 요청하세요.</span>
                             </div>
                             
                             <div class="mb-4">
@@ -1401,7 +1403,6 @@
     private User _newUser = new() { Role = "Manager", IsActive = true };
     private string _newSelfPassword = "";
     private string _confirmSelfPassword = "";
-    private string _currentVisiblePassword = "";
     private string _customBackupMemo = "";
 
     private List<Department> _visibleDepartments = new();
@@ -1472,10 +1473,6 @@
         else _activeTab = "Security";
        
         _targetYear = Math.Max(2024, DateTime.Now.Year);
-        using var context = DbContextFactory.CreateDbContext();
-        var username = CurrentUser?.Username;
-        var user = await context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Username == username);
-        if (user != null) _currentVisiblePassword = user.Password;
 
         await LoadData();
     }
@@ -1789,7 +1786,7 @@
         } 
         _newUser.Username = _newUser.Username.Replace(" ", "");
 
-        _newUser.Password = "1234";
+        _newUser.Password = PasswordHasher.Hash("1234");
         await AccService.AddUserAsync(_newUser); 
         _newUser = new() { Role = "Manager", IsActive = true };
         await LoadData();
@@ -2046,7 +2043,7 @@
         if (await JSRuntime.InvokeAsync<bool?>("confirm", "새로운 비밀번호로 변경하시겠습니까?") == true && CurrentUser != null) 
         { 
             await AccService.ChangePasswordAsync(CurrentUser.Username, _newSelfPassword);
-            _currentVisiblePassword = _newSelfPassword; _newSelfPassword = ""; _confirmSelfPassword = ""; 
+            _newSelfPassword = ""; _confirmSelfPassword = "";
             await ShowAlertAsync("비밀번호가 성공적으로 변경되었습니다!");
         }
     }

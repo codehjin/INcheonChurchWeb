@@ -1149,12 +1149,12 @@ namespace INcheonChurchWeb.Services
         public async Task ChangePasswordAsync(string id, string pw)
         {
             using var db = _dbFactory.CreateDbContext();
-            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = pw; await db.SaveChangesAsync(); }
+            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = PasswordHasher.Hash(pw); await db.SaveChangesAsync(); }
         }
         public async Task ResetPasswordAsync(string id)
         {
             using var db = _dbFactory.CreateDbContext();
-            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = "1234"; await db.SaveChangesAsync(); }
+            var u = await db.Users.FindAsync(id); if (u != null) { u.Password = PasswordHasher.Hash("1234"); await db.SaveChangesAsync(); }
         }
 
         // 부서 목록 전체 불러오기
