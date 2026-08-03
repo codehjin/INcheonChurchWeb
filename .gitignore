@@ -12,3 +12,5 @@ publish_output/
 # SQLite 임시 파일 (WAL 모드) — church.db 본체는 추적 유지
 church.db-shm
 church.db-wal
+church.db.old_*
+church.db.backup_*
