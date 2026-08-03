@@ -10,16 +10,11 @@
 <PageTitle>행사 보고서 · 인천중앙교회 재정 시스템</PageTitle>
 
 <style>
-    .er-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    .er-wrap { padding: 1.5rem 0.5rem 3rem; }
 
-    .er-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
-    .er-head-icon {
-        width: 44px; height: 44px; border-radius: 0.65rem;
-        background: var(--gold-gradient); color: #fff;
-        display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
-    }
-    .er-head-title { font-size: 1.35rem; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
-    .er-head-sub { font-size: 0.85rem; color: var(--on-surface-muted); }
+    .er-head { display: flex; align-items: flex-end; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .er-head-title { font-weight: 700; color: #1b1c15; font-family: 'Manrope', sans-serif; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .er-head-sub { color: #4e4637; font-size: 1.2rem; margin-bottom: 0; }
 
     .er-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
     .er-select {
@@ -71,10 +66,9 @@
 <div class="er-wrap">
 
     <div class="er-head">
-        <div class="er-head-icon"><i class="bi bi-clipboard-data"></i></div>
         <div>
-            <div class="er-head-title">행사 보고서</div>
-            <div class="er-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
+            <h2 class="er-head-title">행사 보고서</h2>
+            <p class="er-head-sub">@_targetYear 회계연도 · @_currentDeptName · 행사가 끝난 뒤 결과를 기록합니다.</p>
         </div>
     </div>
 

@@ -14,16 +14,11 @@
 <PageTitle>연간 계획 · 인천중앙교회 재정 시스템</PageTitle>
 
 <style>
-    .ap-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+    .ap-wrap { padding: 1.5rem 0.5rem 3rem; }
 
-    .ap-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
-    .ap-head-icon {
-        width: 44px; height: 44px; border-radius: 0.65rem;
-        background: var(--gold-gradient); color: #fff;
-        display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
-    }
-    .ap-head-title { font-size: 1.35rem; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
-    .ap-head-sub { font-size: 0.85rem; color: var(--on-surface-muted); }
+    .ap-head { display: flex; align-items: flex-end; gap: 0.75rem; margin-bottom: 1.5rem; }
+    .ap-head-title { font-weight: 700; color: #1b1c15; font-family: 'Manrope', sans-serif; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin-bottom: 0.25rem; }
+    .ap-head-sub { color: #4e4637; font-size: 1.2rem; margin-bottom: 0; }
 
     .ap-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
     .ap-select {
@@ -96,6 +91,29 @@
         font-size: 0.82rem; color: var(--on-surface-sub); margin-bottom: 1rem;
     }
     .ap-calc-hint b { color: var(--primary-gold); }
+
+    /* 🚀 지난 실적 표 */
+    .ap-hist-box {
+        background: var(--surface-low); border-radius: 0.5rem;
+        padding: 0.6rem 0.85rem; margin-bottom: 1rem; font-size: 0.82rem;
+    }
+    .ap-hist-title { font-weight: 700; color: var(--on-surface-sub); margin-bottom: 0.45rem; }
+    .ap-hist-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    .ap-hist-table th {
+        text-align: right; padding: 0.2rem 0.35rem; color: var(--on-surface-muted);
+        font-weight: 700; border-bottom: 1px solid var(--outline-variant);
+    }
+    .ap-hist-table th:first-child, .ap-hist-table td:first-child { text-align: left; }
+    .ap-hist-table td {
+        text-align: right; padding: 0.25rem 0.35rem; color: var(--on-surface);
+        font-variant-numeric: tabular-nums;
+    }
+    .ap-hist-table td.over { color: var(--error); font-weight: 700; }
+    .ap-hist-table td.under { color: #4a7a4a; }
+    .ap-hist-tip {
+        margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px solid var(--outline-variant);
+        font-size: 0.74rem; color: var(--primary-gold);
+    }
     .ap-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
     .ap-gold-btn {
         background: var(--gold-gradient); color: #fff; border: none; border-radius: 0.5rem;
@@ -115,10 +133,9 @@
 <div class="ap-wrap">
 
     <div class="ap-head">
-        <div class="ap-head-icon"><i class="bi bi-calendar-event"></i></div>
         <div>
-            <div class="ap-head-title">연간 계획</div>
-            <div class="ap-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
+            <h2 class="ap-head-title">연간 계획</h2>
+            <p class="ap-head-sub">@_targetYear 회계연도 · @_currentDeptName · 한 해 행사를 미리 계획합니다.</p>
         </div>
         @if (_canEdit)
         {
@@ -241,7 +258,7 @@
                 <div class="ap-modal-body">
                     <div class="ap-field">
                         <label>행사명</label>
-                        <input class="ap-input" @bind="_editing.Title" list="event-categories"
+                        <input class="ap-input" @bind="_editing.Title" @bind:after="LoadHistory" list="event-categories"
                                placeholder="예산 항목에서 선택하거나 직접 입력" autocomplete="off" />
                         <datalist id="event-categories">
                             @foreach (var cat in _eventCategories)
@@ -280,6 +297,58 @@
                         <label>추진 내용 <span style="font-weight:400; color:var(--on-surface-muted);">(선택)</span></label>
                         <textarea class="ap-input" rows="2" @bind="_editing.Description" placeholder="행사 개요·준비 사항 등"></textarea>
                     </div>
+
+                    @* 🚀 과거 실적 — 얼마 편성할지 판단하는 자리에 바로 보여준다 *@
+                    @if (_historyLoading)
+                    {
+                        <div class="ap-hist-box" style="color:var(--on-surface-muted);">지난 실적 확인 중…</div>
+                    }
+                    else if (_history.Any())
+                    {
+                        <div class="ap-hist-box">
+                            <div class="ap-hist-title">
+                                <i class="bi bi-clock-history me-1"></i>@_historyFor · 지난 실적
+                            </div>
+                            <table class="ap-hist-table">
+                                <thead>
+                                    <tr>
+                                        <th>연도</th>
+                                        <th>편성</th>
+                                        <th>집행</th>
+                                        <th>수입</th>
+                                        <th>편차</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var h in _history)
+                                    {
+                                        <tr>
+                                            <td>@(h.Year)년</td>
+                                            <td>@h.Budget.ToString("N0")</td>
+                                            <td class="@(h.Spent > h.Budget ? "over" : "")">@h.Spent.ToString("N0")</td>
+                                            <td>@(h.Income > 0 ? h.Income.ToString("N0") : "—")</td>
+                                            <td class="@(h.Spent > h.Budget ? "over" : "under")">
+                                                @(h.Spent > h.Budget ? "+" : "")@((h.Spent - h.Budget).ToString("N0"))
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            @if (_history.Any(h => h.Spent > h.Budget))
+                            {
+                                <div class="ap-hist-tip">
+                                    <i class="bi bi-lightbulb me-1"></i>
+                                    예산을 초과한 해가 있습니다. 편성액 결정 시 참고하세요.
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_historyFor))
+                    {
+                        <div class="ap-hist-box" style="color:var(--on-surface-muted);">
+                            <i class="bi bi-info-circle me-1"></i>@_historyFor · 지난 실적이 없습니다 (신규 행사)
+                        </div>
+                    }
 
                     <div class="ap-row2">
                         <div class="ap-field">
@@ -349,10 +418,14 @@
                     <div class="ap-field">
                         <label>1단계 · 양식 내려받기</label>
                         <button class="ap-ghost-btn" @onclick="DownloadTemplate">
-                            <i class="bi bi-download me-1"></i>엑셀 양식 받기
+                            <i class="bi bi-download me-1"></i>@(_targetYear - 1)년 계획 불러오기
                         </button>
-                        <div style="font-size:0.78rem; color:var(--on-surface-muted); margin-top:0.4rem;">
-                            열 순서: 행사명 · 시작일 · 종료일 · 추진내용 · 목표수입 · 편성지출 · 상태
+                        <div style="font-size:0.78rem; color:var(--on-surface-muted); margin-top:0.4rem; line-height:1.6;">
+                            <b>@(_targetYear - 1)년 계획이 그대로 채워진</b> 엑셀을 받습니다. 날짜는 1년 뒤로 자동 조정되니
+                            실제 일정에 맞게 고쳐 쓰세요.<br />
+                            오른쪽에 <b>작년 편성·집행·편차</b>가 참고용으로 함께 나오며(회색),
+                            예산을 초과한 행사는 <span style="color:var(--error);">붉게</span> 표시됩니다.<br />
+                            등록되는 열: 행사명 · 시작일 · 종료일 · 추진내용 · 목표수입 · 편성지출 · 상태
                         </div>
                     </div>
 
@@ -431,6 +504,36 @@
     private List<AnnualPlan> _visiblePlans = new();
     private List<string> _eventCategories = new();   // 예산·장부의 지출 카테고리(=행사명) 제안 목록
 
+    // 🚀 과거 연도 실적 (행사명 선택 시 자동 조회). 최근 연도부터.
+    //   "작년엔 얼마 잡고 얼마 썼나"를 계획 세우는 순간에 보여준다.
+    private List<(int Year, decimal Budget, decimal Spent, decimal Income)> _history = new();
+    private bool _historyLoading = false;
+    private string _historyFor = "";                 // 어떤 행사명으로 조회했는지(중복 조회 방지)
+
+    // 선택된 행사명의 과거 3년 실적을 불러온다.
+    private async Task LoadHistory()
+    {
+        var name = (_editing.Title ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(name)) { _history.Clear(); _historyFor = ""; return; }
+        if (_historyFor == name) return;             // 같은 행사면 재조회 생략
+
+        _historyLoading = true;
+        _historyFor = name;
+        _history.Clear();
+
+        // 현재 편성 중인 회계연도의 직전 3개년
+        int baseYear = _dateInfo?.FiscalYear ?? _targetYear;
+        for (int y = baseYear - 1; y >= baseYear - 3; y--)
+        {
+            var fins = await Accounting.GetEventFinancesAsync(_viewDeptId, y);
+            var f = fins.FirstOrDefault(x => x.EventName.Trim() == name);
+            if (f != null && (f.Budget > 0 || f.Spent > 0))
+                _history.Add((y, f.Budget, f.Spent, f.Income));
+        }
+
+        _historyLoading = false;
+    }
+
     private bool _showModal = false;
     private AnnualPlan _editing = new();
     private DateTime _editDate = DateTime.Today;
@@ -505,6 +608,7 @@
         _editEndDate = DateTime.Today.AddDays(1);   // 기본: 시작일 다음날
         _modalError = "";
         _showModal = true;
+        _history.Clear(); _historyFor = "";
         await RecalcDateInfo();
     }
 
@@ -530,7 +634,9 @@
         _editEndDate = p.EndDate;
         _modalError = "";
         _showModal = true;
+        _historyFor = "";                 // 강제 재조회
         await RecalcDateInfo();
+        await LoadHistory();
     }
 
     // 시작일이 바뀌면: 회계연도·분기·주차를 다시 계산하고,
@@ -606,38 +712,143 @@
     private void CloseImport() { _showImport = false; }
 
     // 엑셀 양식(.xlsx) 생성 후 다운로드
+    // 🚀 양식 다운로드 — 직전 회계연도의 계획을 그대로 채워서 내려준다.
+    //   매년 비슷한 행사가 반복되므로, 빈 양식보다 "작년 것을 고쳐 쓰는" 편이 실무에 맞다.
+    //   오른쪽 참고 열(작년 집행·편차)은 읽기용이며 업로드 시 무시된다(앞 7열만 파싱).
     private async Task DownloadTemplate()
     {
-        using var wb = new XLWorkbook();
-        var ws = wb.Worksheets.Add("연간계획");
+        int prevYear = _targetYear - 1;
 
-        string[] headers = { "행사명", "시작일", "종료일", "추진내용", "목표수입", "편성지출", "상태" };
+        // 작년 계획 + 작년 실적(집행)을 함께 가져온다
+        var prevPlans = await Accounting.GetAnnualPlansAsync(_viewDeptId, prevYear);
+        var prevFins = await Accounting.GetEventFinancesAsync(_viewDeptId, prevYear);
+
+        using var wb = new XLWorkbook();
+        var ws = wb.Worksheets.Add($"{_targetYear}년 연간계획");
+
+        string[] headers = { "행사명", "시작일", "종료일", "추진내용", "목표수입", "편성지출", "상태",
+                             "│", "작년 편성", "작년 집행", "작년 편차" };
         for (int i = 0; i < headers.Length; i++)
         {
-            ws.Cell(1, i + 1).Value = headers[i];
-            ws.Cell(1, i + 1).Style.Font.Bold = true;
-            ws.Cell(1, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#F5F4E8");
+            var c = ws.Cell(1, i + 1);
+            c.Value = headers[i];
+            c.Style.Font.Bold = true;
+            // 입력 열(1~7)은 금색, 참고 열(9~11)은 회색으로 구분
+            c.Style.Fill.BackgroundColor = i < 7 ? XLColor.FromHtml("#F5F4E8") : XLColor.FromHtml("#EDEDED");
+            c.Style.Font.FontColor = i < 7 ? XLColor.FromHtml("#4E4637") : XLColor.FromHtml("#777777");
         }
 
-        // 예시 행 (사용자가 지우고 쓰면 됨)
-        ws.Cell(2, 1).Value = "여름성경학교";
-        ws.Cell(2, 2).Value = new DateTime(DateTime.Today.Year, 7, 26);
-        ws.Cell(2, 3).Value = new DateTime(DateTime.Today.Year, 7, 28);
-        ws.Cell(2, 4).Value = "주제: 살아가요 하나님 나라";
-        ws.Cell(2, 5).Value = 1500000;
-        ws.Cell(2, 6).Value = 3148000;
-        ws.Cell(2, 7).Value = "계획";
+        int row = 2;
+        if (prevPlans.Any())
+        {
+            // 작년 계획을 날짜순으로 채운다. 날짜는 1년 뒤로 밀어 초안을 만든다.
+            foreach (var p in prevPlans.OrderBy(p => p.EventDate))
+            {
+                var fin = prevFins.FirstOrDefault(f => f.EventName.Trim() == (p.Title ?? "").Trim());
 
-        ws.Cell(4, 1).Value = "※ 상태는 계획 / 진행 / 완료 / 마감 중 하나. 비우면 '계획'";
-        ws.Cell(5, 1).Value = "※ 종료일을 비우면 하루짜리 행사로 등록됩니다.";
-        ws.Columns().AdjustToContents();
+                ws.Cell(row, 1).Value = p.Title;
+                // ClosedXML의 Value는 XLCellValue라 object를 못 받는다.
+                // 값이 있을 때만 넣고, 없으면 셀을 비워 둔다.
+                if (p.EventDate != default)
+                    ws.Cell(row, 2).Value = p.EventDate.AddYears(1);
+                if (p.EndDate.HasValue)
+                    ws.Cell(row, 3).Value = p.EndDate.Value.AddYears(1);
+                ws.Cell(row, 4).Value = p.Description ?? "";
+                ws.Cell(row, 5).Value = p.PlannedIncome;
+                ws.Cell(row, 6).Value = p.PlannedExpense;
+                ws.Cell(row, 7).Value = "계획";   // 새 해의 계획이므로 항상 '계획'으로 시작
+
+                // ── 참고 열 (읽기용) ──
+                foreach (var col in new[] { 9, 10, 11 })
+                    ws.Cell(row, col).Style.Font.FontColor = XLColor.FromHtml("#777777");
+
+                if (fin != null)
+                {
+                    ws.Cell(row, 9).Value = fin.Budget;
+                    ws.Cell(row, 10).Value = fin.Spent;
+                    ws.Cell(row, 11).Value = fin.Spent - fin.Budget;
+
+                    // 작년에 예산을 초과했다면 붉게 표시해 눈에 띄게 한다
+                    if (fin.Spent > fin.Budget)
+                    {
+                        ws.Cell(row, 10).Style.Font.FontColor = XLColor.FromHtml("#BA1A1A");
+                        ws.Cell(row, 11).Style.Font.FontColor = XLColor.FromHtml("#BA1A1A");
+                        ws.Cell(row, 11).Style.Font.Bold = true;
+                    }
+                }
+
+                row++;
+            }
+        }
+        else
+        {
+            // 작년 계획이 없으면 예시 한 줄만 제공
+            ws.Cell(2, 1).Value = "여름성경학교";
+            ws.Cell(2, 2).Value = new DateTime(_targetYear, 7, 26);
+            ws.Cell(2, 3).Value = new DateTime(_targetYear, 7, 28);
+            ws.Cell(2, 4).Value = "주제: 살아가요 하나님 나라";
+            ws.Cell(2, 5).Value = 0;
+            ws.Cell(2, 6).Value = 0;
+            ws.Cell(2, 7).Value = "계획";
+            row = 3;
+        }
+
+        // 숫자 서식
+        for (int r = 2; r < row; r++)
+            foreach (var col in new[] { 5, 6, 9, 10, 11 })
+                ws.Cell(r, col).Style.NumberFormat.Format = "#,##0";
+
+        // ── 안내문 ──
+        int note = row + 1;
+        ws.Cell(note, 1).Value = prevPlans.Any()
+            ? $"※ {prevYear}년 계획을 그대로 불러왔습니다. 날짜는 1년 뒤로 자동 조정했으니 실제 일정에 맞게 고쳐 주세요."
+            : $"※ {prevYear}년 계획이 없어 예시 한 줄만 넣었습니다.";
+        ws.Cell(note + 1, 1).Value = "※ A~G열만 등록됩니다. I~K열(작년 편성·집행·편차)은 참고용이며 업로드 시 무시됩니다.";
+        ws.Cell(note + 2, 1).Value = "※ 붉은 숫자는 작년에 예산을 초과한 행사입니다. 올해 편성액을 정할 때 참고하세요.";
+        ws.Cell(note + 3, 1).Value = "※ 상태는 계획 / 진행 / 완료 / 마감 중 하나. 비우면 '계획'으로 등록됩니다.";
+        ws.Cell(note + 4, 1).Value = "※ 종료일을 비우면 하루짜리 행사로 등록됩니다.";
+        ws.Cell(note + 5, 1).Value = "※ 필요 없는 행사는 줄째로 지우고, 새 행사는 아래에 추가하면 됩니다.";
+        for (int i = 0; i < 6; i++)
+        {
+            ws.Cell(note + i, 1).Style.Font.FontColor = XLColor.FromHtml("#777777");
+            // 안내문이 A열 폭에 잘리지 않도록 A~G열을 병합
+            ws.Range(note + i, 1, note + i, 7).Merge();
+            ws.Cell(note + i, 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+        }
+
+        // ── 열 너비 (AdjustToContents는 한글·날짜 폭을 제대로 못 잡아 직접 지정) ──
+        ws.Column(1).Width = 20;   // 행사명
+        ws.Column(2).Width = 14;   // 시작일  (날짜가 ###으로 잘리지 않게)
+        ws.Column(3).Width = 14;   // 종료일
+        ws.Column(4).Width = 34;   // 추진내용
+        ws.Column(5).Width = 13;   // 목표수입
+        ws.Column(6).Width = 13;   // 편성지출
+        ws.Column(7).Width = 10;   // 상태
+        ws.Column(8).Width = 3;    // 구분선
+        ws.Column(9).Width = 13;   // 작년 편성
+        ws.Column(10).Width = 13;  // 작년 집행
+        ws.Column(11).Width = 13;  // 작년 편차
+
+        // 날짜 서식 명시 (지역 설정에 따라 ### 되는 것 방지)
+        for (int r = 2; r < row; r++)
+        {
+            ws.Cell(r, 2).Style.NumberFormat.Format = "yyyy-mm-dd";
+            ws.Cell(r, 3).Style.NumberFormat.Format = "yyyy-mm-dd";
+        }
+
+        // 헤더 가운데 정렬 + 자동 줄바꿈으로 글자가 잘리지 않게
+        ws.Row(1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        ws.Row(1).Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+        ws.Row(1).Height = 22;
+
+        ws.SheetView.FreezeRows(1);
 
         using var ms = new MemoryStream();
         wb.SaveAs(ms);
         var bytes = ms.ToArray();
 
         await JSRuntime.InvokeVoidAsync("downloadExcelFile",
-            "연간계획_양식.xlsx", Convert.ToBase64String(bytes));
+            $"연간계획_{_targetYear}_{_currentDeptName}.xlsx", Convert.ToBase64String(bytes));
     }
 
     // 파일 선택 → 파싱 → 미리보기 목록 생성
