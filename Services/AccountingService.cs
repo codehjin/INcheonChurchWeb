@@ -1474,6 +1474,138 @@ namespace INcheonChurchWeb.Services
             return plans.Count;
         }
 
+        // ══════════════════════════════════════════════════════════════
+        // 🚀 행사 사후 보고서(EventReport)
+        //   재정 수치는 저장하지 않고 예산·장부에서 EventName으로 매칭해 집계한다.
+        // ══════════════════════════════════════════════════════════════
+
+        /// <summary>행사 하나의 재정 집계 결과.</summary>
+        public class EventFinance
+        {
+            public string EventName { get; set; } = "";
+            public decimal Budget { get; set; }        // 편성 예산
+            public decimal Spent { get; set; }         // 실제 지출
+            public decimal Income { get; set; }        // 수입(회비·찬조)
+            public decimal Net => Spent - Income;      // 순비용
+            public decimal Diff => Budget - Spent;     // 예산 잔여(음수면 초과)
+            public bool IsOver => Spent > Budget;
+            public int TxCount { get; set; }           // 관련 거래 건수
+            /// <summary>세부(SubCategory)별 지출 내역</summary>
+            public List<(string Sub, decimal Amount)> SpentBySub { get; set; } = new();
+        }
+
+        /// <summary>
+        /// 부서·회계연도의 행사별 재정을 한 번에 집계한다.
+        /// 지출: Transactions.Category = 행사명 / 수입: Transactions.SubCategory = 행사명
+        /// </summary>
+        public async Task<List<EventFinance>> GetEventFinancesAsync(int deptId, int fiscalYear)
+        {
+            using var db = _dbFactory.CreateDbContext();
+
+            var budgets = await db.BudgetPlans.AsNoTracking()
+                .Where(b => b.DepartmentId == deptId && b.Year == fiscalYear
+                            && (b.Type == "Expense" || b.Type == "지출"))
+                .ToListAsync();
+
+            var txs = await db.Transactions.AsNoTracking()
+                .Where(t => t.DepartmentId == deptId && t.FiscalYear == fiscalYear)
+                .ToListAsync();
+
+            // 행사 후보 = 예산 카테고리 ∪ 지출이 잡힌 카테고리
+            var names = budgets.Select(b => b.Category)
+                .Concat(txs.Where(t => t.Expense > 0).Select(t => t.Category))
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c.Trim()).Distinct().ToList();
+
+            var result = new List<EventFinance>();
+            foreach (var name in names)
+            {
+                var exp = txs.Where(t => t.Expense > 0 && (t.Category ?? "").Trim() == name).ToList();
+                var inc = txs.Where(t => t.Income > 0 && (t.SubCategory ?? "").Trim() == name).ToList();
+
+                result.Add(new EventFinance
+                {
+                    EventName = name,
+                    Budget = budgets.Where(b => (b.Category ?? "").Trim() == name).Sum(b => b.Amount),
+                    Spent = exp.Sum(t => t.Expense),
+                    Income = inc.Sum(t => t.Income),
+                    TxCount = exp.Count + inc.Count,
+                    SpentBySub = exp.Where(t => !string.IsNullOrWhiteSpace(t.SubCategory))
+                                    .GroupBy(t => t.SubCategory!.Trim())
+                                    .Select(g => (g.Key, g.Sum(x => x.Expense)))
+                                    .OrderByDescending(x => x.Item2).ToList()
+                });
+            }
+
+            return result.OrderByDescending(r => r.Spent).ToList();
+        }
+
+        /// <summary>부서·회계연도의 보고서 목록.</summary>
+        public async Task<List<EventReport>> GetEventReportsAsync(int deptId, int fiscalYear)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.EventReports.AsNoTracking()
+                .Where(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear)
+                .ToListAsync();
+        }
+
+        /// <summary>보고서 1건 조회 (없으면 null).</summary>
+        public async Task<EventReport?> GetEventReportAsync(int id)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.EventReports.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
+        }
+
+        /// <summary>행사명으로 보고서 조회 (미작성이면 null).</summary>
+        public async Task<EventReport?> GetEventReportByNameAsync(int deptId, int fiscalYear, string eventName)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var n = (eventName ?? "").Trim();
+            return await db.EventReports.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear
+                                          && r.EventName == n);
+        }
+
+        /// <summary>보고서 저장 (Id==0 신규 / 그 외 수정). 저장된 Id를 반환.</summary>
+        public async Task<int> SaveEventReportAsync(EventReport report, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            if (report.Id == 0)
+            {
+                report.CreatedBy = actorUsername;
+                db.EventReports.Add(report);
+                await db.SaveChangesAsync();
+                return report.Id;
+            }
+
+            var ex = await db.EventReports.FirstOrDefaultAsync(r => r.Id == report.Id);
+            if (ex == null) return 0;
+            ex.EventName = report.EventName;
+            ex.AnnualPlanId = report.AnnualPlanId;
+            ex.StartDate = report.StartDate;
+            ex.EndDate = report.EndDate;
+            ex.Location = report.Location;
+            ex.Attendees = report.Attendees;
+            ex.Organizer = report.Organizer;
+            ex.Content = report.Content;
+            ex.WhatWentWell = report.WhatWentWell;
+            ex.WhatToImprove = report.WhatToImprove;
+            ex.UpdatedBy = actorUsername;
+            await db.SaveChangesAsync();
+            return ex.Id;
+        }
+
+        /// <summary>보고서 소프트 삭제.</summary>
+        public async Task DeleteEventReportAsync(int id, string? actorUsername)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var r = await db.EventReports.FirstOrDefaultAsync(x => x.Id == id);
+            if (r == null) return;
+            r.IsDeleted = true;
+            r.UpdatedBy = actorUsername;
+            await db.SaveChangesAsync();
+        }
+
         // 연간 계획 소프트 삭제 (IsDeleted = true → 글로벌 쿼리 필터로 자동 제외).
         public async Task DeleteAnnualPlanAsync(int planId, string? actorUsername)
         {

@@ -1,0 +1,332 @@
+@page "/event-report/edit"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>@_eventName 보고서 · 인천중앙교회 재정 시스템</PageTitle>
+
+<style>
+    .ee-wrap { max-width: 900px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .ee-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem; }
+    .ee-back {
+        background: none; border: none; color: var(--on-surface-muted);
+        font-size: 1.15rem; cursor: pointer; padding: 0.2rem;
+    }
+    .ee-title { font-size: 1.2rem; font-weight: 800; color: var(--on-surface); }
+
+    .ee-notice {
+        background: var(--surface-low); border-radius: 0.5rem; padding: 0.6rem 0.85rem;
+        font-size: 0.78rem; color: var(--on-surface-sub); margin-bottom: 1rem;
+    }
+
+    .ee-card {
+        background: var(--surface-lowest); border-radius: 0.7rem; padding: 1rem 1.15rem;
+        box-shadow: var(--shadow-ambient); margin-bottom: 1rem;
+    }
+    .ee-card-label {
+        font-size: 0.78rem; font-weight: 800; color: var(--primary-gold);
+        margin-bottom: 0.7rem; letter-spacing: 0.02em;
+    }
+
+    .ee-fin { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.7rem; margin-bottom: 0.8rem; }
+    .ee-fin-lbl { font-size: 0.72rem; color: var(--on-surface-muted); }
+    .ee-fin-val { font-size: 1rem; font-weight: 800; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+    .ee-fin-val.over { color: var(--error); }
+
+    .ee-subs { border-top: 1px solid var(--outline-variant); padding-top: 0.6rem; }
+    .ee-subs-lbl { font-size: 0.72rem; color: var(--on-surface-muted); margin-bottom: 0.4rem; }
+    .ee-chip {
+        display: inline-block; background: var(--surface-low); border-radius: 0.4rem;
+        padding: 0.18rem 0.55rem; font-size: 0.73rem; color: var(--on-surface-sub);
+        margin: 0 0.3rem 0.3rem 0; font-variant-numeric: tabular-nums;
+    }
+
+    .ee-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 0.8rem; }
+    .ee-field { margin-bottom: 0.8rem; }
+    .ee-field label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--on-surface-sub); margin-bottom: 0.3rem; }
+    .ee-input {
+        width: 100%; height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.45rem;
+        padding: 0 0.7rem; background: var(--surface-lowest); font-size: 0.88rem; color: var(--on-surface);
+    }
+    textarea.ee-input { height: auto; padding: 0.55rem 0.7rem; resize: vertical; line-height: 1.55; }
+
+    .ee-gold-btn {
+        background: var(--gold-gradient); color: #fff; border: none; border-radius: 0.45rem;
+        padding: 0.5rem 1.1rem; font-size: 0.87rem; font-weight: 700; cursor: pointer;
+    }
+    .ee-ghost-btn {
+        background: var(--surface-lowest); color: var(--on-surface-sub); border: 1px solid var(--outline-variant);
+        border-radius: 0.45rem; padding: 0.5rem 1rem; font-size: 0.87rem; font-weight: 700; cursor: pointer;
+    }
+    .ee-del-btn {
+        background: transparent; color: var(--error); border: 1px solid var(--error);
+        border-radius: 0.45rem; padding: 0.5rem 0.9rem; font-size: 0.83rem; font-weight: 700; cursor: pointer;
+    }
+
+    .ee-msg { font-size: 0.8rem; margin-bottom: 0.7rem; }
+    .ee-msg.err { color: var(--error); }
+    .ee-msg.ok { color: #4a7a4a; }
+
+    /* ── 인쇄 ── */
+    .ee-print-only { display: none; }
+
+    @@media print {
+        .ee-no-print { display: none !important; }
+        .ee-print-only { display: block; }
+        .ee-wrap { max-width: none; padding: 0; }
+        .ee-card { box-shadow: none; border: 1px solid #ccc; page-break-inside: avoid; }
+        .ee-input { border: none; padding: 0; background: none; height: auto; }
+        textarea.ee-input { white-space: pre-wrap; overflow: visible; }
+        body { background: #fff !important; }
+    }
+</style>
+
+<div class="ee-wrap">
+
+    <div class="ee-head ee-no-print">
+        <button class="ee-back" @onclick="GoBack" title="목록으로"><i class="bi bi-arrow-left"></i></button>
+        <div class="ee-title">@_eventName 보고서</div>
+        <div style="margin-left:auto; display:flex; gap:0.4rem;">
+            <button class="ee-ghost-btn" @onclick="PrintReport"><i class="bi bi-printer me-1"></i>인쇄</button>
+            <button class="ee-gold-btn" @onclick="Save">저장</button>
+        </div>
+    </div>
+
+    @* 인쇄 시에만 보이는 제목 *@
+    <div class="ee-print-only" style="margin-bottom:1rem;">
+        <div style="font-size:1.3rem; font-weight:800;">@_eventName 행사 보고서</div>
+        <div style="font-size:0.85rem; color:#666;">@_targetYear 회계연도 · @_deptName</div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div style="text-align:center; padding:2rem; color:var(--on-surface-muted);">불러오는 중…</div>
+    }
+    else
+    {
+        <div class="ee-notice ee-no-print">
+            <i class="bi bi-lock me-1"></i>
+            아래 재정 요약은 장부에서 자동 계산됩니다 (직접 수정 불가)
+        </div>
+
+        @* ── 재정 요약 (자동) ── *@
+        <div class="ee-card">
+            <div class="ee-card-label">재정 요약 · 자동 집계</div>
+            <div class="ee-fin">
+                <div>
+                    <div class="ee-fin-lbl">편성 예산</div>
+                    <div class="ee-fin-val">@_fin.Budget.ToString("N0")</div>
+                </div>
+                <div>
+                    <div class="ee-fin-lbl">실제 지출</div>
+                    <div class="ee-fin-val @(_fin.IsOver ? "over" : "")">@_fin.Spent.ToString("N0")</div>
+                </div>
+                <div>
+                    <div class="ee-fin-lbl">수입(회비·찬조)</div>
+                    <div class="ee-fin-val">@_fin.Income.ToString("N0")</div>
+                </div>
+                <div>
+                    <div class="ee-fin-lbl">순비용</div>
+                    <div class="ee-fin-val">@_fin.Net.ToString("N0")</div>
+                </div>
+            </div>
+
+            <div style="font-size:0.78rem; margin-bottom:0.6rem;" class="@(_fin.IsOver ? "text-danger" : "")">
+                @if (_fin.IsOver)
+                {
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <text>예산 초과 @((_fin.Spent - _fin.Budget).ToString("N0"))</text>
+                }
+                else
+                {
+                    <i class="bi bi-check-circle me-1"></i>
+                    <text>예산 내 집행 · 잔여 @_fin.Diff.ToString("N0")</text>
+                }
+            </div>
+
+            @if (_fin.SpentBySub.Any())
+            {
+                <div class="ee-subs">
+                    <div class="ee-subs-lbl">비용 내역 (세부별)</div>
+                    @foreach (var s in _fin.SpentBySub)
+                    {
+                        <span class="ee-chip">@s.Sub @s.Amount.ToString("N0")</span>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── 행사 기록 (직접 입력) ── *@
+        <div class="ee-card">
+            <div class="ee-card-label">행사 기록</div>
+
+            <div class="ee-row2">
+                <div class="ee-field">
+                    <label>시작일</label>
+                    <input type="date" class="ee-input" @bind="_startDate" />
+                </div>
+                <div class="ee-field">
+                    <label>종료일 <span style="font-weight:400; color:var(--on-surface-muted);">(하루면 비움)</span></label>
+                    <input type="date" class="ee-input" @bind="_endDate" />
+                </div>
+            </div>
+
+            <div class="ee-row2">
+                <div class="ee-field">
+                    <label>장소</label>
+                    <input class="ee-input" @bind="_report.Location" placeholder="예: 웅진플레이도시" />
+                </div>
+                <div class="ee-field">
+                    <label>참석 인원</label>
+                    <input type="number" class="ee-input" @bind="_attendees" placeholder="예: 38" />
+                </div>
+            </div>
+
+            <div class="ee-field">
+                <label>담당자</label>
+                <input class="ee-input" @bind="_report.Organizer" placeholder="예: 김다은 / 이수정" />
+            </div>
+
+            <div class="ee-field">
+                <label>진행 내용</label>
+                <textarea class="ee-input" rows="3" @bind="_report.Content"
+                          placeholder="주제, 프로그램, 진행 방식 등"></textarea>
+            </div>
+
+            <div class="ee-field">
+                <label>잘된 점</label>
+                <textarea class="ee-input" rows="3" @bind="_report.WhatWentWell"
+                          placeholder="다음에도 이어갈 만한 것"></textarea>
+            </div>
+
+            <div class="ee-field" style="margin-bottom:0;">
+                <label>개선할 점</label>
+                <textarea class="ee-input" rows="3" @bind="_report.WhatToImprove"
+                          placeholder="예: 물놀이 비용이 예산을 넘음 → 내년 편성 시 반영"></textarea>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="ee-msg @(_isError ? "err" : "ok") ee-no-print">
+                <i class="bi @(_isError ? "bi-exclamation-circle" : "bi-check-circle") me-1"></i>@_message
+            </div>
+        }
+
+        <div class="ee-no-print" style="display:flex; justify-content:space-between;">
+            <div>
+                @if (_report.Id != 0)
+                {
+                    <button class="ee-del-btn" @onclick="Delete"><i class="bi bi-trash me-1"></i>삭제</button>
+                }
+            </div>
+            <div style="display:flex; gap:0.4rem;">
+                <button class="ee-ghost-btn" @onclick="GoBack">목록으로</button>
+                <button class="ee-gold-btn" @onclick="Save">저장</button>
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    [SupplyParameterFromQuery(Name = "event")] public string? QEvent { get; set; }
+    [SupplyParameterFromQuery(Name = "year")] public int? QYear { get; set; }
+    [SupplyParameterFromQuery(Name = "dept")] public int? QDept { get; set; }
+
+    private string _eventName = "";
+    private int _targetYear;
+    private int _deptId;
+    private string _deptName = "";
+    private bool _isLoading = true;
+
+    private EventReport _report = new();
+    private AccountingService.EventFinance _fin = new();
+
+    // nullable 바인딩용 중간 변수
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private int? _attendees;
+
+    private string _message = "";
+    private bool _isError = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _eventName = QEvent ?? "";
+        _targetYear = QYear ?? DateTime.Now.Year;
+        _deptId = QDept ?? CurrentUser?.DepartmentId ?? 0;
+
+        var depts = await Accounting.GetDepartmentsAsync();
+        _deptName = depts.FirstOrDefault(d => d.Id == _deptId)?.Name ?? "";
+
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        _isLoading = true;
+
+        // 재정 자동 집계
+        var all = await Accounting.GetEventFinancesAsync(_deptId, _targetYear);
+        _fin = all.FirstOrDefault(f => f.EventName.Trim() == _eventName.Trim())
+               ?? new AccountingService.EventFinance { EventName = _eventName };
+
+        // 기존 보고서 (없으면 새로 만들 준비)
+        var existing = await Accounting.GetEventReportByNameAsync(_deptId, _targetYear, _eventName);
+        _report = existing ?? new EventReport
+        {
+            DepartmentId = _deptId,
+            FiscalYear = _targetYear,
+            EventName = _eventName
+        };
+
+        _startDate = _report.StartDate;
+        _endDate = _report.EndDate;
+        _attendees = _report.Attendees;
+
+        _isLoading = false;
+    }
+
+    private async Task Save()
+    {
+        if (_endDate.HasValue && _startDate.HasValue && _endDate.Value < _startDate.Value)
+        {
+            _message = "종료일이 시작일보다 빠릅니다."; _isError = true; return;
+        }
+
+        _report.StartDate = _startDate;
+        _report.EndDate = _endDate;
+        _report.Attendees = _attendees;
+        _report.DepartmentId = _deptId;
+        _report.FiscalYear = _targetYear;
+        _report.EventName = _eventName;
+
+        var id = await Accounting.SaveEventReportAsync(_report, CurrentUser?.Username);
+        if (id > 0) _report.Id = id;
+
+        _message = "저장되었습니다.";
+        _isError = false;
+    }
+
+    private async Task Delete()
+    {
+        if (_report.Id == 0) return;
+        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 보고서를 삭제할까요? (재정 내역은 그대로 남습니다)");
+        if (!ok) return;
+        await Accounting.DeleteEventReportAsync(_report.Id, CurrentUser?.Username);
+        GoBack();
+    }
+
+    private async Task PrintReport() => await JSRuntime.InvokeVoidAsync("window.print");
+
+    private void GoBack() => Nav.NavigateTo("/event-report");
+}

@@ -32,6 +32,9 @@ namespace INcheonChurchWeb.Data
         public DbSet<Receipt> Receipts { get; set; }
         public DbSet<LedgerTransaction> LedgerTransactions { get; set; }
 
+        // 🚀 행사 사후 보고서 (기존 ExpenseReport와는 별개)
+        public DbSet<EventReport> EventReports { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -44,6 +47,7 @@ namespace INcheonChurchWeb.Data
             builder.Entity<ExpenseResolution>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<Receipt>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<LedgerTransaction>().HasQueryFilter(e => !e.IsDeleted);
+            builder.Entity<EventReport>().HasQueryFilter(e => !e.IsDeleted);
 
             // ───────────────────────────────────────────────
             // 🚀 ExpenseResolution 1 : 1 LedgerTransaction
@@ -69,6 +73,13 @@ namespace INcheonChurchWeb.Data
                 .WithMany(p => p.Meetings)
                 .HasForeignKey(m => m.AnnualPlanId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            // 행사보고서 → 연간계획 (선택적). 연간계획이 지워져도 보고서 기록은 남긴다.
+            builder.Entity<EventReport>()
+                   .HasOne(r => r.AnnualPlan)
+                   .WithMany()
+                   .HasForeignKey(r => r.AnnualPlanId)
+                   .OnDelete(DeleteBehavior.SetNull);
 
             builder.Entity<LedgerTransaction>()
                 .HasOne(t => t.AnnualPlan)

@@ -1,0 +1,253 @@
+@page "/event-report"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using INcheonChurchWeb.Data
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>행사 보고서 · 인천중앙교회 재정 시스템</PageTitle>
+
+<style>
+    .er-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+    .er-head { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem; }
+    .er-head-icon {
+        width: 44px; height: 44px; border-radius: 0.65rem;
+        background: var(--gold-gradient); color: #fff;
+        display: flex; align-items: center; justify-content: center; font-size: 1.35rem;
+    }
+    .er-head-title { font-size: 1.35rem; font-weight: 800; color: var(--on-surface); line-height: 1.2; }
+    .er-head-sub { font-size: 0.85rem; color: var(--on-surface-muted); }
+
+    .er-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
+    .er-select {
+        height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
+        padding: 0 0.75rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+
+    .er-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; }
+    .er-sum-card { background: var(--surface-lowest); border-radius: 0.65rem; padding: 0.9rem 1.1rem; box-shadow: var(--shadow-ambient); }
+    .er-sum-label { font-size: 0.72rem; font-weight: 700; color: var(--primary-gold); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
+    .er-sum-value { font-size: 1.4rem; font-weight: 900; color: var(--on-surface); font-variant-numeric: tabular-nums; }
+
+    .er-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
+
+    .er-card {
+        background: var(--surface-lowest); border-radius: 0.7rem; padding: 0.95rem 1.1rem;
+        box-shadow: var(--shadow-ambient); border-left: 4px solid var(--primary-gold);
+        cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .er-card:hover { transform: translateY(-2px); box-shadow: var(--elevation-shadow); }
+    .er-card.todo { background: var(--surface); border: 1.5px dashed var(--outline-variant); border-left: 1.5px dashed var(--outline-variant); }
+
+    .er-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
+    .er-card-title { font-size: 0.98rem; font-weight: 800; color: var(--on-surface); }
+    .er-card.todo .er-card-title { color: var(--on-surface-muted); }
+    .er-badge { border-radius: 9999px; padding: 0.12rem 0.55rem; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
+    .er-badge.done { background: #dceafe; color: #1a4a7a; }
+    .er-badge.todo { background: var(--surface-high); color: var(--on-surface-muted); }
+
+    .er-card-meta { font-size: 0.73rem; color: var(--on-surface-muted); margin-bottom: 0.6rem; }
+
+    .er-figs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; font-size: 0.72rem; }
+    .er-figs .lbl { color: var(--on-surface-muted); }
+    .er-figs .val { color: var(--on-surface); font-weight: 700; font-variant-numeric: tabular-nums; }
+    .er-figs .val.over { color: var(--error); }
+
+    .er-foot {
+        margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px solid var(--outline-variant);
+        font-size: 0.72rem;
+    }
+    .er-foot.over { color: var(--error); }
+    .er-foot.ok { color: #4a7a4a; }
+    .er-foot.todo { color: var(--primary-gold); }
+
+    .er-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
+</style>
+
+<CascadingValue Value="CurrentUser">
+<div class="er-wrap">
+
+    <div class="er-head">
+        <div class="er-head-icon"><i class="bi bi-clipboard-data"></i></div>
+        <div>
+            <div class="er-head-title">행사 보고서</div>
+            <div class="er-head-sub">@_targetYear 회계연도 · @_currentDeptName</div>
+        </div>
+    </div>
+
+    <div class="er-filters">
+        <select class="er-select" @onchange="OnYearChanged">
+            @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 3; y--)
+            {
+                <option value="@y" selected="@(y == _targetYear)">@(y)년</option>
+            }
+        </select>
+
+        @if (_canPickDept)
+        {
+            <select class="er-select" @onchange="OnDeptChanged">
+                @foreach (var d in _departments)
+                {
+                    <option value="@d.Id" selected="@(d.Id == _viewDeptId)">@d.Name</option>
+                }
+            </select>
+        }
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="er-empty">불러오는 중…</div>
+    }
+    else if (!_finances.Any())
+    {
+        <div class="er-empty">
+            <i class="bi bi-inbox" style="font-size:1.8rem; display:block; margin-bottom:0.5rem; opacity:0.5;"></i>
+            이 연도에 집행된 행사가 없습니다.
+        </div>
+    }
+    else
+    {
+        <div class="er-summary">
+            <div class="er-sum-card">
+                <div class="er-sum-label">작성 완료</div>
+                <div class="er-sum-value">@_writtenCount / @_finances.Count</div>
+            </div>
+            <div class="er-sum-card">
+                <div class="er-sum-label">집행 총액</div>
+                <div class="er-sum-value">@_finances.Sum(f => f.Spent).ToString("N0")</div>
+            </div>
+            <div class="er-sum-card">
+                <div class="er-sum-label">수입 총액</div>
+                <div class="er-sum-value">@_finances.Sum(f => f.Income).ToString("N0")</div>
+            </div>
+        </div>
+
+        <div class="er-grid">
+            @foreach (var f in _finances)
+            {
+                var rep = FindReport(f.EventName);
+                <div class="er-card @(rep == null ? "todo" : "")" @onclick="() => OpenReport(f.EventName)">
+                    <div class="er-card-top">
+                        <div class="er-card-title">@f.EventName</div>
+                        <span class="er-badge @(rep == null ? "todo" : "done")">@(rep == null ? "미작성" : "작성완료")</span>
+                    </div>
+
+                    <div class="er-card-meta">@MetaLine(f, rep)</div>
+
+                    <div class="er-figs">
+                        <div>
+                            <div class="lbl">예산</div>
+                            <div class="val">@f.Budget.ToString("N0")</div>
+                        </div>
+                        <div>
+                            <div class="lbl">지출</div>
+                            <div class="val @(f.IsOver ? "over" : "")">@f.Spent.ToString("N0")</div>
+                        </div>
+                        <div>
+                            <div class="lbl">수입</div>
+                            <div class="val">@(f.Income > 0 ? f.Income.ToString("N0") : "—")</div>
+                        </div>
+                    </div>
+
+                    <div class="er-foot @FootClass(f, rep)">
+                        @if (rep == null)
+                        {
+                            <i class="bi bi-pencil me-1"></i><text>보고서 작성하기</text>
+                        }
+                        else if (f.IsOver)
+                        {
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <text>예산 초과 @((f.Spent - f.Budget).ToString("N0"))</text>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check-circle me-1"></i>
+                            <text>예산 내 집행 (잔여 @f.Diff.ToString("N0"))</text>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+</div>
+</CascadingValue>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int _targetYear = DateTime.Now.Year;
+    private int _viewDeptId;
+    private string _currentDeptName = "";
+    private bool _canPickDept;
+    private bool _isLoading = true;
+
+    private List<Department> _departments = new();
+    private List<AccountingService.EventFinance> _finances = new();
+    private List<EventReport> _reports = new();
+    private int _writtenCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _canPickDept = CurrentUser?.CanViewAll == true;
+        _departments = await Accounting.GetDepartmentsAsync();
+        _viewDeptId = CurrentUser?.DepartmentId ?? (_departments.FirstOrDefault()?.Id ?? 0);
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        _isLoading = true;
+        _currentDeptName = _departments.FirstOrDefault(d => d.Id == _viewDeptId)?.Name ?? "";
+
+        _finances = await Accounting.GetEventFinancesAsync(_viewDeptId, _targetYear);
+        // 집행도 예산도 없는 항목은 목록에서 제외
+        _finances = _finances.Where(f => f.Spent > 0 || f.Budget > 0).ToList();
+
+        _reports = await Accounting.GetEventReportsAsync(_viewDeptId, _targetYear);
+        _writtenCount = _finances.Count(f => FindReport(f.EventName) != null);
+
+        _isLoading = false;
+    }
+
+    private EventReport? FindReport(string name)
+        => _reports.FirstOrDefault(r => r.EventName.Trim() == name.Trim());
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var y)) { _targetYear = y; await LoadAll(); }
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { _viewDeptId = id; await LoadAll(); }
+    }
+
+    private void OpenReport(string eventName)
+        => Nav.NavigateTo($"/event-report/edit?event={Uri.EscapeDataString(eventName)}&year={_targetYear}&dept={_viewDeptId}");
+
+    // 카드 부제: 작성된 보고서가 있으면 기간·장소·인원, 없으면 거래 건수
+    private string MetaLine(AccountingService.EventFinance f, EventReport? rep)
+    {
+        if (rep == null)
+            return f.TxCount > 0 ? $"거래 {f.TxCount}건 · 집행 내역 있음" : "집행 내역 없음";
+
+        var parts = new List<string>();
+        if (rep.StartDate.HasValue)
+        {
+            var s = rep.StartDate.Value;
+            parts.Add(rep.EndDate.HasValue && rep.EndDate.Value.Date > s.Date
+                ? $"{s.Month}/{s.Day}~{rep.EndDate.Value.Month}/{rep.EndDate.Value.Day}"
+                : $"{s.Month}/{s.Day}");
+        }
+        if (!string.IsNullOrWhiteSpace(rep.Location)) parts.Add(rep.Location!);
+        if (rep.Attendees.HasValue) parts.Add($"{rep.Attendees.Value}명");
+        return parts.Any() ? string.Join(" · ", parts) : "기록 작성됨";
+    }
+
+    private string FootClass(AccountingService.EventFinance f, EventReport? rep)
+        => rep == null ? "todo" : (f.IsOver ? "over" : "ok");
+}
