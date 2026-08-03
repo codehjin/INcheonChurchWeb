@@ -57,5 +57,5 @@ jobs:
             sudo chmod -R 777 /home/ubuntu/church
             # down(끄기) 명령어 삭제됨!
             sudo docker-compose build   # 백그라운드에서 조용히 먼저 빌드
-            sudo docker-compose up -d   # 빌드가 끝나면 1~2초 만에 스위칭(재시작)
+            sudo docker-compose up -d --force-recreate   # 컨테이너 강제 교체(옛 코드 잔류 방지)
             sudo docker image prune -f  # 남은 찌꺼기 청소
