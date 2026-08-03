@@ -14,3 +14,4 @@ church.db-shm
 church.db-wal
 church.db.old_*
 church.db.backup_*
+church.db
