@@ -363,12 +363,16 @@
                     var expBudgeted = Budgeted(_expenseStats, _expenseSort).ToList();
                     var expOff = OffBudget(_expenseStats).ToList();
                 }
-                <div class="dash-card-head" style="margin-bottom: @(_expenseCollapsed ? "0" : "2rem");" @onclick="() => _expenseCollapsed = !_expenseCollapsed">
+                <div class="dash-card-head" style="margin-bottom: @(_statsCollapsed ? "0" : "2rem");" @onclick="() => _statsCollapsed = !_statsCollapsed">
                     <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">
-                        지출 예산 집행률@if (_expenseCollapsed) {<span class="dash-head-count">(@(expBudgeted.Count + expOff.Count))</span>}
+                        <span>지출 예산 집행률</span>
+                        @if (_statsCollapsed)
+                        {
+                            <span class="dash-head-count">(@(expBudgeted.Count + expOff.Count))</span>
+                        }
                     </h5>
                     <div class="dash-card-head-right">
-                        @if (!_expenseCollapsed)
+                        @if (!_statsCollapsed)
                         {
                             @* 셀렉트 클릭이 헤더의 접기 토글까지 번지지 않게 막는다 *@
                             <div @onclick:stopPropagation="true">
@@ -379,10 +383,10 @@
                                 </select>
                             </div>
                         }
-                        <i class="bi @(_expenseCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
+                        <i class="bi @(_statsCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
                     </div>
                 </div>
-                @if (!_expenseCollapsed)
+                @if (!_statsCollapsed)
                 {
                     <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                         @if (expBudgeted.Any() || expOff.Any())
@@ -433,12 +437,16 @@
                     var incBudgeted = Budgeted(_incomeStats, _incomeSort).ToList();
                     var incOff = OffBudget(_incomeStats).ToList();
                 }
-                <div class="dash-card-head" style="margin-bottom: @(_incomeCollapsed ? "0" : "2rem");" @onclick="() => _incomeCollapsed = !_incomeCollapsed">
+                <div class="dash-card-head" style="margin-bottom: @(_statsCollapsed ? "0" : "2rem");" @onclick="() => _statsCollapsed = !_statsCollapsed">
                     <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">
-                        수입 예산 달성률@if (_incomeCollapsed) {<span class="dash-head-count">(@(incBudgeted.Count + incOff.Count))</span>}
+                        <span>수입 예산 달성률</span>
+                        @if (_statsCollapsed)
+                        {
+                            <span class="dash-head-count">(@(incBudgeted.Count + incOff.Count))</span>
+                        }
                     </h5>
                     <div class="dash-card-head-right">
-                        @if (!_incomeCollapsed)
+                        @if (!_statsCollapsed)
                         {
                             @* 셀렉트 클릭이 헤더의 접기 토글까지 번지지 않게 막는다 *@
                             <div @onclick:stopPropagation="true">
@@ -449,10 +457,10 @@
                                 </select>
                             </div>
                         }
-                        <i class="bi @(_incomeCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
+                        <i class="bi @(_statsCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
                     </div>
                 </div>
-                @if (!_incomeCollapsed)
+                @if (!_statsCollapsed)
                 {
                     <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
                         @if (incBudgeted.Any() || incOff.Any())
@@ -598,8 +606,8 @@
     private List<CategoryStat> _expenseStats = new();
 
     // ── 상세 카드 표시 상태(화면 내에서만 유지 — localStorage 미사용) ──
-    private bool _expenseCollapsed = false;
-    private bool _incomeCollapsed = false;
+    // 지출·수입 상세 카드는 하나의 토글로 함께 접는다(한쪽만 접히면 빈 배경이 남는다).
+    private bool _statsCollapsed = false;
     private string _expenseSort = "rate";
     private string _incomeSort = "rate";
 
