@@ -140,6 +140,73 @@
         color: var(--on-surface);
     }
 
+    /* 📇 상세 카드 헤더: 제목(=접기 토글) + 정렬 셀렉트 + 방향 표시 */
+    .dash-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .dash-card-head-right {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-left: auto;
+    }
+
+    .dash-sort-select {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--on-surface);
+        background-color: var(--surface-low);
+        border: 1px solid rgba(48, 49, 41, 0.12);
+        border-radius: 0.5rem;
+        padding: 0.2rem 0.5rem;
+        cursor: pointer;
+    }
+
+    .dash-chevron {
+        font-size: 1rem;
+        color: var(--on-surface-muted);
+        line-height: 1;
+    }
+
+    .dash-head-count {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--on-surface-muted);
+        margin-left: 0.35rem;
+    }
+
+    /* 🚧 예산 외 구역: 예산 0인데 실적이 있는 항목을 아래로 분리 */
+    .dash-offbudget {
+        margin-top: 0.5rem;
+        padding: 1rem 1rem 0.25rem;
+        border: 1px dashed rgba(48, 49, 41, 0.18);
+        border-radius: 0.75rem;
+        background-color: var(--surface-low);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .dash-offbudget-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+        color: var(--on-surface-muted);
+        margin: 0;
+    }
+
+    @@media (max-width: 480px) {
+        .dash-card-head-right { margin-left: 0; }
+        .dash-sort-select { font-size: 0.8rem; }
+    }
+
     .dash-list-wrap {
         overflow-x: auto;
         border-radius: 1rem;
@@ -274,8 +341,11 @@
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1.5rem;">
                     <div class="dash-meta-row">
-                        <span class="dash-meta-label" style="flex-shrink: 0; white-space: nowrap;">신청액 / 예산</span>
-                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums; text-align: right;">₩@_subsidyRequested.ToString("N0") / ₩@_subsidyBudget.ToString("N0")</span>
+                        <span class="dash-meta-label" style="flex-shrink: 0; white-space: nowrap;">신청액 / 예산 (잔액)</span>
+                        <span class="dash-meta-label" style="font-variant-numeric: tabular-nums; text-align: right;">
+                            ₩@_subsidyRequested.ToString("N0") / ₩@_subsidyBudget.ToString("N0")
+                            <span style="white-space: nowrap; @(SubsidyRemaining < 0 ? "color: var(--error);" : "")">(@(SubsidyRemaining < 0 ? "초과" : "잔여") ₩@Math.Abs(SubsidyRemaining).ToString("N0"))</span>
+                        </span>
                     </div>
                     <div class="dash-progress-bg">
                         <div class="dash-progress-fill" style="width: @(Math.Min(_incomeRate, 100))%;"></div>
@@ -289,68 +359,142 @@
 
             @* 지출 항목별 상세 *@
             <div class="dash-detail-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">지출 예산 집행률</h5>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
-                    @if (_expenseStats.Any())
-                    {
-                        @foreach (var stat in _expenseStats)
+                @{
+                    var expBudgeted = Budgeted(_expenseStats, _expenseSort).ToList();
+                    var expOff = OffBudget(_expenseStats).ToList();
+                }
+                <div class="dash-card-head" style="margin-bottom: @(_expenseCollapsed ? "0" : "2rem");" @onclick="() => _expenseCollapsed = !_expenseCollapsed">
+                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">
+                        지출 예산 집행률@if (_expenseCollapsed) {<span class="dash-head-count">(@(expBudgeted.Count + expOff.Count))</span>}
+                    </h5>
+                    <div class="dash-card-head-right">
+                        @if (!_expenseCollapsed)
                         {
-                            bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
-                            string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
-
-                            <div class="dash-stat-row">
-                                <div class="dash-stat-meta">
-                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
-                                    <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
-                                        ₩@stat.Amount.ToString("N0") (@displayPct)
-                                    </span>
-                                </div>
-                                <div class="dash-progress-bg">
-                                    <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
-                                </div>
+                            @* 셀렉트 클릭이 헤더의 접기 토글까지 번지지 않게 막는다 *@
+                            <div @onclick:stopPropagation="true">
+                                <select class="dash-sort-select" @bind="_expenseSort">
+                                    <option value="rate">집행률순</option>
+                                    <option value="amount">금액순</option>
+                                    <option value="name">이름순</option>
+                                </select>
                             </div>
                         }
-                    }
-                    else
-                    {
-                        <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 집행 내역이 없습니다.</p>
-                    }
+                        <i class="bi @(_expenseCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
+                    </div>
                 </div>
+                @if (!_expenseCollapsed)
+                {
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
+                        @if (expBudgeted.Any() || expOff.Any())
+                        {
+                            @foreach (var stat in expBudgeted)
+                            {
+                                bool isOver = stat.Percentage > 100;
+
+                                <div class="dash-stat-row">
+                                    <div class="dash-stat-meta">
+                                        <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                        <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
+                                            ₩@stat.Amount.ToString("N0") (@stat.Percentage%)
+                                        </span>
+                                    </div>
+                                    <div class="dash-progress-bg">
+                                        <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
+                                    </div>
+                                </div>
+                            }
+                            @if (expOff.Any())
+                            {
+                                <div class="dash-offbudget">
+                                    <p class="dash-offbudget-title">예산 외 집행</p>
+                                    @foreach (var stat in expOff)
+                                    {
+                                        <div class="dash-stat-row">
+                                            <div class="dash-stat-meta">
+                                                <span>@stat.Category</span>
+                                                <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0")</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 집행 내역이 없습니다.</p>
+                        }
+                    </div>
+                }
             </div>
 
             @* 수입 항목별 상세 *@
             <div class="dash-detail-card">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 2rem;">
-                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">수입 예산 달성률</h5>
-                </div>
-                <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
-                    @if (_incomeStats.Any())
-                    {
-                        @foreach (var stat in _incomeStats)
+                @{
+                    var incBudgeted = Budgeted(_incomeStats, _incomeSort).ToList();
+                    var incOff = OffBudget(_incomeStats).ToList();
+                }
+                <div class="dash-card-head" style="margin-bottom: @(_incomeCollapsed ? "0" : "2rem");" @onclick="() => _incomeCollapsed = !_incomeCollapsed">
+                    <h5 style="font-size: 1.2rem; font-weight: 700; letter-spacing: -0.01em; color: var(--on-surface); margin: 0;">
+                        수입 예산 달성률@if (_incomeCollapsed) {<span class="dash-head-count">(@(incBudgeted.Count + incOff.Count))</span>}
+                    </h5>
+                    <div class="dash-card-head-right">
+                        @if (!_incomeCollapsed)
                         {
-                            bool isOver = stat.Percentage > 100 || (stat.BudgetAmount == 0 && stat.Amount > 0);
-                            string displayPct = stat.BudgetAmount > 0 ? $"{stat.Percentage}%" : "예산초과";
-
-                            <div class="dash-stat-row">
-                                <div class="dash-stat-meta">
-                                    <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
-                                    <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
-                                        ₩@stat.Amount.ToString("N0") (@displayPct)
-                                    </span>
-                                </div>
-                                <div class="dash-progress-bg">
-                                    <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
-                                </div>
+                            @* 셀렉트 클릭이 헤더의 접기 토글까지 번지지 않게 막는다 *@
+                            <div @onclick:stopPropagation="true">
+                                <select class="dash-sort-select" @bind="_incomeSort">
+                                    <option value="rate">달성률순</option>
+                                    <option value="amount">금액순</option>
+                                    <option value="name">이름순</option>
+                                </select>
                             </div>
                         }
-                    }
-                    else
-                    {
-                        <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 수입 내역이 없습니다.</p>
-                    }
+                        <i class="bi @(_incomeCollapsed ? "bi-chevron-down" : "bi-chevron-up") dash-chevron"></i>
+                    </div>
                 </div>
+                @if (!_incomeCollapsed)
+                {
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem; max-height: 400px; overflow-y: auto; padding-right: 0.5rem;">
+                        @if (incBudgeted.Any() || incOff.Any())
+                        {
+                            @foreach (var stat in incBudgeted)
+                            {
+                                bool isOver = stat.Percentage > 100;
+
+                                <div class="dash-stat-row">
+                                    <div class="dash-stat-meta">
+                                        <span>@stat.Category <span style="color: var(--on-surface-muted); font-weight: 500; font-size: 1rem; margin-left: 4px;">(예산: ₩@stat.BudgetAmount.ToString("N0"))</span></span>
+                                        <span style="font-variant-numeric: tabular-nums; color: @(isOver ? "#ba1a1a" : "inherit");">
+                                            ₩@stat.Amount.ToString("N0") (@stat.Percentage%)
+                                        </span>
+                                    </div>
+                                    <div class="dash-progress-bg">
+                                        <div class="dash-progress-fill" style="width: @(Math.Min(stat.Percentage, 100))%; opacity: 0.85; @(isOver ? "background: #ba1a1a;" : "")"></div>
+                                    </div>
+                                </div>
+                            }
+                            @if (incOff.Any())
+                            {
+                                <div class="dash-offbudget">
+                                    <p class="dash-offbudget-title">예산 외 수입</p>
+                                    @foreach (var stat in incOff)
+                                    {
+                                        <div class="dash-stat-row">
+                                            <div class="dash-stat-meta">
+                                                <span>@stat.Category</span>
+                                                <span style="font-variant-numeric: tabular-nums;">₩@stat.Amount.ToString("N0")</span>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p style="color: var(--on-surface-muted); font-size: 1rem; text-align: center; padding: 1rem 0;">예산 및 수입 내역이 없습니다.</p>
+                        }
+                    </div>
+                }
             </div>
         </div>
 
@@ -452,6 +596,31 @@
     private decimal _totalIncome = 0;
     private List<CategoryStat> _incomeStats = new();
     private List<CategoryStat> _expenseStats = new();
+
+    // ── 상세 카드 표시 상태(화면 내에서만 유지 — localStorage 미사용) ──
+    private bool _expenseCollapsed = false;
+    private bool _incomeCollapsed = false;
+    private string _expenseSort = "rate";
+    private string _incomeSort = "rate";
+
+    // 보조금 잔액(예산 − 신청액). 표시 전용이라 원본 수치는 그대로 둔다.
+    private decimal SubsidyRemaining => _subsidyBudget - _subsidyRequested;
+
+    // 예산이 잡힌 항목만 골라 선택한 기준으로 정렬. 원본 리스트는 변형하지 않는다.
+    private IEnumerable<CategoryStat> Budgeted(List<CategoryStat> stats, string sort)
+    {
+        var q = stats.Where(s => s.BudgetAmount > 0);
+        return sort switch
+        {
+            "amount" => q.OrderByDescending(s => s.Amount),
+            "name" => q.OrderBy(s => s.Category, StringComparer.CurrentCulture),
+            _ => q.OrderByDescending(s => s.Percentage).ThenByDescending(s => s.Amount),
+        };
+    }
+
+    // 예산 0인데 실적만 있는 항목 — 금액순 고정. 예산·실적 모두 0이면 여기서도 빠진다.
+    private IEnumerable<CategoryStat> OffBudget(List<CategoryStat> stats) =>
+        stats.Where(s => s.BudgetAmount == 0 && s.Amount > 0).OrderByDescending(s => s.Amount);
 
     public class SubsidyRequestItem
     {
