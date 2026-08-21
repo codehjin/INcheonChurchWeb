@@ -547,6 +547,7 @@
                             }
                         </optgroup>
                     </select>
+                    <ComboBox @bind-Value="_bulkSubCategory" Options="@SubOptions(BulkType, _bulkCategory)" Placeholder="세부(선택)" InputClass="form-control form-control-sm w-auto" />
                     <button class="btn btn-sm btn-primary fw-bold px-3" @onclick="ApplyBulkEdit" disabled="@(_editSelectedIds.Count == 0 || string.IsNullOrEmpty(_bulkCategory))">일괄적용</button>
                     <button class="btn btn-sm btn-outline-danger fw-bold ms-auto px-3" @onclick="DeleteSelected" disabled="@(_editSelectedIds.Count == 0)"><i class="bi bi-trash-fill me-1"></i> 선택 삭제</button>
                 </div>
@@ -626,7 +627,7 @@
                                     </select>
                                 </th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterCategory" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
-                                <th></th>
+                                <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterSubCategory" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterDescription" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 <th><input type="text" class="form-control form-control-sm px-1" placeholder="검색" @bind="_filterNote" @bind:event="oninput" @bind:after="ApplyFilters" /></th>
                                 <th></th>
@@ -1132,6 +1133,7 @@
 
     private string _filterType = "";
     private string _filterCategory = "";
+    private string _filterSubCategory = "";
     private string _filterDate = "";
     private string _filterDescription = "";
     private string _filterNote = "";
@@ -1142,6 +1144,9 @@
     private HashSet<int> _printSelectedIds = new();
     private bool IsAllEditSelected => _filtered_entries.Any() && _editSelectedIds.Count == _filtered_entries.Count;
     private string _bulkCategory = "";
+    private string _bulkSubCategory = "";
+    // 일괄 변경 분류가 수입/지출 어느 쪽인지 역산 — SubOptions에 넘길 구분값
+    private string BulkType => _incomeCats.Contains(_bulkCategory) ? "수입" : "지출";
     private bool _isAddingNew = false;
     private LedgerEntry _newItem = new() { Date = DateTime.Now, Type = "지출", Income = 0, Expense = 0 };
     private int? _editingItemId = null;
@@ -1305,6 +1310,7 @@
         var temp = _entries.AsEnumerable();
         if (!string.IsNullOrEmpty(_filterType)) temp = temp.Where(x => x.Type == _filterType);
         if (!string.IsNullOrEmpty(_filterCategory)) temp = temp.Where(x => x.Category.Contains(_filterCategory, StringComparison.OrdinalIgnoreCase));
+        if (!string.IsNullOrEmpty(_filterSubCategory)) temp = temp.Where(x => x.SubCategory != null && x.SubCategory.Contains(_filterSubCategory, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(_filterDate)) temp = temp.Where(x => x.Date.ToString("MM.dd").Contains(_filterDate) || x.Date.ToString("yyyy-MM-dd").Contains(_filterDate));
         if (!string.IsNullOrEmpty(_filterDescription)) temp = temp.Where(x => x.Description != null && x.Description.Contains(_filterDescription, StringComparison.OrdinalIgnoreCase));
         if (!string.IsNullOrEmpty(_filterNote)) temp = temp.Where(x => x.Note != null && x.Note.Contains(_filterNote, StringComparison.OrdinalIgnoreCase));
@@ -1531,7 +1537,12 @@
         if (_editSelectedIds.Count > 0 && !string.IsNullOrEmpty(_bulkCategory))
         {
             var ts = await context.Transactions.Where(t => _editSelectedIds.Contains(t.Id)).ToListAsync();
-            foreach (var t in ts) t.Category = _bulkCategory; await context.SaveChangesAsync(); _bulkCategory = ""; await LoadData();
+            foreach (var t in ts)
+            {
+                t.Category = _bulkCategory;
+                if (!string.IsNullOrWhiteSpace(_bulkSubCategory)) t.SubCategory = _bulkSubCategory.Trim();
+            }
+            await context.SaveChangesAsync(); _bulkCategory = ""; _bulkSubCategory = ""; await LoadData();
         }
     }
 
