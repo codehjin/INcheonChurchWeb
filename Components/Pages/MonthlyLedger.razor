@@ -963,14 +963,15 @@
                 <table class="ledger-table-print">
                     <thead>
                         <tr>
-                            <th style="width:5%">No</th>
-                            <th style="width:10%">날짜</th>
-                            <th style="width:8%">구분</th>
+                            <th style="width:4%">No</th>
+                            <th style="width:9%">날짜</th>
+                            <th style="width:7%">구분</th>
                             <th style="width:12%">분류항목</th>
-                            <th style="width:28%">내역</th>
+                            <th style="width:10%">세부</th>
+                            <th style="width:22%">내역</th>
                             <th style="width:12%">수입</th>
                             <th style="width:12%">지출</th>
-                            <th style="width:13%">잔액</th>
+                            <th style="width:12%">잔액</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -979,6 +980,7 @@
                             <td>-</td>
                             <td>이월</td>
                             <td>전월이월</td>
+                            <td></td>
                             <td style="text-align:left !important;">전월 이월금액</td>
                             <td class="money-cell-print">@sb.ToString("N0")</td>
                             <td class="money-cell-print">-</td>
@@ -997,6 +999,7 @@
                                 <td>@item.Date.ToString("MM-dd")</td>
                                 <td>@item.Type</td>
                                 <td>@item.Category</td>
+                                <td>@item.SubCategory</td>
                                 <td style="text-align:left !important;">@item.Description</td>
                                 <td class="money-cell-print">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
                                 <td class="money-cell-print">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
@@ -1005,7 +1008,7 @@
                             seq++;
                         }
                         <tr style="background-color: #f9f9f9 !important; font-weight: bold;">
-                            <td colspan="6" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
+                            <td colspan="7" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
                             <td class="money-cell-print">@mI.ToString("N0")</td>
                             <td class="money-cell-print">@mEx.ToString("N0")</td>
                             <td class="money-cell-print">@rb.ToString("N0")</td>
@@ -1590,16 +1593,16 @@
                 int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
                 if (_currentMonth > 0 && gm != _currentMonth) continue;
                 var ws = workbook.Worksheets.Add($"{gy}-{gm:D2}");
-                var hdrs = new[] { "날짜", "구분", "분류항목", "내역", "비고", "수입", "지출", "잔액" };
+                var hdrs = new[] { "날짜", "구분", "분류항목", "세부", "내역", "비고", "수입", "지출", "잔액" };
                 for (int c = 0; c < hdrs.Length; c++)
                 {
                     ws.Cell(1, c + 1).Value = hdrs[c];
                     ws.Cell(1, c + 1).Style.Fill.BackgroundColor = XLColor.LightGray; ws.Cell(1, c + 1).Style.Font.Bold = true; ws.Cell(1, c + 1).Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
                 }
                 ws.Cell(2, 1).Value = "-";
-                ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 6).Value = runBal; ws.Cell(2, 8).Value = runBal;
-                ws.Column(6).Style.NumberFormat.Format = "#,##0";
-                ws.Column(7).Style.NumberFormat.Format = "#,##0"; ws.Column(8).Style.NumberFormat.Format = "#,##0";
+                ws.Cell(2, 2).Value = "이월"; ws.Cell(2, 3).Value = "전월이월"; ws.Cell(2, 7).Value = runBal; ws.Cell(2, 9).Value = runBal;
+                ws.Column(7).Style.NumberFormat.Format = "#,##0";
+                ws.Column(8).Style.NumberFormat.Format = "#,##0"; ws.Column(9).Style.NumberFormat.Format = "#,##0";
                 int row = 3; decimal mI = 0; decimal mE = 0;
                 decimal sb = runBal;
                 foreach (var item in mg)
@@ -1608,20 +1611,21 @@
                     mI += item.Income; mE += item.Expense; runBal += item.Income - item.Expense;
                     ws.Cell(row, 1).Value = item.Date.ToString("yyyy-MM-dd"); ws.Cell(row, 2).Value = item.Type;
                     ws.Cell(row, 3).Value = item.Category;
+                    ws.Cell(row, 4).Value = item.SubCategory;
                     string desc = item.Description;
-                    ws.Cell(row, 4).Value = desc;
-                    ws.Cell(row, 5).Value = item.Note;
-                    ws.Cell(row, 6).Value = item.Income == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Income;
-                    ws.Cell(row, 7).Value = item.Expense == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Expense;
-                    ws.Cell(row, 8).Value = sb; row++;
+                    ws.Cell(row, 5).Value = desc;
+                    ws.Cell(row, 6).Value = item.Note;
+                    ws.Cell(row, 7).Value = item.Income == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Income;
+                    ws.Cell(row, 8).Value = item.Expense == 0 ? (XLCellValue)"" : (XLCellValue)(decimal)item.Expense;
+                    ws.Cell(row, 9).Value = sb; row++;
                 }
                 ws.Cell(row, 1).Value = $"{gy}년 {gm}월 계";
-                ws.Range(row, 1, row, 5).Merge();
-                ws.Cell(row, 6).Value = mI; ws.Cell(row, 7).Value = mE; ws.Cell(row, 8).Value = sb;
+                ws.Range(row, 1, row, 6).Merge();
+                ws.Cell(row, 7).Value = mI; ws.Cell(row, 8).Value = mE; ws.Cell(row, 9).Value = sb;
                 ws.Column(1).Width = 12;
-                ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 35; ws.Column(5).Width = 15;
-                ws.Column(6).Width = 12; ws.Column(7).Width = 12;
-                ws.Column(8).Width = 12;
+                ws.Column(2).Width = 8; ws.Column(3).Width = 15; ws.Column(4).Width = 14; ws.Column(5).Width = 32;
+                ws.Column(6).Width = 15; ws.Column(7).Width = 12; ws.Column(8).Width = 12;
+                ws.Column(9).Width = 12;
             }
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
