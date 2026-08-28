@@ -980,7 +980,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr>
+                        <tr style="background-color: #f9f9f9 !important;">
                             <td>-</td>
                             <td>-</td>
                             <td>이월</td>
@@ -1020,29 +1020,6 @@
                         </tr>
                     </tbody>
                 </table>
-                @if (_quarterEndMonths.Contains(gm))
-                {
-                    <div style="margin-top: 40px; page-break-inside: avoid; display: flex; flex-direction: column; align-items: flex-start;">
-                        <div style="text-align: left; font-size: 10pt; font-weight: bold; color: #333; margin-bottom: 8px; width: 45%;">
-                            [ @gy 년 @gm 월 분기 마감 결재 ]
-                        </div>
-                        <table style="width: 45%; border-collapse: collapse; font-size: 10pt; text-align: center; border: 1px solid blue;">
-                            <tr>
-                                <td rowspan="2" style="border: 1px solid blue; width: 10%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact; padding: 10px 0;">
-                                    결<br /><br />재
-                                </td>
-                                <td style="border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;">회계</td>
-                                <td style="border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;">팀장</td>
-                                <td style="border: 1px solid blue; padding: 6px 0; width: 30%; font-weight: bold; background-color: #e9ecef !important; -webkit-print-color-adjust: exact;">국장</td>
-                            </tr>
-                            <tr>
-                                <td style="border: 1px solid blue; height: 70px;"></td>
-                                <td style="border: 1px solid blue; height: 70px;"></td>
-                                <td style="border: 1px solid blue; height: 70px;"></td>
-                            </tr>
-                        </table>
-                    </div>
-                }
                 </div>
                 }
     }
@@ -1296,12 +1273,6 @@
             }
 
             _carryOverAmount += prevDataIn_currentYear.Sum(x => x.Income) - prevDataIn_currentYear.Sum(x => x.Expense);
-            _quarterEndMonths.Clear();
-            for (int q = 1; q <= 4; q++)
-            {
-                var qr = await Accounting.GetQuarterDateRangeAsync(qDeptId, _currentYear, q);
-                _quarterEndMonths.Add(qr.End.Month); // 각 분기의 마지막 달(Month)만 추출해서 저장
-            }
             _entries = fq.ToList();
             ApplyFilters();
             _editSelectedIds.Clear(); _printSelectedIds.Clear();
@@ -1653,5 +1624,4 @@
     // 반복되던 단순 알림(alert) 호출을 한 곳으로 모은 내부 헬퍼
     private async Task ShowAlertAsync(string message) => await JSRuntime.InvokeVoidAsync("alert", message);
 
-    private List<int> _quarterEndMonths = new(); // 🟢 분기 마감 월을 저장할 리스트
 }
