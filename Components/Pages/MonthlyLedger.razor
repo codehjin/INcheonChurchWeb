@@ -1526,12 +1526,11 @@
 
     private async Task RemoveReceiptOnly(int entryId)
     {
-        using var context = DbContextFactory.CreateDbContext();
         if (await JSRuntime.InvokeAsync<bool>("confirm", "해당 영수증을 장부에서 분리하시겠습니까?"))
         {
+            // 경로 정리(ReceiptPath·ReceiptUrl)와 파일 처리는 모두 RemoveReceiptAsync가
+            // 단일 컨텍스트에서 담당한다. 여기서 다시 손대면 컨텍스트가 갈려 일관성이 깨진다.
             await Accounting.RemoveReceiptAsync(entryId);
-            var entry = await context.Transactions.FindAsync(entryId);
-            if (entry != null) { entry.ReceiptUrl = ""; entry.ReceiptPath = ""; await context.SaveChangesAsync(); }
             await LoadData();
         }
     }

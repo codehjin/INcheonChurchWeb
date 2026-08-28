@@ -12,6 +12,7 @@ using SixLabors.ImageSharp.Formats.Jpeg; // 압축용
 using ClosedXML.Excel; // 환경설정 엑셀 내보내기
 using ExcelDataReader; // 환경설정 엑셀 읽기
 using System.Data; // DataTable
+using System.Globalization; // 금액 문자열 고정
 
 namespace INcheonChurchWeb.Services
 {
@@ -75,6 +76,9 @@ namespace INcheonChurchWeb.Services
         // 🚀 2. 정규식 생성기는 반드시 클래스의 '{' 안쪽에 위치해야 합니다.
         [GeneratedRegex(@"[\\/:*?""<>|]")]
         private static partial Regex InvalidFileNameChars();
+
+        // 영수증 파일명에 넣을 적요 최대 길이
+        private const int MaxDescLengthInFileName = 30;
 
         // 🚀 [동시성 안전화] Blazor Server에서 Scoped DbContext는 회로(circuit) 수명 동안
         // 살아남아 여러 비동기 작업이 같은 인스턴스를 공유 → 스레드 충돌이 발생합니다.
@@ -282,10 +286,23 @@ namespace INcheonChurchWeb.Services
 
                 // 파일명 오류 방지 및 부서명 추출
                 string safeDesc = InvalidFileNameChars().Replace(entry.Description ?? "내용없음", "_");
+                // 적요가 길어도 전체 파일명이 과도해지지 않도록 제한
+                if (safeDesc.Length > MaxDescLengthInFileName) safeDesc = safeDesc[..MaxDescLengthInFileName];
+                safeDesc = safeDesc.Trim();
+                if (safeDesc.Length == 0) safeDesc = "내용없음";
+
                 string deptName = entry.DepartmentInfo?.Name ?? "부서미정";
 
-                // 🚀 요청하신 파일명 규칙: 부서명_날짜_구분_적요.확장자
-                string newFileName = $"{deptName}_{entry.Date:yyyy-MM-dd}_{entry.Category}_{safeDesc}{extension}";
+                // 🚀 파일명 규칙: 날짜_부서명_분류_적요_금액_타임스탬프.확장자
+                //    - 금액은 콤마 없는 숫자만. 나중에 OCR 판독 결과와 대조할 정답 라벨로 쓴다.
+                //    - 타임스탬프로 유일성을 확보한다. 부서·날짜·분류·적요가 모두 같은 거래가
+                //      실제로 존재해(백업 기준 512건 중 116건) 예전 규칙은 한 파일을 덮어썼고,
+                //      재업로드 시 경로가 그대로라 브라우저가 지운 영수증을 캐시에서 다시 그렸다.
+                decimal amount = entry.Expense > 0 ? entry.Expense : entry.Income;
+                string amountText = amount.ToString("0", CultureInfo.InvariantCulture);
+                string stamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+
+                string newFileName = $"{entry.Date:yyyy-MM-dd}_{deptName}_{entry.Category}_{safeDesc}_{amountText}_{stamp}{extension}";
 
                 string uploadFolder = Path.Combine(_env.WebRootPath, "uploads");
                 if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
@@ -310,20 +327,76 @@ namespace INcheonChurchWeb.Services
             catch (Exception ex) { return $"실패: {ex.Message}"; }
         }
 
+        // 🚀 장부에서 영수증을 분리한다.
+        //    경로가 ReceiptPath(장부 직접 업로드) / ReceiptUrl(매칭 탭 연결) 두 곳에 나뉘어 있어
+        //    양쪽을 모두 정리한다. 예전에는 ReceiptPath 만 봐서, 매칭으로 붙인 파일이
+        //    디스크에 그대로 남고 UploadedReceipts 행도 IsMatched=true 인 채 고아가 됐다.
+        //
+        //    파일 처리 정책(하이브리드):
+        //      - 짝이 되는 UploadedReceipts 행이 있으면 → 파일을 남기고 IsMatched=false 로 되돌린다.
+        //        미연결 목록에 썸네일이 정상으로 복귀하고, 잘못 눌러도 재매칭할 수 있다.
+        //        (완전 삭제는 매칭 탭의 '삭제(반려)'가 담당한다.)
+        //      - 짝이 없으면(장부에서 직접 올린 건) → 돌아갈 목록이 없어 고아가 되므로 파일을 지운다.
+        //    단, 다른 거래나 다른 영수증이 같은 경로를 참조 중이면 절대 지우지 않는다.
+        //    (예전 파일명 규칙은 유일하지 않아 과거 데이터에 경로 공유가 존재한다.)
         public async Task RemoveReceiptAsync(int id)
         {
             using var db = _dbFactory.CreateDbContext();
 
             var entry = await db.Transactions.FindAsync(id);
-            if (entry != null)
+            if (entry == null) return;
+
+            // 이 거래가 물고 있던 경로들 (중복 제거)
+            var paths = new[] { entry.ReceiptPath, entry.ReceiptUrl }
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Select(p => p!)
+                .Distinct()
+                .ToList();
+
+            // 매칭으로 연결됐던 영수증은 미연결 목록으로 되돌리고, 그 파일은 보존한다.
+            var keepFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (paths.Count > 0)
             {
-                if (!string.IsNullOrEmpty(entry.ReceiptPath))
+                var linkedReceipts = await db.UploadedReceipts
+                    .Where(r => paths.Contains(r.ImagePath))
+                    .ToListAsync();
+
+                foreach (var r in linkedReceipts)
                 {
-                    var fullPath = Path.Combine(_env.WebRootPath, entry.ReceiptPath.TrimStart('/'));
-                    if (File.Exists(fullPath)) { File.Delete(fullPath); }
+                    r.IsMatched = false;
+                    keepFiles.Add(r.ImagePath);
                 }
-                entry.ReceiptPath = "";
-                await db.SaveChangesAsync();
+            }
+
+            entry.ReceiptPath = "";
+            entry.ReceiptUrl = "";
+
+            // 🚀 DB를 먼저 확정한 뒤 파일을 지운다.
+            //    반대 순서면 저장이 실패했을 때 경로만 남아 깨진 이미지가 된다.
+            await db.SaveChangesAsync();
+
+            foreach (var path in paths)
+            {
+                if (keepFiles.Contains(path)) continue;
+
+                // 다른 거래가 아직 같은 파일을 참조 중이면 남긴다.
+                bool stillReferenced = await db.Transactions
+                    .AnyAsync(t => t.Id != id && (t.ReceiptPath == path || t.ReceiptUrl == path));
+                if (stillReferenced) continue;
+
+                // 다른 영수증 행이 같은 파일을 참조 중이어도 남긴다.
+                if (await db.UploadedReceipts.AnyAsync(r => r.ImagePath == path)) continue;
+
+                // 파일 삭제는 실패해도 DB 정리를 되돌리지 않는다 (경로는 이미 비워졌다).
+                try
+                {
+                    var fullPath = Path.Combine(_env.WebRootPath, path.TrimStart('/'));
+                    if (File.Exists(fullPath)) File.Delete(fullPath);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"영수증 파일 삭제 실패({path}): {ex.Message}");
+                }
             }
         }
 
