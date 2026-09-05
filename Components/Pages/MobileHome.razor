@@ -442,7 +442,8 @@ else
     {
         if (CurrentUser == null) return;
         _departments = await Accounting.GetDepartmentsAsync();
-        if (!CanPickDept) _deptId = 0;
+        // 0 은 GetDashboardAsync 에서 '전체 부서'다. 권한 없으면 자기 부서로 고정한다.
+        if (!CanPickDept) _deptId = CurrentUser.DepartmentId;
         await LoadAsync();
     }
 

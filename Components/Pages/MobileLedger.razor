@@ -740,7 +740,9 @@ else
     {
         if (CurrentUser == null) return;
         _departments = await Accounting.GetDepartmentsAsync();
-        if (!CanPickDept) _deptId = 0;   // 부서운영자·일반조회는 자기 부서로 고정된다
+        // 부서를 고를 수 없는 사용자는 자기 부서로 고정한다.
+        // 0 은 서비스에서 '전체 부서'로 해석되므로(GetLedgerViewAsync) 절대 넣으면 안 된다.
+        if (!CanPickDept) _deptId = CurrentUser.DepartmentId;
         await LoadAsync();
     }
 

@@ -127,7 +127,9 @@ else
         try
         {
             int year = Year ?? DateTime.Now.Year;
-            int deptId = Dept ?? 0;
+            // dept 는 URL 쿼리라 사용자가 임의로 바꿀 수 있다.
+            // 전체 조회 권한이 없으면 무엇이 넘어오든 자기 부서로 강제한다.
+            int deptId = CurrentUser.CanViewAll ? (Dept ?? 0) : CurrentUser.DepartmentId;
 
             _view = await Accounting.GetLedgerViewAsync(
                 deptId, CurrentUser.DepartmentId, year, Quarter ?? 0, Month ?? 0,
