@@ -320,7 +320,7 @@
     private async Task Delete()
     {
         if (_report.Id == 0) return;
-        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 보고서를 삭제할까요? (재정 내역은 그대로 남습니다)");
+        bool ok = await JSRuntime.ConfirmAsync("이 보고서를 삭제할까요? (재정 내역은 그대로 남습니다)");
         if (!ok) return;
         await Accounting.DeleteEventReportAsync(_report.Id, CurrentUser?.Username);
         GoBack();
