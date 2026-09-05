@@ -40,32 +40,7 @@
 
     .lp-sheet { padding: 16px; color: #000; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
 
-    /* ── 아래부터는 웹 인쇄(GeneratePrintHtmlAsync)와 같은 규칙 ── */
-    .print-only-title { text-align: center; font-size: 18pt; font-weight: bold; margin-bottom: 15px; color: black; }
-    .ledger-table-print { width: 100%; border-collapse: collapse; font-size: 10pt; color: black; table-layout: auto; }
-    .ledger-table-print th, .ledger-table-print td {
-        border: 1px solid #444; padding: 4px; text-align: center; word-break: keep-all; vertical-align: middle;
-    }
-    .ledger-table-print th { background-color: #e9ecef !important; font-weight: bold; }
-    .money-cell-print { text-align: right !important; white-space: nowrap !important; }
-
-    .receipt-grid-1, .receipt-grid-2, .receipt-grid-4 {
-        display: flex !important; flex-wrap: wrap !important; justify-content: space-between !important;
-        align-content: flex-start; gap: 0;
-    }
-    .receipt-box { page-break-inside: avoid; display: flex; flex-direction: column; color: black; margin: 0; padding: 0; }
-    .receipt-grid-1 .receipt-box { height: 266mm; width: 100%; }
-    .receipt-grid-2 .receipt-box { height: 266mm; width: 48.5%; }
-    .receipt-grid-4 { row-gap: 4mm !important; column-gap: 3% !important; }
-    .receipt-grid-4 .receipt-box { height: 131mm; width: 48.5%; }
-    .receipt-img-wrapper {
-        flex: 1; display: flex; align-items: center; justify-content: center;
-        border: 1px dashed #eee; overflow: hidden; background-color: white;
-    }
-    .receipt-img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .receipt-empty { flex: 1; border: 1px dashed #eee; display: flex; align-items: center; justify-content: center; }
-
-    .page-break-before { page-break-before: always !important; break-before: page !important; }
+    /* 지면 규칙은 Services/LedgerPrintCss.cs 한 곳에 있다 (웹 인쇄와 같은 값) */
 
     @@media print {
         .lp-bar, .lp-hint { display: none !important; }
@@ -74,6 +49,11 @@
         @@page { size: A4 portrait; margin: 25mm 10mm 5mm 10mm; }
         html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
     }
+</style>
+
+@* 인쇄 지면 규칙 — 웹 인쇄와 동일한 단일 정의 *@
+<style>
+    @((MarkupString)LedgerPrintCss.SheetRules)
 </style>
 
 <div class="lp-bar">
@@ -91,146 +71,25 @@
 {
     <div style="text-align:center; padding:48px 16px; color:#8A8577;">불러오는 중…</div>
 }
-else if (IsReceiptMode)
+else if (IsReceiptMode && !_receiptTargets.Any())
 {
-    @if (!_receiptTargets.Any())
-    {
-        <div style="text-align:center; padding:48px 16px; color:#8A8577;">인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.</div>
-    }
-    else
-    {
-        var groups = _receiptTargets.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
-        var firstMonth = true;
-
-        @foreach (var group in groups)
-        {
-            var pageBreak = firstMonth ? "" : "page-break-before";
-            firstMonth = false;
-            var monthlySeq = 1;
-            var fontSize = Per == 1 ? "13pt" : (Per == 2 ? "11pt" : "9.5pt");
-
-            <div class="@pageBreak">
-                <div class="receipt-grid-@Per">
-                    @foreach (var t in group.OrderBy(x => x.Date))
-                    {
-                        <div class="receipt-box">
-                            <div style="display:flex; flex-wrap:nowrap; align-items:center; border-bottom:1.5pt solid #444; padding:4px 2px; margin-bottom:6px; font-weight:bold; font-size:@fontSize; width:100%; overflow:hidden;">
-                                <div style="flex:0 0 10%; text-align:left;">
-                                    <span style="border:1.0pt solid #444; display:inline-block; width:28px; height:28px; line-height:24px; text-align:center; border-radius:2px;">@monthlySeq</span>
-                                </div>
-                                <div style="flex:0 0 20%; text-align:left; white-space:nowrap;">@t.Date.ToString("M월 d일")</div>
-                                <div style="flex:1 1 auto; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 5px; margin-right:5px;">@t.Description</div>
-                                <div style="flex:0 0 25%; text-align:right; color:#ba1a1a; white-space:nowrap;">@t.Expense.ToString("N0")</div>
-                            </div>
-
-                            @if (WithImage && ReceiptOf(t) is string url)
-                            {
-                                <div class="receipt-img-wrapper">
-                                    <img src="@url" style="max-width:100%; max-height:100%; object-fit:contain;" />
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="receipt-empty"></div>
-                            }
-                        </div>
-                        monthlySeq++;
-                    }
-                </div>
-            </div>
-        }
-    }
+    <div style="text-align:center; padding:48px 16px; color:#8A8577;">인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.</div>
+}
+else if (!IsReceiptMode && !_view.Entries.Any())
+{
+    <div style="text-align:center; padding:48px 16px; color:#8A8577;">조회된 장부 내역이 없습니다.</div>
 }
 else
 {
-    @if (!_view.Entries.Any())
-    {
-        <div style="text-align:center; padding:48px 16px; color:#8A8577;">조회된 장부 내역이 없습니다.</div>
-    }
-    else
-    {
-        var grouped = _view.Entries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
-        var first = true;
-
-        @foreach (var mg in grouped)
-        {
-            var parts = mg.Key.Split('-');
-            int gy = int.Parse(parts[0]);
-            int gm = int.Parse(parts[1]);
-
-            // 그 달 이전까지의 증감을 이월금에 더해 시작 잔액을 만든다 (웹 인쇄와 같은 계산)
-            var monthStart = new DateTime(gy, gm, 1);
-            decimal prevIn = _view.Entries.Where(x => x.Date < monthStart).Sum(x => x.Income);
-            decimal prevEx = _view.Entries.Where(x => x.Date < monthStart).Sum(x => x.Expense);
-            decimal startBalance = _view.CarryOver + prevIn - prevEx;
-
-            decimal running = startBalance;
-            decimal monthIn = 0, monthEx = 0;
-            int seq = 1;
-            var pb = first ? "" : "page-break-before";
-            first = false;
-
-            <div class="@pb">
-                <div class="print-only-title">[ @gy 년 @gm 월 @_deptLabel 재정 장부 ]</div>
-
-                <table class="ledger-table-print">
-                    <thead>
-                        <tr>
-                            <th style="width:4%">No</th>
-                            <th style="width:9%">날짜</th>
-                            <th style="width:7%">구분</th>
-                            <th style="width:12%">분류항목</th>
-                            <th style="width:10%">세부</th>
-                            <th style="width:22%">내역</th>
-                            <th style="width:12%">수입</th>
-                            <th style="width:12%">지출</th>
-                            <th style="width:12%">잔액</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="background-color:#f9f9f9 !important;">
-                            <td>-</td>
-                            <td>-</td>
-                            <td>이월</td>
-                            <td>전월이월</td>
-                            <td></td>
-                            <td style="text-align:left !important;">전월 이월금액</td>
-                            <td class="money-cell-print">@startBalance.ToString("N0")</td>
-                            <td class="money-cell-print">-</td>
-                            <td class="money-cell-print">@startBalance.ToString("N0")</td>
-                        </tr>
-
-                        @foreach (var item in mg.OrderBy(x => x.Date).ThenBy(x => x.Id))
-                        {
-                            running += item.Income - item.Expense;
-                            monthIn += item.Income;
-                            monthEx += item.Expense;
-
-                            <tr>
-                                <td>@seq</td>
-                                <td>@item.Date.ToString("MM-dd")</td>
-                                <td>@item.Type</td>
-                                <td>@item.Category</td>
-                                <td>@item.SubCategory</td>
-                                <td style="text-align:left !important;">@item.Description</td>
-                                <td class="money-cell-print">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
-                                <td class="money-cell-print">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
-                                <td class="money-cell-print">@running.ToString("N0")</td>
-                            </tr>
-                            seq++;
-                        }
-
-                        <tr style="background-color:#f9f9f9 !important; font-weight:bold;">
-                            <td colspan="6" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
-                            <td class="money-cell-print">@monthIn.ToString("N0")</td>
-                            <td class="money-cell-print">@monthEx.ToString("N0")</td>
-                            <td class="money-cell-print">@running.ToString("N0")</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        }
-    }
+    @* 지면은 웹 인쇄와 같은 컴포넌트를 쓴다. 기준은 웹이다. *@
+    <LedgerPrintSheet Mode="@(IsReceiptMode ? "Receipt" : "Ledger")"
+                      Entries="_view.Entries"
+                      PriorEntries="_view.Entries"
+                      CarryOver="_view.CarryOver"
+                      DeptName="@_deptLabel"
+                      ReceiptTargets="_receiptTargets"
+                      ReceiptsPerSheet="Per"
+                      IncludeReceiptImage="WithImage" />
 }
 </div>
 
