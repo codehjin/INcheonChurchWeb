@@ -1283,38 +1283,46 @@
     private void ToggleEditSelection(int id, ChangeEventArgs e) { if ((bool)(e.Value ?? false)) _editSelectedIds.Add(id); else _editSelectedIds.Remove(id); }
     private void ToggleAllEdit(ChangeEventArgs e) { if ((bool)(e.Value ?? false)) foreach (var i in _filtered_entries) _editSelectedIds.Add(i.Id); else _editSelectedIds.Clear(); }
 
+    // 🚀 삭제·일괄수정은 화면이 고른 Id 만 넘기고, 부서 범위 판정은 서비스가 한다.
+    //    (조회와 같은 규칙 — 권한 밖의 행은 쿼리에 잡히지 않아 손대지 못한다.)
+    private int UserDeptId => CurrentUser?.DepartmentId ?? 0;
+    private bool UserCanViewAll => CurrentUser?.CanViewAll == true;
+
     private async Task DeleteSingle(int id)
     {
-        using var context = DbContextFactory.CreateDbContext();
         if (await JSRuntime.ConfirmAsync("이 항목을 삭제하시겠습니까?"))
         {
-            var t = await context.Transactions.FindAsync(id);
-            if (t != null) { context.Transactions.Remove(t); await context.SaveChangesAsync(); await LoadData(); }
+            if (!await Accounting.DeleteTransactionAsync(id, UserDeptId, UserCanViewAll))
+            {
+                await JSRuntime.AlertAsync("삭제할 수 없는 항목입니다. (다른 부서의 내역이거나 이미 삭제되었습니다)");
+                return;
+            }
+            await LoadData();
         }
     }
 
     private async Task DeleteSelected()
     {
-        using var context = DbContextFactory.CreateDbContext();
         if (await JSRuntime.ConfirmAsync($"선택한 {_editSelectedIds.Count}항목을 삭제하시겠습니까?"))
         {
-            var ts = await context.Transactions.Where(t => _editSelectedIds.Contains(t.Id)).ToListAsync();
-            context.Transactions.RemoveRange(ts); await context.SaveChangesAsync(); await LoadData();
+            int requested = _editSelectedIds.Count;
+            int deleted = await Accounting.DeleteTransactionsAsync(_editSelectedIds, UserDeptId, UserCanViewAll);
+            if (deleted < requested)
+                await JSRuntime.AlertAsync($"{deleted}건을 삭제했습니다. 담당 부서가 아닌 {requested - deleted}건은 제외되었습니다.");
+            await LoadData();
         }
     }
 
     private async Task ApplyBulkEdit()
     {
-        using var context = DbContextFactory.CreateDbContext();
         if (_editSelectedIds.Count > 0 && !string.IsNullOrEmpty(_bulkCategory))
         {
-            var ts = await context.Transactions.Where(t => _editSelectedIds.Contains(t.Id)).ToListAsync();
-            foreach (var t in ts)
-            {
-                t.Category = _bulkCategory;
-                if (!string.IsNullOrWhiteSpace(_bulkSubCategory)) t.SubCategory = _bulkSubCategory.Trim();
-            }
-            await context.SaveChangesAsync(); _bulkCategory = ""; _bulkSubCategory = ""; await LoadData();
+            int requested = _editSelectedIds.Count;
+            int updated = await Accounting.BulkUpdateCategoryAsync(
+                _editSelectedIds, _bulkCategory, _bulkSubCategory, UserDeptId, UserCanViewAll);
+            if (updated < requested)
+                await JSRuntime.AlertAsync($"{updated}건을 수정했습니다. 담당 부서가 아닌 {requested - updated}건은 제외되었습니다.");
+            _bulkCategory = ""; _bulkSubCategory = ""; await LoadData();
         }
     }
 

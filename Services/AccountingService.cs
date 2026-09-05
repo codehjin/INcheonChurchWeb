@@ -92,6 +92,16 @@ namespace INcheonChurchWeb.Services
             if (canViewAll) return viewDeptId;
             return userDeptId > 0 ? userDeptId : NoDepartmentSentinel;
         }
+
+        // 🚀 Id 만 받아 행을 고치거나 지우는 작업(단건 삭제·선택 삭제·일괄수정·인라인 편집)에
+        //    쓰는 범위 제한. 화면이 넘긴 Id 는 조작될 수 있으므로 조회와 똑같은 규칙으로
+        //    대상을 좁힌다. 권한 밖의 행은 아예 쿼리에 잡히지 않아 손대지 못한다.
+        private static IQueryable<LedgerEntry> ScopeToDepartment(
+            IQueryable<LedgerEntry> query, int userDeptId, bool canViewAll)
+        {
+            int scope = ResolveViewDepartmentId(0, userDeptId, canViewAll);
+            return scope == 0 ? query : query.Where(t => t.DepartmentId == scope);
+        }
         // =========================================================
         // [1-1] 보조금 현황 계산 로직
         // =========================================================

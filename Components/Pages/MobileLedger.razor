@@ -911,6 +911,7 @@ else
                 await Accounting.SaveLedgerEntryEditAsync(
                     _edit.Id, _eDate, _eType, _eCategory, _eSubCategory,
                     _eDescription, _eNote, _eAmount.Value,
+                    CurrentUser?.DepartmentId ?? 0, CanPickDept,
                     CanPickDept ? _eDeptId : null);
             }
 
@@ -925,7 +926,7 @@ else
         if (_edit == null || !CanEdit || IsNewEntry) return;
         if (!await JSRuntime.ConfirmAsync("이 항목을 삭제하시겠습니까?")) return;
 
-        await Accounting.DeleteTransactionAsync(_edit.Id);
+        await Accounting.DeleteTransactionAsync(_edit.Id, CurrentUser?.DepartmentId ?? 0, CanPickDept);
         _edit = null;
         await LoadAsync();
     }

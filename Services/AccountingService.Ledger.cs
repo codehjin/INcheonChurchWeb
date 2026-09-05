@@ -80,10 +80,59 @@ namespace INcheonChurchWeb.Services
             using var db = _dbFactory.CreateDbContext();
             var ex = await db.Transactions.FindAsync(entry.Id); if (ex != null) { if (string.IsNullOrEmpty(entry.Note)) entry.Note = ""; db.Entry(ex).CurrentValues.SetValues(entry); await db.SaveChangesAsync(); }
         }
-        public async Task DeleteTransactionAsync(int id)
+        // 단건 삭제. 권한 밖의 Id 면 아무것도 지우지 않고 false 를 돌려준다.
+        public async Task<bool> DeleteTransactionAsync(int id, int userDeptId, bool canViewAll)
         {
             using var db = _dbFactory.CreateDbContext();
-            var target = await db.Transactions.FindAsync(id); if (target != null) { db.Transactions.Remove(target); await db.SaveChangesAsync(); }
+
+            var target = await ScopeToDepartment(db.Transactions.Where(t => t.Id == id), userDeptId, canViewAll)
+                .FirstOrDefaultAsync();
+            if (target == null) return false;
+
+            db.Transactions.Remove(target);
+            await db.SaveChangesAsync();
+            return true;
+        }
+
+        // 선택 삭제. 실제로 지운 건수를 돌려준다(권한 밖의 Id 는 조용히 빠진다).
+        public async Task<int> DeleteTransactionsAsync(IEnumerable<int> ids, int userDeptId, bool canViewAll)
+        {
+            var idList = ids?.Distinct().ToList() ?? new List<int>();
+            if (idList.Count == 0) return 0;
+
+            using var db = _dbFactory.CreateDbContext();
+
+            var targets = await ScopeToDepartment(
+                db.Transactions.Where(t => idList.Contains(t.Id)), userDeptId, canViewAll).ToListAsync();
+            if (targets.Count == 0) return 0;
+
+            db.Transactions.RemoveRange(targets);
+            await db.SaveChangesAsync();
+            return targets.Count;
+        }
+
+        // 분류 일괄수정. 실제로 고친 건수를 돌려준다.
+        // 세부(subCategory)가 비어 있으면 각 행의 기존 값을 그대로 둔다 — 기존 규칙 유지.
+        public async Task<int> BulkUpdateCategoryAsync(IEnumerable<int> ids, string category,
+                                                       string? subCategory, int userDeptId, bool canViewAll)
+        {
+            var idList = ids?.Distinct().ToList() ?? new List<int>();
+            if (idList.Count == 0 || string.IsNullOrWhiteSpace(category)) return 0;
+
+            using var db = _dbFactory.CreateDbContext();
+
+            var targets = await ScopeToDepartment(
+                db.Transactions.Where(t => idList.Contains(t.Id)), userDeptId, canViewAll).ToListAsync();
+            if (targets.Count == 0) return 0;
+
+            foreach (var t in targets)
+            {
+                t.Category = category;
+                if (!string.IsNullOrWhiteSpace(subCategory)) t.SubCategory = subCategory.Trim();
+            }
+
+            await db.SaveChangesAsync();
+            return targets.Count;
         }
 
         // =========================================================
@@ -201,15 +250,20 @@ namespace INcheonChurchWeb.Services
         }
 
         // 장부 한 건 수정 — 회계연도·분기는 날짜에서 다시 계산하고, 증빙 경로·감사 표시는 건드리지 않는다.
-        public async Task SaveLedgerEntryEditAsync(int id, DateTime date, string type, string? category,
+        // 권한 밖의 Id 면 아무것도 고치지 않고 false 를 돌려준다.
+        public async Task<bool> SaveLedgerEntryEditAsync(int id, DateTime date, string type, string? category,
                                                    string? subCategory, string description, string? note,
-                                                   decimal amount, int? departmentId = null)
+                                                   decimal amount, int userDeptId, bool canViewAll,
+                                                   int? departmentId = null)
         {
             using var db = _dbFactory.CreateDbContext();
-            var ex = await db.Transactions.FindAsync(id);
-            if (ex == null) return;
 
-            if (departmentId.HasValue && departmentId.Value > 0) ex.DepartmentId = departmentId.Value;
+            var ex = await ScopeToDepartment(db.Transactions.Where(t => t.Id == id), userDeptId, canViewAll)
+                .FirstOrDefaultAsync();
+            if (ex == null) return false;
+
+            // 부서 이동은 전체 조회 권한자만 할 수 있다. 아니면 남의 부서로 넘길 수 있다.
+            if (canViewAll && departmentId.HasValue && departmentId.Value > 0) ex.DepartmentId = departmentId.Value;
 
             ex.Date = date;
             ex.Type = type;
@@ -225,6 +279,7 @@ namespace INcheonChurchWeb.Services
             ex.Quarter = await GetQuarterNumberAsync(ex.DepartmentId, ex.FiscalYear, date);
 
             await db.SaveChangesAsync();
+            return true;
         }
 
         // ══════════════════════════════════════════════════════════════
