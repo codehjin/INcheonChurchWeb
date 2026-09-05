@@ -1,0 +1,219 @@
+@page "/matching"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject FileService FileService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>장부 매칭</PageTitle>
+
+<style>
+    /* 10 장부 매칭 */
+    /* 가로 스크롤 대신 3열 격자로 아래로 쌓는다 */
+    .mm-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+        padding: 2px 0 12px;
+    }
+    .mm-rc {
+        min-width: 0; border: none; background: var(--ma-bg); border-radius: 12px; padding: 0 0 8px;
+        overflow: hidden; cursor: pointer; box-shadow: var(--ma-shadow-card); text-align: left;
+    }
+    .mm-rc.on { box-shadow: 0 0 0 2px var(--ma-brand); }
+    .mm-rc-img {
+        width: 100%; height: 76px; background: var(--ma-bg-inset);
+        display: flex; align-items: center; justify-content: center; color: var(--ma-muted); font-size: 20px;
+    }
+    .mm-rc-img img { width: 100%; height: 100%; object-fit: cover; }
+    .mm-rc-date { font-size: 12px; color: var(--ma-muted); padding: 6px 8px 0; }
+    .mm-rc-amount { font-size: 13px; font-weight: 700; padding: 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .mm-entry.on { background: var(--ma-brand-soft); }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (!CanMatch)
+{
+    <div class="ma-empty">
+        <i class="bi bi-lock"></i>
+        <div class="main">이 화면을 볼 수 있는 권한이 없습니다.</div>
+        <div class="sub">관리자에게 문의하세요.</div>
+    </div>
+}
+else
+{
+    <div class="ma-header">
+        <h2 class="ma-title">장부 매칭</h2>
+        <button class="ma-header-action ma-push-right" disabled="@_isBusy" @onclick="AutoMatch">자동매치</button>
+    </div>
+
+    <p class="ma-sub">증빙 없는 장부 @(_entries.Count)건 · 미연결 영수증 @(_receipts.Count)건</p>
+
+    @if (_isLoading)
+    {
+        <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+    }
+    else
+    {
+        <div class="ma-section-title" style="margin-top:0;">미연결된 영수증</div>
+        @if (!_receipts.Any())
+        {
+            <div class="ma-empty" style="padding:32px 20px;">
+                <i class="bi bi-images"></i>
+                <div class="main">미연결된 영수증이 없습니다.</div>
+            </div>
+        }
+        else
+        {
+            <div class="mm-grid">
+                @foreach (var r in _receipts)
+                {
+                    var rr = r;
+                    <button type="button" class="mm-rc @(_selectedReceiptId == rr.Id ? "on" : "")"
+                            @onclick="() => _selectedReceiptId = rr.Id">
+                        <span class="mm-rc-img">
+                            @if (!string.IsNullOrEmpty(rr.ImagePath))
+                            {
+                                <img src="@rr.ImagePath" alt="영수증" />
+                            }
+                            else
+                            {
+                                <i class="bi bi-receipt"></i>
+                            }
+                        </span>
+                        <span class="mm-rc-date">@rr.ReceiptDate.ToString("MM-dd")</span>
+                        <span class="mm-rc-amount">@rr.Amount.ToString("N0")</span>
+                    </button>
+                }
+            </div>
+        }
+
+        <div class="ma-section-title">증빙 없는 장부 내역</div>
+        @if (!_entries.Any())
+        {
+            <div class="ma-empty" style="padding:32px 20px;">
+                <i class="bi bi-inbox"></i>
+                <div class="main">증빙 없는 장부 내역이 없습니다.</div>
+            </div>
+        }
+        else
+        {
+            <div class="ma-card">
+                @foreach (var e in _entries)
+                {
+                    var ee = e;
+                    <button type="button" class="ma-row tappable mm-entry @(_selectedEntryId == ee.Id ? "on" : "")"
+                            @onclick="() => _selectedEntryId = ee.Id">
+                        <span class="ma-row-body">
+                            <span class="ma-row-main">@MainLabel(ee)</span>
+                            <span class="ma-row-sub">@ee.Date.ToString("yyyy-MM-dd")</span>
+                        </span>
+                        <span class="ma-row-right">
+                            <span class="ma-amount @(ee.Income > 0 ? "income" : "expense")">@Signed(ee)</span>
+                        </span>
+                    </button>
+                }
+            </div>
+        }
+    }
+
+    <div class="ma-bottom">
+        <span class="ma-sub" style="margin:0;flex:1;min-width:0;">선택된 항목 @(_selectedReceiptId > 0 ? 1 : 0) · @(_selectedEntryId > 0 ? 1 : 0)</span>
+        <button class="ma-btn primary narrow" disabled="@(_isBusy || _selectedReceiptId == 0 || _selectedEntryId == 0)" @onclick="MatchSingle">
+            @if (_isBusy)
+            {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+            }
+            <span>건별매치</span>
+        </button>
+    </div>
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private List<UploadedReceipt> _receipts = new();
+    private List<LedgerEntry> _entries = new();
+    private List<Department> _departments = new();
+
+    private int _selectedReceiptId, _selectedEntryId;
+    private bool _isLoading = true, _isBusy;
+
+    // 감사·일반조회는 장부를 편집할 수 없으므로 매칭도 하지 않는다
+    private bool CanMatch => CurrentUser?.CanEditLedger == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null || !CanMatch) { _isLoading = false; return; }
+        _departments = await Accounting.GetDepartmentsAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var (receipts, entries) = await Accounting.GetMatchingDataAsync(CurrentUser.DepartmentId);
+            _receipts = receipts;
+            _entries = entries;
+            _selectedReceiptId = 0;
+            _selectedEntryId = 0;
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task MatchSingle()
+    {
+        if (CurrentUser == null || _selectedReceiptId == 0 || _selectedEntryId == 0) return;
+
+        _isBusy = true;
+        try
+        {
+            var entry = _entries.FirstOrDefault(e => e.Id == _selectedEntryId);
+            string deptName = _departments.FirstOrDefault(d => d.Id == (entry?.DepartmentId ?? 0))?.Name ?? "알수없음";
+
+            bool ok = await Accounting.MatchReceiptAsync(FileService, _selectedReceiptId, _selectedEntryId, deptName);
+            if (!ok)
+            {
+                await JSRuntime.AlertAsync("해당 장부 내역을 찾을 수 없습니다. 삭제되었을 수 있습니다.");
+                return;
+            }
+
+            await JSRuntime.AlertAsync("영수증이 장부 내역과 성공적으로 연결되었습니다!");
+            await LoadAsync();
+        }
+        finally { _isBusy = false; }
+    }
+
+    private async Task AutoMatch()
+    {
+        if (CurrentUser == null) return;
+        _isBusy = true;
+        try
+        {
+            int count = await Accounting.AutoMatchReceiptsAsync(CurrentUser.DepartmentId);
+            await JSRuntime.AlertAsync($"자동 매칭 완료: {count}건 연결.");
+            await LoadAsync();
+        }
+        finally { _isBusy = false; }
+    }
+
+    private static string MainLabel(LedgerEntry t)
+    {
+        var cat = string.IsNullOrWhiteSpace(t.Category) ? GlobalConstants.CategoryUnclassified : t.Category.Trim();
+        var sub = t.SubCategory?.Trim();
+        return string.IsNullOrWhiteSpace(sub) ? cat : $"{cat} · {sub}";
+    }
+
+    private static string Signed(LedgerEntry t) =>
+        t.Income > 0 ? "+" + t.Income.ToString("N0") : "-" + t.Expense.ToString("N0");
+}

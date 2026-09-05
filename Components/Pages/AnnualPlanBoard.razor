@@ -20,6 +20,32 @@
     .ap-head-title { font-weight: 700; color: #1b1c15; font-family: 'Manrope', sans-serif; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin-bottom: 0.25rem; }
     .ap-head-sub { color: #4e4637; font-size: 1.2rem; margin-bottom: 0; }
 
+    .ap-search { position: relative; width: 100%; margin-bottom: 0.7rem; }
+    .ap-search-input {
+        width: 100%; height: 42px; padding: 0 2.5rem 0 2.4rem;
+        border: 1px solid var(--outline-variant); border-radius: 0.6rem;
+        background: var(--surface-lowest); font-size: 0.95rem; color: var(--on-surface);
+    }
+    .ap-search-input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px rgba(120, 86, 0, 0.2); }
+    .ap-search-icon {
+        position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%);
+        color: var(--on-surface-muted); font-size: 0.85rem; pointer-events: none;
+    }
+    .ap-search-clear {
+        position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
+        border: none; background: none; color: var(--on-surface-muted); cursor: pointer;
+        padding: 0.35rem; line-height: 1; font-size: 0.8rem;
+    }
+    .ap-search-banner {
+        display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+        background: var(--surface-low); border-radius: 0.6rem; padding: 0.55rem 0.9rem;
+        margin-bottom: 0.9rem; font-size: 0.85rem; color: var(--on-surface-sub);
+    }
+    .ap-year-badge {
+        font-size: 0.7rem; font-weight: 700; color: var(--primary-gold);
+        background: var(--surface-mid); border-radius: 9999px; padding: 0.1rem 0.45rem; margin-right: 0.35rem;
+    }
+
     .ap-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
     .ap-select {
         height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
@@ -145,9 +171,33 @@
         }
     </div>
 
+    @* ── 검색 ── *@
+    <div class="ap-search">
+        <i class="bi bi-search ap-search-icon"></i>
+        <input type="text" class="ap-search-input"
+               placeholder="행사명 · 추진 내용 · 날짜(2026-07-28) · 분기(3분기)로 검색"
+               @bind="_search" @bind:event="oninput" @bind:after="OnSearchChangedAsync" />
+        @if (IsSearching)
+        {
+            <button class="ap-search-clear" title="검색 지우기" @onclick="ClearSearch">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        }
+    </div>
+
+    @if (IsSearching)
+    {
+        <div class="ap-search-banner">
+            <i class="bi bi-funnel"></i>
+            <span><b>‘@_search.Trim()’</b> 검색 결과 @(_visiblePlans.Count)건 · 전체 연도</span>
+            <button class="ap-chip" style="margin-left:auto;" @onclick="ClearSearch">검색 해제</button>
+        </div>
+    }
+
     @* ── 필터 ── *@
     <div class="ap-filters">
-        <select class="ap-select" @onchange="OnYearChanged">
+        <select class="ap-select" @onchange="OnYearChanged" disabled="@IsSearching"
+                title="@(IsSearching ? "검색 중에는 전체 연도를 조회합니다" : "")">
             @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 3; y--)
             {
                 <option value="@y" selected="@(y == _targetYear)">@(y)년</option>
@@ -212,7 +262,13 @@
                 <div class="ap-card @StatusClass(p.Status)" @onclick="() => OpenEdit(p)">
                     <div class="ap-card-top">
                         <span class="ap-badge @StatusBadge(p.Status)">@StatusLabel(p.Status)</span>
-                        <span class="ap-card-when">@WhenLabel(p)</span>
+                        <span class="ap-card-when">
+                            @if (IsSearching)
+                            {
+                                <span class="ap-year-badge">@p.FiscalYear</span>
+                            }
+                            @WhenLabel(p)
+                        </span>
                     </div>
                     <div class="ap-card-title">@p.Title</div>
                     <div class="ap-card-figs">
@@ -222,7 +278,7 @@
                 </div>
             }
 
-            @if (_canEdit)
+            @if (_canEdit && !IsSearching)
             {
                 <div class="ap-add-card" @onclick="OpenAdd">
                     <i class="bi bi-plus-lg"></i>
@@ -231,9 +287,9 @@
             }
         </div>
 
-        @if (!_visiblePlans.Any() && !_canEdit)
+        @if (!_visiblePlans.Any())
         {
-            <div class="ap-empty">등록된 연간 계획이 없습니다.</div>
+            <div class="ap-empty">@(IsSearching ? "검색 결과가 없습니다." : "등록된 연간 계획이 없습니다.")</div>
         }
     }
 
@@ -504,6 +560,12 @@
     private List<AnnualPlan> _visiblePlans = new();
     private List<string> _eventCategories = new();   // 예산·장부의 지출 카테고리(=행사명) 제안 목록
 
+    // ── 검색 ── 검색어가 있으면 연도 선택을 무시하고 전체 연도를 대상으로 한다.
+    private string _search = "";
+    private List<AnnualPlan> _searchPool = new();    // 전체 연도 캐시 (첫 검색 때 한 번만 로드)
+    private bool _searchPoolLoaded = false;
+    private bool IsSearching => !string.IsNullOrWhiteSpace(_search);
+
     // 🚀 과거 연도 실적 (행사명 선택 시 자동 조회). 최근 연도부터.
     //   "작년엔 얼마 잡고 얼마 썼나"를 계획 세우는 순간에 보여준다.
     private List<(int Year, decimal Budget, decimal Spent, decimal Income)> _history = new();
@@ -565,13 +627,54 @@
         else
             _allPlans = await Accounting.GetAnnualPlansAsync(_viewDeptId, _targetYear);
 
+        _searchPoolLoaded = false;   // 부서·연도가 바뀌면 검색 캐시를 버린다
+        if (IsSearching) await EnsureSearchPoolAsync();
+
         ApplyFilter();
         _isLoading = false;
     }
 
+    // 전체 연도 데이터를 한 번만 불러와 캐시한다.
+    private async Task EnsureSearchPoolAsync()
+    {
+        if (_searchPoolLoaded) return;
+
+        if (_canPickDept && CurrentUser?.IsSystemAdmin == true && _viewDeptId == 0)
+            _searchPool = await Accounting.GetAllAnnualPlansAllYearsAsync();
+        else
+            _searchPool = await Accounting.GetAnnualPlansAllYearsAsync(_viewDeptId);
+
+        _searchPoolLoaded = true;
+    }
+
+    private async Task OnSearchChangedAsync()
+    {
+        if (IsSearching) await EnsureSearchPoolAsync();
+        ApplyFilter();
+    }
+
+    private void ClearSearch()
+    {
+        _search = "";
+        ApplyFilter();
+    }
+
     private void ApplyFilter()
     {
-        IEnumerable<AnnualPlan> q = _allPlans;
+        IEnumerable<AnnualPlan> q = IsSearching ? _searchPool : _allPlans;
+
+        // 검색어 토큰은 AND로 겹쳐 적용한다.
+        foreach (var token in BoardSearch.Parse(_search))
+        {
+            var t = token;   // 람다가 루프 변수를 캡처하지 않도록 복사
+            q = t.Kind switch
+            {
+                SearchTokenKind.Quarter => q.Where(p => p.Quarter == t.Quarter),
+                SearchTokenKind.Year => q.Where(p => p.FiscalYear == t.Year),
+                SearchTokenKind.Text => q.Where(p => BoardSearch.MatchesText(t, p.Title, p.Description)),
+                _ => q.Where(p => BoardSearch.MatchesDate(t, p.EventDate, p.EndDate)),
+            };
+        }
 
         if (_filterQuarter != 0)
             q = q.Where(p => p.Quarter == _filterQuarter);
@@ -579,7 +682,9 @@
         if (_filterStatus.HasValue)
             q = q.Where(p => p.Status == _filterStatus.Value);
 
-        _visiblePlans = q.ToList();
+        _visiblePlans = IsSearching
+            ? q.OrderByDescending(p => p.FiscalYear).ThenBy(p => p.Quarter).ThenBy(p => p.WeekNo).ToList()
+            : q.ToList();
     }
 
     private void SetStatus(PlanStatus? s) { _filterStatus = s; ApplyFilter(); }
@@ -687,7 +792,7 @@
     private async Task DeletePlan()
     {
         if (_editing.Id == 0) return;
-        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 계획을 삭제할까요?");
+        bool ok = await JSRuntime.ConfirmAsync("이 계획을 삭제할까요?");
         if (!ok) return;
         await Accounting.DeleteAnnualPlanAsync(_editing.Id, CurrentUser?.Username);
         _showModal = false;
@@ -843,12 +948,7 @@
 
         ws.SheetView.FreezeRows(1);
 
-        using var ms = new MemoryStream();
-        wb.SaveAs(ms);
-        var bytes = ms.ToArray();
-
-        await JSRuntime.InvokeVoidAsync("downloadExcelFile",
-            $"연간계획_{_targetYear}_{_currentDeptName}.xlsx", Convert.ToBase64String(bytes));
+        await JSRuntime.DownloadExcelAsync(wb, $"연간계획_{_targetYear}_{_currentDeptName}.xlsx");
     }
 
     // 파일 선택 → 파싱 → 미리보기 목록 생성
@@ -985,7 +1085,7 @@
             _showImport = false;
             _importRows.Clear();
             await LoadPlans();
-            await JSRuntime.InvokeVoidAsync("alert", $"{n}건이 등록되었습니다.");
+            await JSRuntime.AlertAsync($"{n}건이 등록되었습니다.");
         }
         catch (Exception ex)
         {

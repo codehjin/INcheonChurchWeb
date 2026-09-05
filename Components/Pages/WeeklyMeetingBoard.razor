@@ -17,6 +17,28 @@
     .wm-head-title { font-weight: 700; color: #1b1c15; font-family: 'Manrope', sans-serif; font-size: clamp(1.5rem, 3vw, 2rem); letter-spacing: -0.02em; margin-bottom: 0.25rem; }
     .wm-head-sub { color: #4e4637; font-size: 1.2rem; margin-bottom: 0; }
 
+    .wm-search { position: relative; width: 100%; margin-bottom: 0.7rem; }
+    .wm-search-input {
+        width: 100%; height: 42px; padding: 0 2.5rem 0 2.4rem;
+        border: 1px solid var(--outline-variant); border-radius: 0.6rem;
+        background: var(--surface-lowest); font-size: 0.95rem; color: var(--on-surface);
+    }
+    .wm-search-input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px rgba(120, 86, 0, 0.2); }
+    .wm-search-icon {
+        position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%);
+        color: var(--on-surface-muted); font-size: 0.85rem; pointer-events: none;
+    }
+    .wm-search-clear {
+        position: absolute; right: 0.55rem; top: 50%; transform: translateY(-50%);
+        border: none; background: none; color: var(--on-surface-muted); cursor: pointer;
+        padding: 0.35rem; line-height: 1; font-size: 0.8rem;
+    }
+    .wm-search-banner {
+        display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+        background: var(--surface-low); border-radius: 0.6rem; padding: 0.55rem 0.9rem;
+        margin-bottom: 0.9rem; font-size: 0.85rem; color: var(--on-surface-sub);
+    }
+
     .wm-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.25rem; }
     .wm-select {
         height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.5rem;
@@ -112,9 +134,33 @@
         }
     </div>
 
+    @* ── 검색 ── *@
+    <div class="wm-search">
+        <i class="bi bi-search wm-search-icon"></i>
+        <input type="text" class="wm-search-input"
+               placeholder="행사명 · 회의 내용 · 날짜(2026-07-28) · 분기(3분기)로 검색"
+               @bind="_search" @bind:event="oninput" @bind:after="OnSearchChangedAsync" />
+        @if (IsSearching)
+        {
+            <button class="wm-search-clear" title="검색 지우기" @onclick="ClearSearch">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        }
+    </div>
+
+    @if (IsSearching)
+    {
+        <div class="wm-search-banner">
+            <i class="bi bi-funnel"></i>
+            <span><b>‘@_search.Trim()’</b> 검색 결과 @(_visible.Count)건 · 전체 연도</span>
+            <button class="wm-chip" style="margin-left:auto;" @onclick="ClearSearch">검색 해제</button>
+        </div>
+    }
+
     @* ── 필터 ── *@
     <div class="wm-filters">
-        <select class="wm-select" @onchange="OnYearChanged">
+        <select class="wm-select" @onchange="OnYearChanged" disabled="@IsSearching"
+                title="@(IsSearching ? "검색 중에는 전체 연도를 조회합니다" : "")">
             @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 3; y--)
             {
                 <option value="@y" selected="@(y == _targetYear)">@(y)년</option>
@@ -151,10 +197,17 @@
     {
         <div class="wm-empty">
             <i class="bi bi-journal-x" style="font-size:1.8rem; display:block; margin-bottom:0.5rem; opacity:0.5;"></i>
-            등록된 회의록이 없습니다.
-            @if (_canEdit)
+            @if (IsSearching)
             {
-                <text> 우측 상단 [기록 추가]로 시작하세요.</text>
+                <text>검색 결과가 없습니다.</text>
+            }
+            else
+            {
+                <text>등록된 회의록이 없습니다.</text>
+                @if (_canEdit)
+                {
+                    <text> 우측 상단 [기록 추가]로 시작하세요.</text>
+                }
             }
         </div>
     }
@@ -164,7 +217,11 @@
         {
             <div class="wm-group">
                 <div class="wm-group-head">
-                    <div class="wm-date-badge @(g.Key == _latestDate ? "" : "old")">
+                    <div class="wm-date-badge @(!IsSearching && g.Key == _latestDate ? "" : "old")">
+                        @if (IsSearching)
+                        {
+                            <text>@(g.Key.Year)년 </text>
+                        }
                         @(g.Key.Month)월 @(g.Key.Day)일
                     </div>
                     <div class="wm-group-meta">@DayLabel(g.Key) · @g.Count()건</div>
@@ -315,6 +372,12 @@
     private List<WeeklyMeeting> _visible = new();
     private DateTime _latestDate;                      // 가장 최근 회의일 (배지 강조용)
 
+    // ── 검색 ── 검색어가 있으면 연도 선택을 무시하고 전체 기간을 대상으로 한다.
+    private string _search = "";
+    private List<WeeklyMeeting> _searchPool = new();   // 전체 연도 캐시 (첫 검색 때 한 번만 로드)
+    private bool _searchPoolLoaded = false;
+    private bool IsSearching => !string.IsNullOrWhiteSpace(_search);
+
     private bool _showModal = false;
     private WeeklyMeeting _editing = new();
     private DateTime _editDate = DateTime.Today;
@@ -345,18 +408,60 @@
         _all = await Accounting.GetWeeklyMeetingsAsync(_viewDeptId, _targetYear);
         _latestDate = _all.Any() ? _all.Max(m => m.MeetingDate.Date) : DateTime.MinValue;
 
+        _searchPoolLoaded = false;   // 부서·연도가 바뀌면 검색 캐시를 버린다
+        if (IsSearching) await EnsureSearchPoolAsync();
+
         ApplyFilter();
         _isLoading = false;
     }
 
+    // 전체 기간 회의록을 한 번만 불러와 캐시한다.
+    private async Task EnsureSearchPoolAsync()
+    {
+        if (_searchPoolLoaded) return;
+        _searchPool = await Accounting.GetWeeklyMeetingsAllYearsAsync(_viewDeptId);
+        _searchPoolLoaded = true;
+    }
+
+    private async Task OnSearchChangedAsync()
+    {
+        if (IsSearching) await EnsureSearchPoolAsync();
+        ApplyFilter();
+    }
+
+    private void ClearSearch()
+    {
+        _search = "";
+        ApplyFilter();
+    }
+
     private void ApplyFilter()
     {
-        _visible = _filterPlanId switch
+        IEnumerable<WeeklyMeeting> q = IsSearching ? _searchPool : _all;
+
+        // 검색어 토큰은 AND로 겹쳐 적용한다.
+        // WeeklyMeeting에는 회계연도·분기 컬럼이 없어 회의 날짜로 계산한다.
+        // (DateHelper는 부서별 분기 재정의를 반영하지 않지만, 검색은 결산이 아니라 찾기 용도라 기본 규칙으로 충분하다.)
+        foreach (var token in BoardSearch.Parse(_search))
         {
-            0 => _all,                                                    // 전체
-            -1 => _all.Where(m => m.AnnualPlanId == null).ToList(),       // 일반 안건만
-            _ => _all.Where(m => m.AnnualPlanId == _filterPlanId).ToList()
+            var t = token;   // 람다가 루프 변수를 캡처하지 않도록 복사
+            q = t.Kind switch
+            {
+                SearchTokenKind.Quarter => q.Where(m => DateHelper.GetQuarter(m.MeetingDate) == t.Quarter),
+                SearchTokenKind.Year => q.Where(m => DateHelper.CalculateFiscalYear(m.MeetingDate) == t.Year),
+                SearchTokenKind.Text => q.Where(m => BoardSearch.MatchesText(t, m.AnnualPlan?.Title, m.FreeMemo, m.EventLocation)),
+                _ => q.Where(m => BoardSearch.MatchesDate(t, m.MeetingDate)),
+            };
+        }
+
+        q = _filterPlanId switch
+        {
+            0 => q,                                                 // 전체
+            -1 => q.Where(m => m.AnnualPlanId == null),             // 일반 안건만
+            _ => q.Where(m => m.AnnualPlanId == _filterPlanId)
         };
+
+        _visible = q.ToList();
     }
 
     private async Task OnYearChanged(ChangeEventArgs e)
@@ -443,7 +548,7 @@
     private async Task DeleteMeeting()
     {
         if (_editing.Id == 0) return;
-        bool ok = await JSRuntime.InvokeAsync<bool>("confirm", "이 회의 기록을 삭제할까요?");
+        bool ok = await JSRuntime.ConfirmAsync("이 회의 기록을 삭제할까요?");
         if (!ok) return;
         await Accounting.DeleteWeeklyMeetingAsync(_editing.Id, CurrentUser?.Username);
         _showModal = false;

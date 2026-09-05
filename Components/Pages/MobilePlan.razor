@@ -1,0 +1,650 @@
+@page "/plan"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject IJSRuntime JSRuntime
+
+<PageTitle>계획</PageTitle>
+
+<style>
+    /* 11~13 계획 · 주간 회의록 */
+    .mp-year {
+        display: flex; align-items: center; height: 40px; border-radius: 999px; background: var(--ma-bg);
+        box-shadow: var(--ma-shadow-card); margin: 16px 0;
+    }
+    .mp-year button { width: 44px; height: 40px; border: none; background: none; color: var(--ma-text-sub); font-size: 14px; cursor: pointer; }
+    .mp-year .val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+
+    .mp-card {
+        background: var(--ma-bg); border-radius: 16px; box-shadow: var(--ma-shadow-card);
+        padding: 14px; margin-bottom: 12px; width: 100%; border: none; text-align: left; color: inherit; cursor: pointer;
+        display: block;
+    }
+    .mp-card:active { background: var(--ma-bg-sub); }
+    .mp-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .mp-card-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mp-card-when { font-size: 13px; color: var(--ma-muted); margin-top: 4px; }
+    .mp-figs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .mp-fig-label { font-size: 13px; color: var(--ma-text-sub); }
+    .mp-fig-value { font-size: clamp(15px, 4.6vw, 17px); font-weight: 700; white-space: nowrap; }
+    .mp-fig-value.income { color: var(--ma-income); }
+    .mp-history { border-top: 1px solid var(--ma-line); margin-top: 12px; padding-top: 10px; font-size: 13px; color: var(--ma-muted); }
+
+    .mp-group-head { font-size: 13px; color: var(--ma-muted); margin: 0 0 8px 4px; }
+    .mp-memo {
+        font-size: 16px; color: var(--ma-text); line-height: 1.5; margin: 8px 0;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap;
+    }
+    .mp-meta { font-size: 13px; color: var(--ma-muted); }
+    .mp-calc {
+        display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: 999px;
+        background: var(--ma-bg-inset); font-size: 13px; color: var(--ma-text-sub); margin-bottom: 16px;
+    }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (!CanView)
+{
+    <div class="ma-empty">
+        <i class="bi bi-lock"></i>
+        <div class="main">이 화면을 볼 수 있는 권한이 없습니다.</div>
+        <div class="sub">관리자에게 문의하세요.</div>
+    </div>
+}
+else
+{
+    <div class="ma-header">
+        <h2 class="ma-title">계획</h2>
+        <button class="ma-icon-btn ma-push-right" title="검색" @onclick="ToggleSearch"><i class="bi bi-search"></i></button>
+        @if (CanEdit)
+        {
+            <button class="ma-icon-btn" title="추가" @onclick="OpenAdd"><i class="bi bi-plus-lg"></i></button>
+        }
+    </div>
+
+    <div class="ma-segment" style="margin-bottom:16px;">
+        <button class="@(_tab == "plan" ? "on" : "")" @onclick='() => SwitchTab("plan")'>연간 계획</button>
+        <button class="@(_tab == "meeting" ? "on" : "")" @onclick='() => SwitchTab("meeting")'>주간 회의록</button>
+    </div>
+
+    @if (_showSearch)
+    {
+        <div class="ma-box" style="margin-bottom:16px;">
+            <i class="bi bi-search ma-chevron"></i>
+            <input type="text" placeholder="행사명 · 내용 검색" @bind="_keyword" @bind:event="oninput" />
+        </div>
+    }
+
+    @if (_tab == "plan")
+    {
+        <div class="mp-year">
+            <button title="이전 회계연도" @onclick="() => ChangeYear(-1)"><i class="bi bi-chevron-left"></i></button>
+            <span class="val">@_year</span>
+            <button title="다음 회계연도" @onclick="() => ChangeYear(1)"><i class="bi bi-chevron-right"></i></button>
+        </div>
+
+        <div class="ma-chips grid-5">
+            <button class="ma-chip @(_status == null ? "on" : "")" @onclick="() => SetStatus(null)">전체</button>
+            <button class="ma-chip @(_status == PlanStatus.Planned ? "on" : "")" @onclick="() => SetStatus(PlanStatus.Planned)">계획</button>
+            <button class="ma-chip @(_status == PlanStatus.InProgress ? "on" : "")" @onclick="() => SetStatus(PlanStatus.InProgress)">진행</button>
+            <button class="ma-chip @(_status == PlanStatus.Done ? "on" : "")" @onclick="() => SetStatus(PlanStatus.Done)">완료</button>
+            <button class="ma-chip @(_status == PlanStatus.Closed ? "on" : "")" @onclick="() => SetStatus(PlanStatus.Closed)">마감</button>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+        }
+        else if (!VisiblePlans.Any())
+        {
+            <div class="ma-empty">
+                <i class="bi bi-calendar3"></i>
+                <div class="main">등록된 계획이 없습니다.</div>
+                @if (CanEdit)
+                {
+                    <button class="ma-btn secondary" @onclick="OpenAdd">계획 추가</button>
+                }
+            </div>
+        }
+        else
+        {
+            @foreach (var p in VisiblePlans)
+            {
+                var pp = p;
+                <button type="button" class="mp-card" @onclick="() => OpenPlan(pp)">
+                    <span class="mp-card-top">
+                        <span class="mp-card-title">@pp.Title</span>
+                        <span class="ma-badge @StatusClass(pp.Status) ma-push-right">@StatusLabel(pp.Status)</span>
+                    </span>
+                    <span class="mp-card-when">@WhenLabel(pp)</span>
+                    <span class="mp-figs">
+                        <span>
+                            <span class="mp-fig-label">편성 지출</span><br />
+                            <span class="mp-fig-value">@pp.PlannedExpense.ToString("N0")</span>
+                        </span>
+                        <span>
+                            <span class="mp-fig-label">목표 수입</span><br />
+                            <span class="mp-fig-value income">@pp.PlannedIncome.ToString("N0")</span>
+                        </span>
+                    </span>
+                    @if (_lastYearByTitle.TryGetValue(pp.Title.Trim(), out var prev))
+                    {
+                        <span class="mp-history">작년 집행 @prev.ToString("N0") · 편차 @Diff(pp.PlannedExpense - prev)</span>
+                    }
+                </button>
+            }
+        }
+    }
+    else
+    {
+        <div class="ma-chips grid-2">
+            <button class="ma-chip @(_meetingFilter == 0 ? "on" : "")" @onclick="() => SetMeetingFilter(0)">전체 행사</button>
+            <button class="ma-chip @(_meetingFilter == -1 ? "on" : "")" @onclick="() => SetMeetingFilter(-1)">일반 안건만</button>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+        }
+        else if (!VisibleMeetings.Any())
+        {
+            <div class="ma-empty">
+                <i class="bi bi-journal-x"></i>
+                <div class="main">작성된 회의록이 없습니다.</div>
+                @if (CanEdit)
+                {
+                    <button class="ma-btn secondary" @onclick="OpenAdd">기록 추가</button>
+                }
+            </div>
+        }
+        else
+        {
+            @foreach (var g in VisibleMeetings.GroupBy(m => m.MeetingDate.Date).OrderByDescending(g => g.Key))
+            {
+                <div class="mp-group-head">@g.Key.ToString("yyyy년 M월 d일")</div>
+                @foreach (var m in g)
+                {
+                    var mm = m;
+                    <button type="button" class="mp-card" @onclick="() => OpenMeeting(mm)">
+                        <span class="ma-badge @(mm.AnnualPlanId == null ? "neutral" : "brand")">@(mm.AnnualPlan?.Title ?? "일반 안건")</span>
+                        <span class="mp-memo">@(string.IsNullOrWhiteSpace(mm.FreeMemo) ? "(내용 없음)" : mm.FreeMemo)</span>
+                        <span class="mp-meta">장소 @(string.IsNullOrWhiteSpace(mm.EventLocation) ? "미정" : mm.EventLocation)@(mm.ExpectedAttendees.HasValue ? $" · 예상 인원 {mm.ExpectedAttendees.Value}명" : "")</span>
+                    </button>
+                }
+            }
+        }
+    }
+
+}
+
+</div>
+
+@* ══════════ 12 연간 계획 작성 (바텀시트) ══════════ *@
+@if (_showPlanSheet)
+{
+    <div class="ma-wrap ma-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="ClosePlanSheet">
+        <div class="ma-sheet" @onclick:stopPropagation="true">
+            <div class="ma-handle"></div>
+            <div class="ma-sheet-head">
+                <h3 class="ma-sheet-title">@(_planEdit.Id == 0 ? "계획 추가" : "계획 수정")</h3>
+                @if (_planEdit.Id != 0 && CanEdit)
+                {
+                    <button class="ma-sheet-danger" @onclick="DeletePlan">삭제</button>
+                }
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">행사명</div>
+                <div class="ma-box focus">
+                    <input type="text" placeholder="예: 여름성경학교" @bind="_planEdit.Title" @bind:event="oninput" />
+                </div>
+            </div>
+
+            @if (_eventSuggestions.Any())
+            {
+                <div class="ma-chips">
+                    @foreach (var name in _eventSuggestions.Take(6))
+                    {
+                        var nn = name;
+                        <button class="ma-chip @(_planEdit.Title?.Trim() == nn ? "on" : "")" @onclick="() => PickEventName(nn)">@nn</button>
+                    }
+                </div>
+            }
+
+            <div class="ma-field ma-two">
+                <div>
+                    <div class="ma-label">시작일</div>
+                    <div class="ma-box"><input type="date" @bind="_planStart" @bind:after="RecalcPlanDate" /></div>
+                </div>
+                <div>
+                    <div class="ma-label">종료일</div>
+                    <div class="ma-box"><input type="date" @bind="_planEnd" /></div>
+                </div>
+            </div>
+            <div class="ma-caption" style="margin:-8px 0 16px;">종료일을 비우면 하루짜리 행사로 등록됩니다.</div>
+
+            @if (_planCalcLabel.Length > 0)
+            {
+                <div class="mp-calc">@_planCalcLabel</div>
+            }
+
+            <div class="ma-field ma-two">
+                <div>
+                    <div class="ma-label">목표 수입</div>
+                    <div class="ma-box">
+                        <input type="text" inputmode="numeric" class="amount income" placeholder="0" @bind="PlanIncomeText" @bind:event="onchange" />
+                        <span class="ma-unit">원</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="ma-label">편성 지출</div>
+                    <div class="ma-box">
+                        <input type="text" inputmode="numeric" class="amount" placeholder="0" @bind="PlanExpenseText" @bind:event="onchange" />
+                        <span class="ma-unit">원</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">추진 내용</div>
+                <div class="ma-box" style="align-items:stretch;">
+                    <textarea rows="4" placeholder="준비 항목을 적어두세요" @bind="_planEdit.Description"></textarea>
+                </div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">상태</div>
+                <div class="ma-chips grid-4" style="margin-bottom:0;">
+                    <button class="ma-chip @(_planEdit.Status == PlanStatus.Planned ? "on" : "")" @onclick="() => _planEdit.Status = PlanStatus.Planned">계획</button>
+                    <button class="ma-chip @(_planEdit.Status == PlanStatus.InProgress ? "on" : "")" @onclick="() => _planEdit.Status = PlanStatus.InProgress">진행</button>
+                    <button class="ma-chip @(_planEdit.Status == PlanStatus.Done ? "on" : "")" @onclick="() => _planEdit.Status = PlanStatus.Done">완료</button>
+                    <button class="ma-chip @(_planEdit.Status == PlanStatus.Closed ? "on" : "")" @onclick="() => _planEdit.Status = PlanStatus.Closed">마감</button>
+                </div>
+            </div>
+
+            @if (_sheetError.Length > 0)
+            {
+                <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_sheetError</div>
+            }
+
+            <div class="ma-actions">
+                <button class="ma-btn secondary narrow" @onclick="ClosePlanSheet">취소</button>
+                <button class="ma-btn primary" disabled="@_isSaving" @onclick="SavePlan">저장</button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ══════════ 13 주간 회의록 작성 (바텀시트) ══════════ *@
+@if (_showMeetingSheet)
+{
+    <div class="ma-wrap ma-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="CloseMeetingSheet">
+        <div class="ma-sheet" @onclick:stopPropagation="true">
+            <div class="ma-handle"></div>
+            <div class="ma-sheet-head">
+                <h3 class="ma-sheet-title">@(_meetingEdit.Id == 0 ? "기록 추가" : "회의록 수정")</h3>
+                @if (_meetingEdit.Id != 0 && CanEdit)
+                {
+                    <button class="ma-sheet-danger" @onclick="DeleteMeeting">삭제</button>
+                }
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">회의 날짜</div>
+                <div class="ma-box"><input type="date" @bind="_meetingDate" /></div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">연결할 행사</div>
+                <div class="ma-box">
+                    <select @bind="_meetingPlanId">
+                        <option value="0">일반 안건 (행사 없음)</option>
+                        @foreach (var p in _plans)
+                        {
+                            <option value="@p.Id">@p.Title</option>
+                        }
+                    </select>
+                    <i class="bi bi-chevron-down ma-chevron"></i>
+                </div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">회의 내용</div>
+                <div class="ma-box" style="align-items:stretch;">
+                    <textarea rows="5" placeholder="협의한 내용을 적어두세요" @bind="_meetingEdit.FreeMemo"></textarea>
+                </div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">행사 일시</div>
+                <div class="ma-box"><input type="date" @bind="_meetingEventDate" /></div>
+            </div>
+
+            <div class="ma-field ma-two">
+                <div>
+                    <div class="ma-label">장소</div>
+                    <div class="ma-box"><input type="text" placeholder="예: 본당 소예배실" @bind="_meetingEdit.EventLocation" /></div>
+                </div>
+                <div>
+                    <div class="ma-label">예상 인원</div>
+                    <div class="ma-box">
+                        <input type="number" min="0" placeholder="0" @bind="_meetingAttendees" />
+                        <span class="ma-unit">명</span>
+                    </div>
+                </div>
+            </div>
+
+            @if (_sheetError.Length > 0)
+            {
+                <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_sheetError</div>
+            }
+
+            <div class="ma-actions">
+                <button class="ma-btn secondary narrow" @onclick="CloseMeetingSheet">취소</button>
+                <button class="ma-btn primary" disabled="@_isSaving" @onclick="SaveMeeting">저장</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private string _tab = "plan";
+    private int _year = DateTime.Now.Year;
+    private PlanStatus? _status;
+    private int _meetingFilter = 0;      // 0 = 전체 행사, -1 = 일반 안건만
+    private bool _isLoading = true, _showSearch, _isSaving;
+    private string _keyword = "";
+    private string _sheetError = "";
+
+    private List<AnnualPlan> _plans = new();
+    private List<WeeklyMeeting> _meetings = new();
+    private List<string> _eventSuggestions = new();
+    private Dictionary<string, decimal> _lastYearByTitle = new();   // 행사명 → 작년 집행액
+
+    // 시트 상태
+    private bool _showPlanSheet, _showMeetingSheet;
+    private AnnualPlan _planEdit = new();
+    private DateTime _planStart = DateTime.Today;
+    private DateTime? _planEnd;
+    private string _planCalcLabel = "";
+
+    private WeeklyMeeting _meetingEdit = new();
+    private DateTime _meetingDate = DateTime.Today;
+    private int _meetingPlanId;
+    private DateTime? _meetingEventDate;
+    private int? _meetingAttendees;
+
+    private bool CanView => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+    private bool CanEdit => CurrentUser?.CanEdit == true;
+
+    private string PlanIncomeText
+    {
+        get => _planEdit.PlannedIncome > 0 ? _planEdit.PlannedIncome.ToString("N0") : "";
+        set => _planEdit.PlannedIncome = ParseWon(value);
+    }
+
+    private string PlanExpenseText
+    {
+        get => _planEdit.PlannedExpense > 0 ? _planEdit.PlannedExpense.ToString("N0") : "";
+        set => _planEdit.PlannedExpense = ParseWon(value);
+    }
+
+    private static decimal ParseWon(string? v)
+    {
+        var digits = new string((v ?? "").Where(char.IsDigit).ToArray());
+        return decimal.TryParse(digits, out var d) ? d : 0;
+    }
+
+    private IEnumerable<AnnualPlan> VisiblePlans
+    {
+        get
+        {
+            IEnumerable<AnnualPlan> q = _plans;
+            if (_status.HasValue) q = q.Where(p => p.Status == _status.Value);
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                var k = _keyword.Trim();
+                q = q.Where(p => (p.Title?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (p.Description?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            return q;
+        }
+    }
+
+    private IEnumerable<WeeklyMeeting> VisibleMeetings
+    {
+        get
+        {
+            IEnumerable<WeeklyMeeting> q = _meetings;
+            if (_meetingFilter == -1) q = q.Where(m => m.AnnualPlanId == null);
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                var k = _keyword.Trim();
+                q = q.Where(m => (m.AnnualPlan?.Title?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (m.FreeMemo?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                                 || (m.EventLocation?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+            return q;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null || !CanView) { _isLoading = false; return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            int deptId = CurrentUser.DepartmentId;
+            _plans = await Accounting.GetAnnualPlansAsync(deptId, _year);
+            _meetings = await Accounting.GetWeeklyMeetingsAsync(deptId, _year);
+            _eventSuggestions = await Accounting.GetCategorySuggestionsAsync(deptId, "Expense");
+
+            // 작년 실적 — 계획 카드의 "작년 집행 · 편차" 한 줄
+            var lastYear = await Accounting.GetEventFinancesAsync(deptId, _year - 1);
+            _lastYearByTitle = lastYear
+                .Where(f => f.Spent > 0)
+                .GroupBy(f => f.EventName.Trim())
+                .ToDictionary(g => g.Key, g => g.First().Spent);
+        }
+        finally { _isLoading = false; }
+    }
+
+    private void SwitchTab(string tab) { _tab = tab; _keyword = ""; }
+    private void ToggleSearch() { _showSearch = !_showSearch; if (!_showSearch) _keyword = ""; }
+    private void SetStatus(PlanStatus? s) => _status = s;
+    private void SetMeetingFilter(int f) => _meetingFilter = f;
+
+    private async Task ChangeYear(int offset)
+    {
+        _year += offset;
+        await LoadAsync();
+    }
+
+    private void OpenAdd()
+    {
+        if (!CanEdit) return;
+        _sheetError = "";
+        if (_tab == "plan")
+        {
+            _planEdit = new AnnualPlan { DepartmentId = CurrentUser!.DepartmentId, Status = PlanStatus.Planned };
+            _planStart = DateTime.Today;
+            _planEnd = null;
+            _planCalcLabel = "";
+            _showPlanSheet = true;
+            _ = RecalcPlanDate();
+        }
+        else
+        {
+            _meetingEdit = new WeeklyMeeting { DepartmentId = CurrentUser!.DepartmentId };
+            _meetingDate = DateTime.Today;
+            _meetingPlanId = 0;
+            _meetingEventDate = null;
+            _meetingAttendees = null;
+            _showMeetingSheet = true;
+        }
+    }
+
+    private void OpenPlan(AnnualPlan p)
+    {
+        if (!CanEdit) return;
+        _sheetError = "";
+        _planEdit = new AnnualPlan
+        {
+            Id = p.Id,
+            DepartmentId = p.DepartmentId,
+            Title = p.Title,
+            Description = p.Description,
+            PlannedIncome = p.PlannedIncome,
+            PlannedExpense = p.PlannedExpense,
+            Status = p.Status
+        };
+        _planStart = p.EventDate;
+        _planEnd = p.EndDate;
+        _showPlanSheet = true;
+        _ = RecalcPlanDate();
+    }
+
+    private void OpenMeeting(WeeklyMeeting m)
+    {
+        if (!CanEdit) return;
+        _sheetError = "";
+        _meetingEdit = new WeeklyMeeting
+        {
+            Id = m.Id,
+            DepartmentId = m.DepartmentId,
+            FreeMemo = m.FreeMemo,
+            EventLocation = m.EventLocation
+        };
+        _meetingDate = m.MeetingDate;
+        _meetingPlanId = m.AnnualPlanId ?? 0;
+        _meetingEventDate = m.EventDateTime;
+        _meetingAttendees = m.ExpectedAttendees;
+        _showMeetingSheet = true;
+    }
+
+    private void ClosePlanSheet() { _showPlanSheet = false; _sheetError = ""; }
+    private void CloseMeetingSheet() { _showMeetingSheet = false; _sheetError = ""; }
+
+    private void PickEventName(string name)
+    {
+        _planEdit.Title = name;
+    }
+
+    // 날짜에서 회계연도·분기·주차를 다시 계산해 읽기 전용 pill에 보여준다
+    private async Task RecalcPlanDate()
+    {
+        if (CurrentUser == null) return;
+        var info = await Accounting.CalcPlanDateInfoAsync(CurrentUser.DepartmentId, _planStart);
+        _planCalcLabel = $"{info.FiscalYear} 회계연도 · {info.Quarter}분기 · {info.WeekNo}주차";
+        _planEdit.FiscalYear = info.FiscalYear;
+        _planEdit.Quarter = info.Quarter;
+        _planEdit.WeekNo = info.WeekNo;
+    }
+
+    private async Task SavePlan()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        if (string.IsNullOrWhiteSpace(_planEdit.Title)) { _sheetError = "행사명을 입력해주세요."; return; }
+        if (_planEnd.HasValue && _planEnd.Value.Date < _planStart.Date) { _sheetError = "종료일이 시작일보다 빠릅니다."; return; }
+
+        _isSaving = true;
+        _sheetError = "";
+        try
+        {
+            await RecalcPlanDate();
+            _planEdit.EventDate = _planStart;
+            _planEdit.EndDate = _planEnd;
+            _planEdit.DepartmentId = CurrentUser.DepartmentId;
+
+            await Accounting.SaveAnnualPlanAsync(_planEdit, CurrentUser.Username);
+            _showPlanSheet = false;
+            await LoadAsync();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task DeletePlan()
+    {
+        if (!CanEdit || _planEdit.Id == 0 || CurrentUser == null) return;
+        if (!await JSRuntime.ConfirmAsync("이 계획을 삭제하시겠습니까?")) return;
+
+        await Accounting.DeleteAnnualPlanAsync(_planEdit.Id, CurrentUser.Username);
+        _showPlanSheet = false;
+        await LoadAsync();
+    }
+
+    private async Task SaveMeeting()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        if (string.IsNullOrWhiteSpace(_meetingEdit.FreeMemo)) { _sheetError = "회의 내용을 입력해주세요."; return; }
+
+        _isSaving = true;
+        _sheetError = "";
+        try
+        {
+            _meetingEdit.MeetingDate = _meetingDate;
+            _meetingEdit.AnnualPlanId = _meetingPlanId == 0 ? null : _meetingPlanId;
+            _meetingEdit.EventDateTime = _meetingEventDate;
+            _meetingEdit.ExpectedAttendees = _meetingAttendees;
+            _meetingEdit.DepartmentId = CurrentUser.DepartmentId;
+
+            await Accounting.SaveWeeklyMeetingAsync(_meetingEdit, CurrentUser.Username);
+            _showMeetingSheet = false;
+            await LoadAsync();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task DeleteMeeting()
+    {
+        if (!CanEdit || _meetingEdit.Id == 0 || CurrentUser == null) return;
+        if (!await JSRuntime.ConfirmAsync("이 회의록을 삭제하시겠습니까?")) return;
+
+        await Accounting.DeleteWeeklyMeetingAsync(_meetingEdit.Id, CurrentUser.Username);
+        _showMeetingSheet = false;
+        await LoadAsync();
+    }
+
+    // ── 표시 헬퍼 ──
+    private static string StatusLabel(PlanStatus s) => s switch
+    {
+        PlanStatus.Planned => "계획",
+        PlanStatus.InProgress => "진행",
+        PlanStatus.Done => "완료",
+        _ => "마감"
+    };
+
+    private static string StatusClass(PlanStatus s) => s switch
+    {
+        PlanStatus.InProgress => "brand",
+        PlanStatus.Done => "income",
+        PlanStatus.Planned => "neutral",
+        _ => "neutral"
+    };
+
+    private static string WhenLabel(AnnualPlan p)
+    {
+        string period = p.EndDate.HasValue && p.EndDate.Value.Date != p.EventDate.Date
+            ? $"{p.EventDate:yyyy-MM-dd} ~ {p.EndDate.Value:yyyy-MM-dd}"
+            : p.EventDate.ToString("yyyy-MM-dd");
+        return $"{period} · {p.Quarter}분기 · {p.WeekNo}주차";
+    }
+
+    private static string Diff(decimal v) => (v >= 0 ? "+" : "-") + Math.Abs(v).ToString("N0");
+}

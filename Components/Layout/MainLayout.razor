@@ -5,10 +5,21 @@
 @* 🚀 추가된 두 줄: 유저 복구를 위해 DB 컨텍스트 주입 *@
 @using Microsoft.EntityFrameworkCore
 @inject IDbContextFactory<INcheonChurchWeb.Data.AppDbContext> DbContextFactory
+@implements IDisposable
 @inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
 
 @* 🎨 레이아웃 정밀 교정 스타일 (부트스트랩/기존 CSS의 중첩 여백 강제 초기화) *@
 <style>
+    /* 모바일에서 웹 화면을 볼 때 상단 헤더에 뜨는 복귀 버튼 */
+    .ma-back-to-app {
+        display: inline-flex; align-items: center; gap: 4px;
+        min-height: 44px; padding: 0 10px 0 0; margin-right: 4px;
+        border: none; background: none; cursor: pointer;
+        color: #785600; font-size: 0.875rem; font-weight: 700; white-space: nowrap;
+    }
+    .ma-back-to-app i { font-size: 1.05rem; }
+
     /* 1. 부모 컨테이너: flex-start로 설정하여 사이 간격 벌어짐 방지 */
     .page {
         display: flex !important;
@@ -105,6 +116,13 @@
 
             @* 📱 모바일 전용 상단 헤더 *@
             <div class="mobile-top-header">
+                @if (ShowBackToApp)
+                {
+                    <button class="ma-back-to-app" title="앱 화면으로 돌아가기" @onclick="BackToApp">
+                        <i class="bi bi-arrow-left"></i>
+                        <span>앱으로</span>
+                    </button>
+                }
                 <div>
                     <div class="mobile-dept-name">@(_currentUser.Department?.Name ?? "소속없음")</div>
                     <div class="mobile-user-name">@_currentUser.Username 님</div>
@@ -119,47 +137,35 @@
                 </CascadingValue>
             </article>
 
-            @* 📱 모바일 전용 하단 탭 바 — 항목이 많아 가로 스크롤로 표시 *@
-            <nav class="mobile-bottom-nav">
-                <NavLink class="mobile-tab-item" href="" Match="NavLinkMatch.All">
-                    <i class="bi bi-grid-1x2-fill tab-icon"></i>
+            @* 📱 앱 하단 탭바 — 홈 · 장부 · [촬영] · 계획 · 더보기 (640px 이하에서만 보인다) *@
+            <nav class="ma-tabbar">
+                <NavLink class="ma-tab" ActiveClass="active" href="dashboard">
+                    <i class="bi bi-house-door"></i>
                     <span>홈</span>
                 </NavLink>
 
-                <NavLink class="mobile-tab-item" href="annual-plan">
-                    <i class="bi bi-calendar-event tab-icon"></i>
-                    <span>연간계획</span>
-                </NavLink>
-
-                <NavLink class="mobile-tab-item" href="weekly-meeting">
-                    <i class="bi bi-journal-text tab-icon"></i>
-                    <span>회의록</span>
-                </NavLink>
-
-                <NavLink class="mobile-tab-item" href="event-report">
-                    <i class="bi bi-clipboard-data tab-icon"></i>
-                    <span>보고서</span>
-                </NavLink>
-
-                @if (_currentUser?.CanEdit == true)
-                {
-                    <NavLink class="mobile-tab-item" href="expense-report-quarterly">
-                        <i class="bi bi-file-earmark-text-fill tab-icon"></i>
-                        <span>결의서</span>
-                    </NavLink>
-                }
-
-                @if (_currentUser?.CanAccessDataCollection == true)
-                {
-                    <NavLink class="mobile-tab-item" href="data-collection">
-                        <i class="bi bi-receipt-cutoff tab-icon"></i>
-                        <span>수집정리</span>
-                    </NavLink>
-                }
-
-                <NavLink class="mobile-tab-item" href="monthly">
-                    <i class="bi bi-book-half tab-icon"></i>
+                <NavLink class="ma-tab" ActiveClass="active" href="ledger">
+                    <i class="bi bi-journal-text"></i>
                     <span>장부</span>
+                </NavLink>
+
+                <div class="ma-tab-fab-slot">
+                    @if (_currentUser.CanAccessDataCollection)
+                    {
+                        <a class="ma-tab-fab" href="receipt" title="영수증 등록">
+                            <i class="bi bi-camera"></i>
+                        </a>
+                    }
+                </div>
+
+                <NavLink class="ma-tab" ActiveClass="active" href="plan">
+                    <i class="bi bi-calendar3"></i>
+                    <span>계획</span>
+                </NavLink>
+
+                <NavLink class="ma-tab" ActiveClass="active" href="more">
+                    <i class="bi bi-list"></i>
+                    <span>더보기</span>
                 </NavLink>
             </nav>
 
@@ -210,7 +216,8 @@
     (function ensureMinFontSize() {
         try {
             const minPx = 20;
-            if (!window.matchMedia('(min-width: 641px)').matches) return;
+            // 모바일·폴더블에서는 앱 디자인이 깨지므로 적용하지 않는다
+            if (!window.maViewport || window.maViewport.isMobile()) return;
 
             // Run after a short delay to allow Blazor to render dynamic content
             window.addEventListener('load', () => {
@@ -220,6 +227,8 @@
                         const el = elems[i];
                         // skip script/style/meta elements
                         if (!(el instanceof Element)) continue;
+                        // 모바일 앱 디자인을 그대로 재현한 화면은 최소 폰트 강제에서 제외
+                        if (el.closest('[data-no-font-bump]')) continue;
                         const cs = window.getComputedStyle(el);
                         if (!cs) continue;
                         const fs = parseFloat(cs.fontSize || '0');
@@ -240,6 +249,96 @@
 @code {
     private User? _currentUser;
     private bool _isLoaded = false;
+
+    // ── 화면 폭에 따른 웹 ↔ 앱 화면 자동 교체 ──
+    // 같은 기능의 두 화면을 짝지어 두고, 접속 기기 폭(640px)에 맞는 쪽으로 보낸다.
+    private static readonly Dictionary<string, string> WebToApp = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [""] = "dashboard",
+        ["monthly"] = "ledger",
+        ["annual-plan"] = "plan",
+        ["weekly-meeting"] = "plan",
+        ["expense-report-quarterly"] = "resolution",
+        ["event-report"] = "event-report-app",
+        ["settings"] = "settings-app",
+    };
+
+    private static readonly Dictionary<string, string> AppToWeb = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["dashboard"] = "",
+        ["ledger"] = "monthly",
+        ["plan"] = "annual-plan",
+        ["resolution"] = "expense-report-quarterly",
+        ["event-report-app"] = "event-report",
+        ["settings-app"] = "settings",
+        ["more"] = "settings",
+        ["receipt"] = "data-collection",
+        ["matching"] = "data-collection",
+    };
+
+    // 앱 화면 경로 (이 목록에 없으면 웹 화면으로 본다)
+    private static readonly HashSet<string> AppRoutes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dashboard", "ledger", "ledger/print", "receipt", "matching", "plan",
+        "resolution", "event-report-app", "more", "settings-app",
+    };
+
+    private bool _isMobile;
+    private DotNetObjectReference<MainLayout>? _selfRef;
+
+    // 모바일에서 웹 화면(수집 및 정리, 인쇄용 장부 등)을 보고 있으면 돌아갈 길을 준다
+    private bool ShowBackToApp => _isMobile && !AppRoutes.Contains(CurrentPath);
+
+    private void BackToApp()
+    {
+        // 짝이 되는 앱 화면이 있으면 그쪽으로, 없으면 더보기로 돌아간다
+        var target = WebToApp.TryGetValue(CurrentPath, out var app) ? app : "more";
+        Nav.NavigateTo(target);
+    }
+
+    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        _selfRef?.Dispose();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e) => _ = SyncRouteAsync();
+
+    [JSInvokable]
+    public async Task OnViewportChanged(bool isMobile)
+    {
+        _isMobile = isMobile;
+        await SyncRouteAsync();
+        StateHasChanged();
+    }
+
+    private string CurrentPath =>
+        Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
+
+    // ?web=1 이면 모바일에서도 웹 화면을 그대로 본다 (더보기 → "웹 화면으로 열기")
+    private bool WantsWebView => Nav.Uri.Contains("web=1", StringComparison.OrdinalIgnoreCase);
+
+    // 현재 경로가 반대쪽 기기 전용이면 짝이 되는 화면으로 옮긴다.
+    private async Task SyncRouteAsync()
+    {
+        if (_currentUser == null) return;
+
+        string path = CurrentPath;
+        string? target = null;
+
+        if (_isMobile && !WantsWebView && WebToApp.TryGetValue(path, out var app)) target = app;
+        else if (!_isMobile && AppToWeb.TryGetValue(path, out var web)) target = web;
+
+        // 앱 화면에서는 레이아웃의 모바일 상단 헤더를 숨긴다
+        bool isAppRoute = AppToWeb.ContainsKey(target ?? path);
+        try { await JSRuntime.InvokeVoidAsync("maViewport.setAppRoute", _isMobile && isAppRoute); }
+        catch { }
+
+        if (target != null && !string.Equals(target, path, StringComparison.OrdinalIgnoreCase))
+            Nav.NavigateTo(target, replace: true);
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -262,8 +361,17 @@
             }
             catch { }
 
+            try
+            {
+                _selfRef ??= DotNetObjectReference.Create(this);
+                _isMobile = await JSRuntime.InvokeAsync<bool>("maViewport.register", _selfRef);
+            }
+            catch { }
+
             _isLoaded = true;
             StateHasChanged();
+
+            await SyncRouteAsync();
         }
     }
 
@@ -273,11 +381,12 @@
         // 🚀 로그인 성공 시 객체가 아닌 '아이디'만 저장합니다.
         await BrowserStorage.SetAsync("LoggedInUsername", user.Username);
         StateHasChanged();
+        await SyncRouteAsync();
     }
 
     private async Task Logout()
     {
-        bool confirm = await JSRuntime.InvokeAsync<bool>("confirm", "로그아웃 하시겠습니까?");
+        bool confirm = await JSRuntime.ConfirmAsync("로그아웃 하시겠습니까?");
         if (confirm)
         {
             _currentUser = null;

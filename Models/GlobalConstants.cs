@@ -9,6 +9,9 @@ namespace INcheonChurchWeb.Models
         public const long MaxBankImportFileSize = 10 * 1024 * 1024;
         public const long MaxLedgerImportFileSize = 20 * 1024 * 1024;
 
+        // AI 영수증 판독 월 무료 제공량
+        public const int OcrMonthlyFreeLimit = 1000;
+
         public const string TransactionTypeIncome = "수입";
         public const string TransactionTypeExpense = "지출";
         public const string CategoryUnclassified = "미분류";

@@ -1,0 +1,336 @@
+/* =======================================================
+   📱 모바일 앱 디자인 시스템 (핸드오프 스펙 이식용)
+   - 접두사 .ma- / 토큰은 .ma-wrap 안에서만 유효하다.
+   - 기존 웹 테마(크림 배경)와 섞이지 않도록 페이지 루트에 .ma-wrap을 둔다.
+   ======================================================= */
+
+/* =======================================================
+   📱 모바일 앱 디자인 토큰 — 단일 정의
+   페이지별 CSS(.ml-* / .mh-* / .rc-*)도 이 값을 참조한다.
+   ======================================================= */
+:root {
+    --ma-bg: #FFFFFF;
+    --ma-bg-sub: #F6F6F4;
+    --ma-bg-inset: #EFEFEA;
+    --ma-text: #1B1C15;
+    --ma-text-sub: #4E4637;
+    --ma-muted: #8A8577;
+    --ma-line: #E7E5DE;
+    --ma-brand: #785600;
+    --ma-brand-deep: #5A4000;
+    --ma-brand-soft: #F3EAD6;
+    --ma-income: #174577;
+    --ma-income-soft: #E5EDF6;
+    --ma-expense: #BA1A1A;
+    --ma-expense-soft: #FBE9E9;
+    --ma-warn: #B26B00;
+    --ma-shadow-card: 0 2px 12px rgba(30, 28, 20, 0.05);
+    --ma-shadow-float: 0 8px 28px rgba(30, 28, 20, 0.12);
+}
+
+
+.ma-wrap {
+    max-width: 430px;
+    margin: 0 auto;
+    padding: 0 20px 20px;
+    background: var(--ma-bg-sub);
+    color: var(--ma-text);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.5;
+    min-height: 100%;
+    overflow-x: hidden;      /* 어떤 요소가 넘쳐도 가로 스크롤바가 생기지 않게 */
+}
+
+.ma-wrap.on-white { background: var(--ma-bg); }
+
+/* ── 헤더 ── */
+.ma-header {
+    display: flex; align-items: center; gap: 4px; height: 56px;
+    background: var(--ma-bg); margin: 0 -20px; padding: 0 20px;
+}
+.ma-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin: 0; }
+.ma-back {
+    width: 44px; height: 44px; margin-left: -10px; border: none; background: none;
+    color: var(--ma-text); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.ma-icon-btn {
+    position: relative; width: 44px; height: 44px; border: none; background: none; color: var(--ma-text);
+    font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.ma-header-action {
+    border: none; background: none; color: var(--ma-brand);
+    font-size: 16px; font-weight: 600; min-height: 44px; padding: 0 6px; cursor: pointer;
+}
+.ma-push-right { margin-left: auto; }
+
+/* ── 섹션 · 캡션 ── */
+.ma-section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; margin: 24px 0 12px; }
+.ma-sub { font-size: 14px; color: var(--ma-text-sub); margin: 0 0 16px; }
+.ma-caption { font-size: 12px; color: var(--ma-muted); margin-top: 8px; }
+
+/* ── 칩 · 세그먼트 ── */
+.ma-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.ma-chip {
+    height: 36px; display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 12px; border: none; border-radius: 999px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    background: var(--ma-bg-inset); color: var(--ma-text-sub);
+    min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ma-chip.on { background: var(--ma-brand-soft); color: var(--ma-brand); font-weight: 600; }
+
+/* 칩을 균등 폭 격자로 — 개수가 많아도 들쭉날쭉하게 접히지 않고 세로로 정돈된다 */
+.ma-chips.grid-2, .ma-chips.grid-3, .ma-chips.grid-4, .ma-chips.grid-5 { display: grid; }
+.ma-chips.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.ma-chips.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.ma-chips.grid-4 { grid-template-columns: repeat(4, 1fr); }
+.ma-chips.grid-5 { grid-template-columns: repeat(5, 1fr); }
+.ma-chips.grid-5 .ma-chip { padding: 0 4px; font-size: 13px; }
+.ma-chips.grid-4 .ma-chip { padding: 0 8px; }
+
+/* 한 줄 고정 요약 칩 — 넘치면 각 칩이 줄어들며 말줄임 */
+.ma-chips.oneline { flex-wrap: nowrap; }
+.ma-chips.oneline .ma-chip { flex: 0 1 auto; }
+
+.ma-segment { display: flex; height: 40px; border-radius: 12px; background: var(--ma-bg-inset); padding: 4px; gap: 4px; }
+.ma-segment button { flex: 1; border: none; background: none; border-radius: 9px; font-size: 14px; color: var(--ma-text-sub); cursor: pointer; }
+.ma-segment button.on { background: #FFFFFF; font-weight: 600; color: var(--ma-text); box-shadow: 0 1px 3px rgba(30, 28, 20, 0.08); }
+
+/* ── 카드 · 리스트 행 ── */
+.ma-card { background: var(--ma-bg); border-radius: 16px; box-shadow: var(--ma-shadow-card); overflow: hidden; margin-bottom: 16px; }
+.ma-card-pad { padding: 14px; }
+.ma-row {
+    display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 14px;
+    width: 100%; border: none; background: none; text-align: left; color: inherit;
+}
+.ma-row + .ma-row { border-top: 1px solid var(--ma-line); }
+.ma-row.tappable { cursor: pointer; }
+.ma-row.tappable:active { background: var(--ma-bg-sub); }
+.ma-row-body { flex: 1; min-width: 0; }
+.ma-row-main { font-size: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ma-row-sub { font-size: 13px; color: var(--ma-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ma-row-right { flex-shrink: 0; text-align: right; }
+.ma-amount { font-size: clamp(15px, 4.4vw, 17px); font-weight: 700; white-space: nowrap; }
+.ma-amount.income { color: var(--ma-income); }
+.ma-amount.expense { color: var(--ma-expense); }
+.ma-chevron { color: var(--ma-muted); font-size: 13px; flex-shrink: 0; }
+
+/* ── 뱃지 ── */
+.ma-badge {
+    flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px;
+    border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.ma-badge.neutral { background: var(--ma-bg-inset); color: var(--ma-muted); }
+.ma-badge.brand { background: var(--ma-brand-soft); color: var(--ma-brand); }
+.ma-badge.warn { background: var(--ma-brand-soft); color: var(--ma-warn); }
+.ma-badge.income { background: var(--ma-income-soft); color: var(--ma-income); }
+.ma-badge.expense { background: var(--ma-expense-soft); color: var(--ma-expense); }
+
+/* ── 진행률 ── */
+.ma-track { height: 8px; border-radius: 999px; background: var(--ma-bg-inset); margin-top: 10px; overflow: hidden; }
+.ma-fill { height: 100%; border-radius: 999px; background: var(--ma-brand); }
+.ma-fill.income { background: var(--ma-income); }
+.ma-fill.over { background: var(--ma-expense); }
+
+/* ── 입력 ── */
+.ma-field { margin-bottom: 16px; }
+.ma-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ma-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 6px; }
+.ma-box {
+    position: relative; display: flex; align-items: center; gap: 8px;
+    min-height: 52px; border-radius: 12px; background: var(--ma-bg-inset); padding: 0 14px;
+}
+.ma-box.focus { background: #FFFFFF; box-shadow: inset 0 0 0 2px var(--ma-brand); }
+.ma-box input, .ma-box select, .ma-box textarea {
+    flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+    font-size: 16px; color: var(--ma-text); font-variant-numeric: tabular-nums; font-family: inherit;
+}
+.ma-box input, .ma-box select { height: 50px; }
+.ma-box select { appearance: none; cursor: pointer; }
+.ma-box textarea { padding: 14px 0; resize: vertical; line-height: 1.5; }
+.ma-box input::placeholder, .ma-box textarea::placeholder { color: var(--ma-muted); }
+.ma-box .amount { text-align: right; font-size: 22px; font-weight: 700; white-space: nowrap; }
+.ma-box .amount.expense { color: var(--ma-expense); }
+.ma-box .amount.income { color: var(--ma-income); }
+.ma-unit { font-size: 16px; color: var(--ma-text-sub); white-space: nowrap; }
+
+/* 읽기 전용 정보 행 */
+.ma-readonly { display: flex; align-items: baseline; gap: 12px; padding: 14px; }
+.ma-readonly + .ma-readonly { border-top: 1px solid var(--ma-line); }
+.ma-readonly .k { flex: 0 0 auto; min-width: 96px; max-width: 60%; font-size: 14px; color: var(--ma-text-sub); }
+.ma-readonly .v { flex: 1; min-width: 0; font-size: 16px; text-align: right; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── 버튼 ── */
+.ma-btn {
+    width: 100%; min-height: 52px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.ma-btn.primary { background: var(--ma-brand); color: #FFFFFF; }
+.ma-btn.primary:active { background: var(--ma-brand-deep); }
+.ma-btn.secondary { background: var(--ma-bg-inset); color: var(--ma-text); }
+.ma-btn.danger { background: var(--ma-expense); color: #FFFFFF; }
+.ma-btn.ghost { background: none; color: var(--ma-text-sub); }
+.ma-btn:disabled { opacity: 0.55; cursor: default; }
+.ma-btn + .ma-btn { margin-top: 8px; }
+.ma-actions { display: flex; gap: 8px; }
+.ma-actions .ma-btn { margin-top: 0; }
+.ma-actions .ma-btn.narrow { flex: 0 0 120px; }
+
+/* 하단 고정 액션 바 — 앱의 하단 탭바 위에 붙는다 */
+.ma-bottom {
+    position: sticky; bottom: 0; display: flex; gap: 8px; align-items: center;
+    background: var(--ma-bg); border-top: 1px solid var(--ma-line);
+    margin: 8px -20px 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
+}
+.ma-bottom .ma-btn { margin-top: 0; }
+.ma-bottom .ma-btn.narrow { flex: 0 0 140px; }
+
+/* ── 빈 상태 ── */
+.ma-empty { text-align: center; padding: 56px 20px; color: var(--ma-text-sub); }
+.ma-empty i { font-size: 40px; color: var(--ma-muted); display: block; margin-bottom: 12px; }
+.ma-empty .main { font-size: 16px; margin-bottom: 16px; }
+.ma-empty .sub { font-size: 13px; color: var(--ma-muted); }
+
+/* 오류 배너 */
+.ma-alert {
+    background: var(--ma-expense-soft); color: var(--ma-expense); border-radius: 12px;
+    padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+}
+
+/* ── 바텀시트 ── */
+.ma-dim {
+    position: fixed; inset: 0; background: rgba(27, 28, 21, 0.45); z-index: 200;
+    display: flex; align-items: flex-end; justify-content: center;
+}
+.ma-sheet {
+    width: 100%; max-width: 430px; max-height: 85vh; overflow-y: auto;
+    background: var(--ma-bg); border-radius: 20px 20px 0 0;
+    padding: 0 20px calc(20px + env(safe-area-inset-bottom));
+    box-shadow: var(--ma-shadow-float);
+}
+.ma-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--ma-line); margin: 10px auto 14px; }
+.ma-sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+.ma-sheet-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+.ma-sheet-danger {
+    margin-left: auto; border: none; background: none; color: var(--ma-expense);
+    font-size: 16px; font-weight: 600; min-height: 44px; padding: 0 6px; cursor: pointer;
+}
+
+/* ── 촬영 FAB ── */
+.ma-fab {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    bottom: calc(20px + env(safe-area-inset-bottom));
+    width: 60px; height: 60px; border-radius: 999px; border: none;
+    background: var(--ma-brand); color: #FFFFFF; font-size: 24px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    box-shadow: var(--ma-shadow-float), 0 0 0 6px #FFF;
+    z-index: 96;
+}
+.ma-fab:active { background: var(--ma-brand-deep); }
+
+/* ── 썸네일 ── */
+.ma-thumb {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: var(--ma-bg-inset);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+    color: var(--ma-muted); font-size: 16px;
+}
+.ma-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+@media (max-width: 640px), (pointer: coarse) and (max-width: 1024px) {
+    .ma-fab { bottom: calc(var(--mobile-nav-height) + 12px); }
+    .ma-bottom { bottom: var(--mobile-nav-height); }
+}
+
+/* =======================================================
+   📱 앱 하단 탭바 (5슬롯 + 가운데 촬영 FAB)
+   - 640px 이하에서만 보인다. 기존 .mobile-bottom-nav를 대체한다.
+   ======================================================= */
+.ma-tabbar {
+    display: none;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: #FFFFFF;
+    border-top: 1px solid #E7E5DE;
+    z-index: 120;            /* 사이드바(100)·페이지 내 sticky 요소보다 위 */
+}
+
+.ma-tab {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    height: var(--mobile-nav-height);
+    text-decoration: none;
+    color: #8A8577;
+    font-size: 11px;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+.ma-tab i { font-size: 22px; line-height: 1; }
+.ma-tab span { line-height: 1.2; white-space: nowrap; }
+.ma-tab.active { color: #785600; }
+.ma-tab.active span { font-weight: 600; }
+
+/* 가운데 촬영 버튼 — 탭바 위로 16px 솟는다 */
+.ma-tab-fab-slot {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+    height: var(--mobile-nav-height);
+}
+.ma-tab-fab {
+    position: absolute;
+    left: 50%;
+    top: -16px;
+    transform: translateX(-50%);
+    width: 60px; height: 60px;
+    border-radius: 999px;
+    border: none;
+    background: #785600;
+    color: #FFFFFF;
+    font-size: 24px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 28px rgba(30, 28, 20, 0.12), 0 0 0 6px #FFFFFF;
+    text-decoration: none;
+}
+.ma-tab-fab:active { background: #5A4000; }
+
+@media (max-width: 640px), (pointer: coarse) and (max-width: 1024px) {
+    .ma-tabbar { display: flex; align-items: flex-start; }
+}
+
+/* 앱 화면에서는 레이아웃의 모바일 상단 헤더를 숨긴다 (각 화면이 자체 헤더를 가진다) */
+body.ma-app-route .mobile-top-header { display: none !important; }
+body.ma-app-route .content.mobile-content { padding-top: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
+
+
+/* =======================================================
+   📱 폴더블 대응 — Galaxy Z Fold처럼 펼쳤을 때도 앱 화면으로
+   접힌 화면(≈344px)은 물론, 펼친 화면(≈690~900px)도 터치 기기이므로
+   1024px 이하 + coarse 포인터면 모바일 레이아웃을 강제한다.
+   (app.css보다 뒤에 로드되므로 !important로 데스크톱 규칙을 덮는다)
+   ======================================================= */
+@media (pointer: coarse) and (max-width: 1024px) {
+    body { background-color: var(--surface); }
+
+    .sidebar { display: none !important; }
+    .pc-top-bar { display: none !important; }
+    .main-content-area { margin-left: 0 !important; width: 100%; }
+
+    .mobile-top-header { display: flex !important; }
+
+    .content.mobile-content {
+        padding-bottom: calc(var(--mobile-nav-height) + 12px) !important;
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+}

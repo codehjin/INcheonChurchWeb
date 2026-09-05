@@ -1,0 +1,850 @@
+@page "/receipt"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@using Microsoft.AspNetCore.Components.Forms
+@inject FileService FileService
+@inject AccountingService Accounting
+@inject INcheonChurchWeb.Services.OcrService OcrService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>영수증 등록</PageTitle>
+
+<style>
+    /* ── 07·08 영수증 등록 — 모바일 앱 디자인 토큰 (이 페이지 안에서만 유효) ── */
+    .rc-wrap {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 0 20px 20px;
+        background: var(--ma-bg);
+        color: var(--ma-text);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.5;
+        overflow-x: hidden;
+    }
+
+    .rc-header { display: flex; align-items: center; gap: 8px; height: 56px; }
+    .rc-back {
+        width: 44px; height: 44px; margin-left: -10px; border: none; background: none;
+        color: var(--ma-text); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .rc-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin: 0; }
+    .rc-header-action {
+        margin-left: auto; border: none; background: none; color: var(--ma-brand);
+        font-size: 16px; font-weight: 600; min-height: 44px; padding: 0 6px; cursor: pointer;
+    }
+
+    /* AI 사용량 배너 */
+    .rc-quota { background: var(--ma-brand-soft); border-radius: 16px; padding: 14px 16px; margin-bottom: 16px; }
+    .rc-quota.exhausted { background: var(--ma-expense-soft); }
+    .rc-quota-row { display: flex; align-items: center; gap: 8px; }
+    .rc-quota-label { font-size: 14px; font-weight: 600; color: var(--ma-brand); min-width: 0; }
+    .rc-quota-value { margin-left: auto; font-size: 14px; font-weight: 700; color: var(--ma-brand); white-space: nowrap; }
+    .rc-quota.exhausted .rc-quota-label, .rc-quota.exhausted .rc-quota-value { color: var(--ma-expense); }
+    .rc-quota-track { height: 6px; border-radius: 999px; background: #FFFFFF; margin-top: 10px; overflow: hidden; }
+    .rc-quota-fill { height: 100%; border-radius: 999px; background: var(--ma-brand); }
+    .rc-quota-msg { font-size: 14px; font-weight: 600; color: var(--ma-expense); margin-top: 8px; }
+
+    /* 촬영 영역 */
+    .rc-capture {
+        position: relative; width: 100%; height: 265px; border: none;
+        background: var(--ma-bg-inset); border-radius: 16px; margin-bottom: 20px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 10px; text-align: center; padding: 16px; cursor: pointer;
+    }
+    .rc-capture i { font-size: 40px; color: var(--ma-brand); }
+    .rc-capture-main { font-size: 16px; font-weight: 600; color: var(--ma-text); }
+    .rc-capture-sub { font-size: 13px; color: var(--ma-muted); }
+    .rc-capture-thumb { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; }
+    .rc-reading {
+        position: absolute; inset: 0; border-radius: 16px;
+        background: rgba(255, 255, 255, 0.72);
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        font-size: 16px; font-weight: 600; color: var(--ma-text);
+    }
+
+    /* 미리보기(08) */
+    .rc-preview {
+        position: relative; width: 100%; height: 158px; background: var(--ma-bg-inset);
+        border-radius: 16px; margin-bottom: 16px; overflow: hidden;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    }
+    .rc-preview img { width: 100%; height: 100%; object-fit: contain; }
+    .rc-preview-empty { font-size: 13px; color: var(--ma-muted); }
+    .rc-preview-empty i { font-size: 28px; display: block; margin-bottom: 4px; }
+    .rc-expand {
+        position: absolute; top: 10px; right: 10px; width: 36px; height: 36px; border-radius: 999px;
+        border: none; background: #FFFFFF; color: var(--ma-text-sub); font-size: 14px;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05);
+    }
+
+    .rc-guide { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 16px; }
+    .rc-alert {
+        background: var(--ma-expense-soft); color: var(--ma-expense); border-radius: 12px;
+        padding: 12px 14px; font-size: 14px; font-weight: 600; margin-bottom: 16px;
+    }
+
+    /* 입력 */
+    .rc-field { margin-bottom: 16px; }
+    .rc-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 6px; }
+    .rc-box {
+        position: relative; display: flex; align-items: center; gap: 8px;
+        min-height: 52px; border-radius: 12px; background: var(--ma-bg-inset); padding: 0 14px;
+    }
+    .rc-box.focus { background: #FFFFFF; box-shadow: inset 0 0 0 2px var(--ma-brand); }
+    .rc-box.amount { min-height: 56px; }
+    .rc-input {
+        flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+        font-size: 16px; color: var(--ma-text); height: 50px; font-variant-numeric: tabular-nums;
+    }
+    .rc-input::placeholder { color: var(--ma-muted); }
+    .rc-input.amount {
+        text-align: right; font-size: 26px; font-weight: 700; color: var(--ma-expense);
+        height: 54px; white-space: nowrap;
+    }
+    .rc-unit { font-size: 16px; color: var(--ma-text-sub); white-space: nowrap; }
+    .rc-select {
+        flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+        font-size: 16px; color: var(--ma-text); height: 50px; appearance: none; cursor: pointer;
+    }
+    .rc-chevron { color: var(--ma-muted); font-size: 13px; pointer-events: none; }
+    .rc-ai {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: var(--ma-brand-soft); color: var(--ma-brand);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+
+    /* 하단 고정 액션 바 — 모바일 탭바 위에 붙는다 */
+    .rc-actions {
+        position: sticky; bottom: 0; display: flex; gap: 8px;
+        background: var(--ma-bg); border-top: 1px solid var(--ma-line);
+        padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+        margin: 8px -20px 0; padding-left: 20px; padding-right: 20px;
+    }
+    .rc-btn {
+        flex: 1; min-height: 52px; border: none; border-radius: 12px;
+        font-size: 16px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .rc-btn.primary { background: var(--ma-brand); color: #FFFFFF; }
+    .rc-btn.primary:active { background: var(--ma-brand-deep); }
+    .rc-btn.secondary { background: var(--ma-bg-inset); color: var(--ma-text); }
+    .rc-btn:disabled { opacity: 0.55; cursor: default; }
+
+    /* 09 일괄 업로드 */
+    .rc-summary {
+        background: var(--ma-bg); border-radius: 16px; padding: 14px 16px; margin-bottom: 16px;
+        box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05);
+    }
+    .rc-summary-row { display: flex; align-items: baseline; gap: 8px; }
+    .rc-summary-total { font-size: 17px; font-weight: 600; color: var(--ma-text); white-space: nowrap; }
+    .rc-summary-meta { margin-left: auto; font-size: 14px; color: var(--ma-text-sub); white-space: nowrap; }
+    .rc-progress { height: 8px; border-radius: 999px; background: var(--ma-bg-inset); margin-top: 10px; overflow: hidden; }
+    .rc-progress-fill { height: 100%; border-radius: 999px; background: var(--ma-brand); transition: width 0.4s ease-out; }
+
+    .rc-list { background: var(--ma-bg); border-radius: 16px; box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05); overflow: hidden; }
+    .rc-row {
+        display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 14px;
+        border: none; background: none; width: 100%; text-align: left; color: inherit;
+    }
+    .rc-row + .rc-row { border-top: 1px solid var(--ma-line); }
+    .rc-row.tappable { cursor: pointer; }
+    .rc-row.tappable:active { background: var(--ma-bg-sub); }
+    .rc-thumb {
+        flex-shrink: 0; width: 48px; height: 48px; border-radius: 8px; background: var(--ma-bg-inset);
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        color: var(--ma-muted); font-size: 20px;
+    }
+    .rc-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .rc-row-body { flex: 1; min-width: 0; }
+    .rc-row-name {
+        font-size: 14px; font-weight: 500; color: var(--ma-text);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rc-row-sub {
+        font-size: 13px; color: var(--ma-muted); margin-top: 2px;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .rc-badge {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px;
+        border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .rc-badge.pending { background: var(--ma-bg-inset); color: var(--ma-muted); }
+    .rc-badge.processing { background: var(--ma-brand-soft); color: var(--ma-brand); }
+    .rc-badge.success { background: #E5EDF6; color: #174577; }
+    .rc-badge.failed { background: var(--ma-expense-soft); color: var(--ma-expense); }
+
+    .rc-forbidden { text-align: center; padding: 64px 20px; color: var(--ma-text-sub); }
+    .rc-forbidden i { font-size: 40px; color: var(--ma-muted); display: block; margin-bottom: 12px; }
+    .rc-forbidden .main { font-size: 16px; margin-bottom: 6px; }
+    .rc-forbidden .sub { font-size: 13px; color: var(--ma-muted); }
+
+    @@media (max-width: 640px), (pointer: coarse) and (max-width: 1024px) {
+        /* 앱의 하단 탭바(64px) 바로 위에 액션 바를 붙인다 */
+        .rc-actions { bottom: var(--mobile-nav-height); }
+    }
+</style>
+
+<div class="rc-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="rc-forbidden"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (CurrentUser.CanAccessDataCollection != true)
+{
+    @* 권한 없음 상태 *@
+    <div class="rc-forbidden">
+        <i class="bi bi-lock"></i>
+        <div class="main">이 화면을 볼 수 있는 권한이 없습니다.</div>
+        <div class="sub">관리자에게 문의하세요.</div>
+    </div>
+}
+else if (_step == 1)
+{
+    @* ══════════ 07 영수증 촬영 · 업로드 ══════════ *@
+    <div class="rc-header">
+        <h2 class="rc-title">영수증 등록</h2>
+        <label class="rc-header-action" for="rcBatch" style="cursor:pointer;">여러 장</label>
+    </div>
+
+    <InputFile id="rcBatch" multiple OnChange="HandleFilesSelected" style="display:none;" accept="image/*" />
+
+    <div class="rc-quota @(IsQuotaExhausted ? "exhausted" : "")">
+        <div class="rc-quota-row">
+            <span class="rc-quota-label">이번 달 AI 자동 판독</span>
+            <span class="rc-quota-value">잔여 @QuotaRemaining.ToString("N0") / @QuotaTotal.ToString("N0")회</span>
+        </div>
+        <div class="rc-quota-track">
+            <div class="rc-quota-fill" style="width:@(QuotaPercent)%;"></div>
+        </div>
+        @if (IsQuotaExhausted)
+        {
+            <div class="rc-quota-msg">이번 달 무료 제공량을 모두 사용했습니다. 수동으로 입력해주세요.</div>
+        }
+    </div>
+
+    <InputFile id="rcCamera" OnChange="HandleFileSelected" style="display:none;" accept="image/*" capture="environment" />
+    <InputFile id="rcAlbum" OnChange="HandleFileSelected" style="display:none;" accept="image/*" />
+
+    <label for="rcAlbum" class="rc-capture">
+        @if (!string.IsNullOrEmpty(_previewUrl))
+        {
+            <img class="rc-capture-thumb" src="@_previewUrl" alt="선택한 영수증" />
+        }
+        else
+        {
+            <i class="bi bi-camera"></i>
+            <span class="rc-capture-main">여기를 눌러 사진 찾기</span>
+            <span class="rc-capture-sub">사진 선택 시 자동으로 날짜·금액·사용처를 인식합니다.</span>
+        }
+
+        @if (_isOcr)
+        {
+            <span class="rc-reading">
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                AI가 영수증 읽는 중...
+            </span>
+        }
+    </label>
+
+    @if (IsAdmin)
+    {
+        <div class="rc-field">
+            <div class="rc-label">4. 부서 선택 (관리자 필수)</div>
+            <div class="rc-box">
+                <select class="rc-select" @bind="_deptId">
+                    <option value="0">부서를 선택하세요</option>
+                    @foreach (var d in _depts)
+                    {
+                        <option value="@d.Id">@d.Name</option>
+                    }
+                </select>
+                <i class="bi bi-chevron-down rc-chevron"></i>
+            </div>
+        </div>
+    }
+
+    <div class="rc-actions">
+        <label class="rc-btn primary" for="rcCamera"><i class="bi bi-camera"></i>카메라로 촬영</label>
+        <label class="rc-btn secondary" for="rcAlbum"><i class="bi bi-images"></i>앨범에서 선택</label>
+    </div>
+}
+else if (_step == 2)
+{
+    @* ══════════ 08 OCR 결과 확인 · 보정 ══════════ *@
+    <div class="rc-header">
+        <button class="rc-back" @onclick="BackToCapture"><i class="bi bi-arrow-left"></i></button>
+        <h2 class="rc-title">내용 확인</h2>
+    </div>
+
+    <div class="rc-preview">
+        @if (!string.IsNullOrEmpty(_previewUrl))
+        {
+            <img src="@_previewUrl" alt="영수증 사진" />
+        }
+        else
+        {
+            <span class="rc-preview-empty"><i class="bi bi-receipt"></i>영수증 사진</span>
+        }
+        <button class="rc-expand" title="크게 보기" @onclick="OpenFullPreview"><i class="bi bi-arrows-fullscreen"></i></button>
+    </div>
+
+    @if (_ocrFailed)
+    {
+        <div class="rc-alert">자동 판독에 실패했습니다. 직접 입력해주세요.</div>
+    }
+    else
+    {
+        <div class="rc-guide">AI가 인식한 내용입니다. 틀린 부분은 직접 고쳐주세요.</div>
+    }
+
+    <div class="rc-field">
+        <div class="rc-label">1. 결제 날짜(필수입력)</div>
+        <div class="rc-box">
+            <input type="date" class="rc-input" @bind="_receipt.ReceiptDate" />
+            @if (_aiDate)
+            {
+                <span class="rc-ai">AI 인식</span>
+            }
+        </div>
+    </div>
+
+    <div class="rc-field">
+        <div class="rc-label">2. 결제 금액(필수입력)</div>
+        <div class="rc-box amount focus">
+            @if (_aiAmount)
+            {
+                <span class="rc-ai">AI 인식</span>
+            }
+            <input type="text" inputmode="numeric" class="rc-input amount" placeholder="0"
+                   @bind="AmountText" @bind:event="onchange" />
+            <span class="rc-unit">원</span>
+        </div>
+    </div>
+
+    <div class="rc-field">
+        <div class="rc-label">3. 사용처/내역(선택입력)</div>
+        <div class="rc-box">
+            <input type="text" class="rc-input" placeholder="예: ○○마트" @bind="_receipt.Description" />
+            @if (_aiVendor)
+            {
+                <span class="rc-ai">AI 인식</span>
+            }
+        </div>
+    </div>
+
+    @if (IsAdmin)
+    {
+        <div class="rc-field">
+            <div class="rc-label">4. 부서 선택 (관리자 필수)</div>
+            <div class="rc-box">
+                <select class="rc-select" @bind="_deptId">
+                    <option value="0">부서를 선택하세요</option>
+                    @foreach (var d in _depts)
+                    {
+                        <option value="@d.Id">@d.Name</option>
+                    }
+                </select>
+                <i class="bi bi-chevron-down rc-chevron"></i>
+            </div>
+        </div>
+    }
+
+    <div class="rc-actions">
+        <button class="rc-btn primary" disabled="@_isUploading" @onclick="Submit">
+            @if (_isUploading)
+            {
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                <span>업로드 중...</span>
+            }
+            else
+            {
+                <span>확인 완료 · 서버로 전송</span>
+            }
+        </button>
+    </div>
+}
+else
+{
+    @* ══════════ 09 일괄 업로드 진행 ══════════ *@
+    <div class="rc-header">
+        <button class="rc-back" @onclick="LeaveBatch"><i class="bi bi-arrow-left"></i></button>
+        <h2 class="rc-title">영수증 일괄 등록</h2>
+    </div>
+
+    <div class="rc-summary">
+        <div class="rc-summary-row">
+            <span class="rc-summary-total">총 @(_batch.Count)장</span>
+            <span class="rc-summary-meta">성공 @BatchSuccess · 실패 @BatchFailed · 대기 @BatchPending</span>
+        </div>
+        <div class="rc-progress">
+            <div class="rc-progress-fill" style="width:@(BatchPercent)%;"></div>
+        </div>
+    </div>
+
+    <div class="rc-list">
+        @for (int i = 0; i < _batch.Count; i++)
+        {
+            var idx = i;
+            var item = _batch[idx];
+            bool tappable = item.Status == ReceiptFileStatus.Failed && !_isBatchProcessing;
+
+            <button type="button" class="rc-row @(tappable ? "tappable" : "")"
+                    disabled="@(!tappable)" @onclick="() => OpenFailedItem(idx)">
+                <span class="rc-thumb">
+                    @if (!string.IsNullOrEmpty(item.ThumbUrl))
+                    {
+                        <img src="@item.ThumbUrl" alt="" />
+                    }
+                    else
+                    {
+                        <i class="bi bi-receipt"></i>
+                    }
+                </span>
+
+                <span class="rc-row-body">
+                    <span class="rc-row-name">@item.FileName</span>
+                    <span class="rc-row-sub">@BatchRowSub(item)</span>
+                </span>
+
+                @if (item.Status == ReceiptFileStatus.Pending)
+                {
+                    <span class="rc-badge pending">대기중</span>
+                }
+                else if (item.Status == ReceiptFileStatus.Processing)
+                {
+                    <span class="rc-badge processing">
+                        <span class="spinner-border spinner-border-sm" style="width:0.7rem;height:0.7rem;" role="status"></span>분석중
+                    </span>
+                }
+                else if (item.Status == ReceiptFileStatus.Success)
+                {
+                    <span class="rc-badge success">성공</span>
+                }
+                else
+                {
+                    <span class="rc-badge failed">실패/수동필요</span>
+                    <i class="bi bi-chevron-right rc-chevron"></i>
+                }
+            </button>
+        }
+    </div>
+
+    <div class="rc-actions">
+        @if (_isBatchProcessing)
+        {
+            <button class="rc-btn secondary" disabled>
+                <span class="spinner-border spinner-border-sm" role="status"></span>
+                <span>업로드 중...</span>
+            </button>
+        }
+        else
+        {
+            <button class="rc-btn primary" @onclick="LeaveBatch">완료</button>
+        }
+    </div>
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private const long MaxFileSize = GlobalConstants.MaxSingleFileSize;
+    private const long OcrMaxFileSize = 5 * 1024 * 1024;
+    private static int QuotaTotal => GlobalConstants.OcrMonthlyFreeLimit;
+
+    private const int MaxBatchFiles = 20;
+    private const long MaxBatchFileSize = GlobalConstants.MaxMultiFileSize;
+
+    private int _step = 1;                       // 1 = 촬영(07), 2 = 내용 확인(08), 3 = 일괄(09)
+    private int _ocrUsage;
+    private bool _isOcr;
+    private bool _isUploading;
+    private bool _ocrFailed;
+
+    private IBrowserFile? _selectedFile;
+    private byte[]? _selectedBytes;      // 선택 시 한 번만 읽어 둔다 (IBrowserFile 스트림은 재사용할 수 없다)
+    private string _selectedName = "";
+    private string? _previewUrl;
+
+    private UploadedReceipt _receipt = new() { ReceiptDate = DateTime.Today };
+    private decimal? _amount;
+    private bool _aiDate, _aiAmount, _aiVendor;  // AI 인식 뱃지 표시 근거
+
+    private List<Department> _depts = new();
+    private int _deptId;
+
+    // ── 09 일괄 업로드 ──
+    private List<ReceiptFileUploadModel> _batch = new();
+    private readonly Dictionary<int, byte[]> _batchBytes = new();   // 실패 건만 08에서 고칠 수 있게 원본을 들고 있는다
+    private bool _isBatchProcessing;
+    private int _fixingIndex = -1;                                  // 08이 일괄 목록의 몇 번째를 고치는 중인지
+
+    private bool IsAdmin => CurrentUser?.Role == "Admin";
+    private int QuotaRemaining => Math.Max(0, QuotaTotal - _ocrUsage);
+    private bool IsQuotaExhausted => QuotaRemaining <= 0;
+    private int QuotaPercent => QuotaTotal <= 0 ? 0 : (int)Math.Round(QuotaRemaining * 100.0 / QuotaTotal);
+
+    private int BatchSuccess => _batch.Count(f => f.Status == ReceiptFileStatus.Success);
+    private int BatchFailed => _batch.Count(f => f.Status == ReceiptFileStatus.Failed);
+    private int BatchPending => _batch.Count(f => f.Status is ReceiptFileStatus.Pending or ReceiptFileStatus.Processing);
+    private int BatchPercent => _batch.Count == 0 ? 0 : (int)Math.Round((_batch.Count - BatchPending) * 100.0 / _batch.Count);
+
+    private static string BatchRowSub(ReceiptFileUploadModel f) => f.Status switch
+    {
+        ReceiptFileStatus.Failed => "직접 입력해주세요",
+        ReceiptFileStatus.Processing => "AI가 영수증 읽는 중...",
+        ReceiptFileStatus.Success => string.Join(" · ", new[]
+        {
+            f.ParsedDate?.ToString("yyyy-MM-dd"),
+            f.ParsedAmount > 0 ? f.ParsedAmount.ToString("N0") + "원" : null,
+            string.IsNullOrWhiteSpace(f.ParsedDescription) ? null : f.ParsedDescription
+        }.Where(x => !string.IsNullOrEmpty(x))),
+        _ => ""
+    };
+
+    // 금액은 입력 중에는 숫자만, 포커스를 벗어나면 천 단위 콤마로 보여준다.
+    private string AmountText
+    {
+        get => _amount.HasValue ? _amount.Value.ToString("N0") : "";
+        set
+        {
+            var digits = new string((value ?? "").Where(char.IsDigit).ToArray());
+            _amount = decimal.TryParse(digits, out var v) && v > 0 ? v : null;
+            _aiAmount = false;   // 사람이 고치면 AI 뱃지를 뗀다
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser?.CanAccessDataCollection != true) return;
+
+        _depts = (await Accounting.GetDepartmentsAsync()).Where(d => d.Name != "관리자").ToList();
+        _deptId = IsAdmin ? 0 : (CurrentUser?.DepartmentId ?? 0);
+        await LoadOcrUsage();
+    }
+
+    private async Task LoadOcrUsage() => _ocrUsage = await Accounting.GetOcrUsageAsync();
+
+    private void BackToCapture()
+    {
+        // 일괄 목록의 실패 건을 고치던 중이면 목록으로 돌아간다
+        if (_fixingIndex >= 0) { _fixingIndex = -1; _step = 3; return; }
+        _step = 1;
+    }
+
+    private void LeaveBatch()
+    {
+        if (_isBatchProcessing) return;
+        _batch.Clear();
+        _batchBytes.Clear();
+        _step = 1;
+    }
+
+    private async Task OpenFullPreview()
+    {
+        if (!string.IsNullOrEmpty(_previewUrl))
+            await JSRuntime.InvokeVoidAsync("open", _previewUrl, "_blank");
+    }
+
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            _selectedFile = e.File;
+            _selectedName = e.File.Name;
+            _selectedBytes = null;
+            _previewUrl = null;
+            _ocrFailed = false;
+            _aiDate = _aiAmount = _aiVendor = false;
+            _receipt = new UploadedReceipt { ReceiptDate = DateTime.Today };
+            _amount = null;
+
+            bool isHeic = _selectedFile.Name.EndsWith(".heic", StringComparison.OrdinalIgnoreCase);
+
+            // [1단계] 미리보기 먼저 — HEIC은 브라우저가 못 그린다
+            if (!isHeic)
+            {
+                try
+                {
+                    var preview = await _selectedFile.RequestImageFileAsync("image/jpeg", 800, 800);
+                    using var ms = new MemoryStream();
+                    await preview.OpenReadStream(maxAllowedSize: MaxFileSize).CopyToAsync(ms);
+                    _previewUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"미리보기 로드 실패: {ex.Message}");
+                }
+            }
+            else
+            {
+                await JSRuntime.AlertAsync("HEIC 형식은 브라우저 미리보기가 지원되지 않습니다. 변환 후 업로드해 주세요.");
+            }
+
+            // [2단계] 원본 바이트를 여기서 한 번만 읽는다.
+            //   IBrowserFile.OpenReadStream은 파일당 한 번만 열 수 있어서,
+            //   OCR과 저장이 각각 열면 전송 단계에서 예외가 난다.
+            try
+            {
+                using var raw = _selectedFile.OpenReadStream(maxAllowedSize: MaxFileSize);
+                using var buffer = new MemoryStream();
+                await raw.CopyToAsync(buffer);
+                _selectedBytes = buffer.ToArray();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"원본 읽기 실패: {ex.Message}");
+                await JSRuntime.AlertAsync($"사진을 읽지 못했습니다. 다시 선택해 주세요.\n({ex.Message})");
+                return;
+            }
+
+            // [3단계] OCR — 5MB 미만 · 비 HEIC · 잔여 제공량이 있을 때만
+            if (!isHeic && _selectedFile.Size < OcrMaxFileSize && !IsQuotaExhausted)
+            {
+                _isOcr = true;
+                StateHasChanged();
+                try
+                {
+                    var result = await OcrService.ProcessReceiptAsync(_selectedBytes);
+                    if (result.IsSuccess)
+                    {
+                        if (result.Date.HasValue) { _receipt.ReceiptDate = result.Date.Value; _aiDate = true; }
+                        if (result.Amount is > 0) { _amount = result.Amount.Value; _aiAmount = true; }
+                        if (!string.IsNullOrEmpty(result.Description)) { _receipt.Description = result.Description; _aiVendor = true; }
+
+                        _ocrFailed = !(_aiDate || _aiAmount || _aiVendor);
+                    }
+                    else
+                    {
+                        _ocrFailed = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("OCR 변환 실패: " + ex.Message);
+                    _ocrFailed = true;
+                }
+                finally
+                {
+                    _isOcr = false;
+                    await LoadOcrUsage();
+                }
+            }
+            else if (_selectedFile.Size >= OcrMaxFileSize)
+            {
+                _ocrFailed = true;
+                await JSRuntime.AlertAsync("파일 크기가 5MB 이상이라 AI 자동 판독은 생략됩니다. 금액과 내역을 수동으로 입력해 주세요.");
+            }
+            else if (IsQuotaExhausted)
+            {
+                _ocrFailed = true;
+            }
+
+            _step = 2;   // 판독 결과 확인 화면으로
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.AlertAsync($"파일 선택 오류: {ex.Message}");
+        }
+    }
+
+    // ══════════ 09 일괄 업로드 ══════════
+    private async Task HandleFilesSelected(InputFileChangeEventArgs e)
+    {
+        if (IsAdmin && _deptId == 0)
+        {
+            await JSRuntime.AlertAsync("부서를 먼저 선택해주세요.");
+            return;
+        }
+
+        _batch = e.GetMultipleFiles(MaxBatchFiles)
+                  .Select(f => new ReceiptFileUploadModel { File = f, FileName = f.Name })
+                  .ToList();
+        _batchBytes.Clear();
+        _fixingIndex = -1;
+        _step = 3;
+
+        if (_batch.Count == 0) { _step = 1; return; }
+
+        // 목록 썸네일 먼저 — 진행 상황이 비어 보이지 않게
+        foreach (var item in _batch)
+        {
+            try
+            {
+                var thumb = await item.File.RequestImageFileAsync("image/jpeg", 96, 96);
+                using var ms = new MemoryStream();
+                await thumb.OpenReadStream(maxAllowedSize: MaxBatchFileSize).CopyToAsync(ms);
+                item.ThumbUrl = $"data:image/jpeg;base64,{Convert.ToBase64String(ms.ToArray())}";
+            }
+            catch
+            {
+                item.ThumbUrl = null;   // HEIC 등 — 아이콘 placeholder로 둔다
+            }
+        }
+        StateHasChanged();
+
+        await ProcessBatchAsync();
+    }
+
+    private async Task ProcessBatchAsync()
+    {
+        if (CurrentUser == null) return;
+
+        int targetDeptId = IsAdmin ? _deptId : CurrentUser.DepartmentId;
+        _isBatchProcessing = true;
+
+        for (int i = 0; i < _batch.Count; i++)
+        {
+            var item = _batch[i];
+            item.Status = ReceiptFileStatus.Processing;
+            StateHasChanged();
+            await Task.Yield();
+
+            byte[]? bytes = null;
+            try
+            {
+                using var ms = new MemoryStream();
+                await item.File.OpenReadStream(maxAllowedSize: MaxBatchFileSize).CopyToAsync(ms);
+                bytes = ms.ToArray();
+
+                var result = IsQuotaExhausted
+                    ? new OcrResult { IsSuccess = false }
+                    : await OcrService.ProcessReceiptAsync(bytes);
+
+                if (result.IsSuccess && result.Amount is > 0)
+                {
+                    item.ParsedDate = result.Date;
+                    item.ParsedAmount = result.Amount.Value;
+                    item.ParsedDescription = result.Description;
+
+                    await SaveReceiptBytesAsync(bytes, item.FileName, targetDeptId,
+                        item.ParsedDate ?? DateTime.Today, item.ParsedAmount, item.ParsedDescription);
+
+                    item.Status = ReceiptFileStatus.Success;
+                }
+                else
+                {
+                    // 판독 실패 건은 저장하지 않는다. 사용자가 08에서 고쳐 넣는다.
+                    item.ParsedDate = result.Date;
+                    item.ParsedAmount = result.Amount ?? 0;
+                    item.ParsedDescription = result.Description;
+                    item.Status = ReceiptFileStatus.Failed;
+                    _batchBytes[i] = bytes;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"일괄 처리 실패({item.FileName}): {ex.Message}");
+                item.Status = ReceiptFileStatus.Failed;
+                if (bytes != null) _batchBytes[i] = bytes;
+            }
+
+            StateHasChanged();
+        }
+
+        _isBatchProcessing = false;
+        await LoadOcrUsage();
+        StateHasChanged();
+    }
+
+    // 실패 행 → 08 내용 확인 화면으로
+    private void OpenFailedItem(int index)
+    {
+        if (_isBatchProcessing || index < 0 || index >= _batch.Count) return;
+        var item = _batch[index];
+        if (item.Status != ReceiptFileStatus.Failed) return;
+
+        _fixingIndex = index;
+        _selectedFile = item.File;
+        _previewUrl = item.ThumbUrl;
+        _ocrFailed = true;
+        _receipt = new UploadedReceipt
+        {
+            ReceiptDate = item.ParsedDate ?? DateTime.Today,
+            Description = item.ParsedDescription ?? ""
+        };
+        _amount = item.ParsedAmount > 0 ? item.ParsedAmount : null;
+        _aiDate = item.ParsedDate.HasValue;
+        _aiAmount = false;
+        _aiVendor = !string.IsNullOrWhiteSpace(item.ParsedDescription);
+        _step = 2;
+    }
+
+    // 🚀 저장은 AccountingService 한 곳에서 한다 (이미지 축소 포함 — 웹_상세_구조문서.md §6.5)
+    private Task SaveReceiptBytesAsync(byte[] bytes, string originalName, int deptId,
+                                       DateTime date, decimal amount, string? description)
+        => Accounting.SaveUploadedReceiptAsync(FileService, bytes, originalName, deptId, date, amount, description);
+
+    private async Task Submit()
+    {
+        if (CurrentUser == null) return;
+
+        bool isFixing = _fixingIndex >= 0;
+        byte[]? bytes = isFixing && _batchBytes.TryGetValue(_fixingIndex, out var b) ? b : _selectedBytes;
+        string sourceName = isFixing ? _batch[_fixingIndex].FileName : _selectedName;
+
+        if (bytes == null || bytes.Length == 0) { await JSRuntime.AlertAsync("영수증 사진을 첨부해 주세요."); return; }
+        if (!_amount.HasValue || _amount.Value <= 0) { await JSRuntime.AlertAsync("정확한 결제 금액을 입력해 주세요."); return; }
+        if (IsAdmin && _deptId == 0) { await JSRuntime.AlertAsync("부서를 선택해주세요."); return; }
+
+        if (string.IsNullOrWhiteSpace(_receipt.Description)) _receipt.Description = "내역 없음";
+
+        int targetDeptId = IsAdmin ? _deptId : CurrentUser.DepartmentId;
+
+        _isUploading = true;
+        StateHasChanged();
+        try
+        {
+            // 선택(또는 일괄 판독) 때 읽어둔 원본 바이트를 그대로 저장한다
+            await SaveReceiptBytesAsync(bytes, sourceName, targetDeptId,
+                _receipt.ReceiptDate, _amount.Value, _receipt.Description);
+
+            await JSRuntime.AlertAsync("영수증 업로드가 완료되었습니다!");
+
+            if (isFixing)
+            {
+                // 목록에서 해당 행을 성공으로 바꾸고 09로 돌아간다
+                var item = _batch[_fixingIndex];
+                item.Status = ReceiptFileStatus.Success;
+                item.ParsedDate = _receipt.ReceiptDate;
+                item.ParsedAmount = _amount.Value;
+                item.ParsedDescription = _receipt.Description ?? "";
+                _batchBytes.Remove(_fixingIndex);
+                _fixingIndex = -1;
+                _selectedFile = null;
+                _previewUrl = null;
+                _step = 3;
+            }
+            else
+            {
+                ResetForm();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"영수증 업로드 실패: {ex}");
+            await JSRuntime.AlertAsync($"업로드 오류: {ex.Message}\n({ex.GetType().Name})");
+        }
+        finally
+        {
+            _isUploading = false;
+        }
+    }
+
+    private void ResetForm()
+    {
+        _receipt = new UploadedReceipt { ReceiptDate = DateTime.Today };
+        _amount = null;
+        _selectedFile = null;
+        _selectedBytes = null;
+        _selectedName = "";
+        _previewUrl = null;
+        _ocrFailed = false;
+        _aiDate = _aiAmount = _aiVendor = false;
+        _step = 1;
+    }
+
+}

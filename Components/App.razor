@@ -1,4 +1,5 @@
 ﻿@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@inject IWebHostEnvironment Env
 <!DOCTYPE html>
 <html lang="ko">
 
@@ -8,7 +9,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="@V("app.css")" />
+    <link rel="stylesheet" href="@V("mobile-app.css")" />
+    <script src="@V("mobile-app.js")"></script>
     <link rel="stylesheet" href="INcheonChurchWeb.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     @* [해결 1] RenderMode 사용을 위한 @using 추가 및 HeadOutlet 설정 *@
@@ -22,8 +25,8 @@
     <script src="_framework/blazor.web.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-    @* [해결 3] 버전 태그(?v=1.1)를 추가하여 브라우저 캐시 문제 해결 *@
-    <script src="/js/app.js?v=1.1"></script>
+    @* 파일이 바뀌면 주소도 바뀌도록 수정 시각을 붙인다 (브라우저 캐시가 옛 파일을 물고 있는 문제 방지) *@
+    <script src="@V("js/app.js")"></script>
 
     <script>
         /* [중요] App.razor 안에 직접 작성되어 있던 window.printPopup 관련
@@ -73,3 +76,20 @@
 </body>
 
 </html>
+
+@code {
+    // 정적 파일 주소에 마지막 수정 시각을 붙여 캐시를 무효화한다.
+    private string V(string relativePath)
+    {
+        try
+        {
+            var full = Path.Combine(Env.WebRootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            var ticks = File.GetLastWriteTimeUtc(full).Ticks;
+            return $"/{relativePath}?v={ticks}";
+        }
+        catch
+        {
+            return "/" + relativePath;
+        }
+    }
+}

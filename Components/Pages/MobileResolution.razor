@@ -1,0 +1,351 @@
+@page "/resolution"
+@using System.Text.Json
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject IJSRuntime JSRuntime
+
+<PageTitle>지출결의서</PageTitle>
+
+<style>
+    /* 14 지출결의서 작성 */
+    .mr-year {
+        display: flex; align-items: center; height: 40px; border-radius: 999px; background: var(--ma-bg);
+        box-shadow: var(--ma-shadow-card); margin: 16px 0;
+    }
+    .mr-year button { width: 44px; height: 40px; border: none; background: none; color: var(--ma-text-sub); font-size: 14px; cursor: pointer; }
+    .mr-year .val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; white-space: nowrap; }
+    .mr-item { background: var(--ma-bg); border-radius: 16px; box-shadow: var(--ma-shadow-card); padding: 12px 14px; margin-bottom: 12px; }
+    .mr-item-head { display: flex; align-items: flex-start; gap: 8px; }
+    .mr-item-title { font-size: 16px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mr-item-x {
+        flex-shrink: 0; width: 24px; height: 24px; border: none; background: none;
+        color: var(--ma-muted); font-size: 14px; cursor: pointer; padding: 0;
+    }
+    .mr-item-calc { font-size: 13px; color: var(--ma-muted); margin-top: 2px; }
+    .mr-item-amount { font-size: clamp(16px, 5vw, 18px); font-weight: 700; text-align: right; margin-top: 8px; white-space: nowrap; }
+
+    .mr-total { display: flex; align-items: baseline; gap: 12px; }
+    .mr-total .k { font-size: 14px; color: var(--ma-text-sub); }
+    .mr-total .v { margin-left: auto; font-size: clamp(17px, 5.6vw, 22px); font-weight: 700; color: var(--ma-brand); white-space: nowrap; }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (!CanView)
+{
+    <div class="ma-empty">
+        <i class="bi bi-lock"></i>
+        <div class="main">이 화면을 볼 수 있는 권한이 없습니다.</div>
+        <div class="sub">관리자에게 문의하세요.</div>
+    </div>
+}
+else if (_mode == "list")
+{
+    <div class="ma-header">
+        <h2 class="ma-title">지출결의서</h2>
+        @if (CanEdit)
+        {
+            <button class="ma-header-action ma-push-right" @onclick="NewReport">작성</button>
+        }
+    </div>
+
+    <div class="mr-year">
+        <button title="이전 회계연도" @onclick="() => ChangeYear(-1)"><i class="bi bi-chevron-left"></i></button>
+        <span class="val">@_year 회계연도</span>
+        <button title="다음 회계연도" @onclick="() => ChangeYear(1)"><i class="bi bi-chevron-right"></i></button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+    }
+    else if (!_reports.Any())
+    {
+        <div class="ma-empty">
+            <i class="bi bi-file-earmark-text"></i>
+            <div class="main">작성된 지출결의서가 없습니다.</div>
+            @if (CanEdit)
+            {
+                <button class="ma-btn secondary" @onclick="NewReport">지출결의서 작성</button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="ma-card">
+            @foreach (var r in _reports)
+            {
+                var rr = r;
+                <button type="button" class="ma-row tappable" @onclick="() => OpenReport(rr)">
+                    <span class="ma-row-body">
+                        <span class="ma-row-main">@rr.Title</span>
+                        <span class="ma-row-sub">@rr.Date.ToString("yyyy-MM-dd") · @rr.TotalAmount.ToString("N0")원</span>
+                    </span>
+                    <i class="bi bi-chevron-right ma-chevron"></i>
+                </button>
+            }
+        </div>
+
+        <div class="mr-total" style="padding:4px;">
+            <span class="k">총 신청액 누계</span>
+            <span class="v">@_reports.Sum(r => r.TotalAmount).ToString("N0")원</span>
+        </div>
+    }
+}
+else
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">지출결의서 작성</h2>
+        @if (_current.Id != 0 && CanEdit)
+        {
+            <button class="ma-sheet-danger ma-push-right" @onclick="DeleteReport">삭제</button>
+        }
+    </div>
+
+    <div class="ma-field">
+        <div class="ma-label">문서 제목 (청구인)</div>
+        <div class="ma-box focus">
+            <input type="text" placeholder="예: 2026년 2분기 유년부 지출결의서 (김OO)" @bind="_current.Title" />
+        </div>
+    </div>
+
+    <div class="ma-field ma-two">
+        <div>
+            <div class="ma-label">지출 일자</div>
+            <div class="ma-box"><input type="date" @bind="_current.Date" /></div>
+        </div>
+        <div>
+            <div class="ma-label">지급 방법</div>
+            <div class="ma-segment">
+                <button class="@(_current.PaymentMethod == "계좌" ? "on" : "")" @onclick='() => _current.PaymentMethod = "계좌"'>계좌</button>
+                <button class="@(_current.PaymentMethod == "현금" ? "on" : "")" @onclick='() => _current.PaymentMethod = "현금"'>현금</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="ma-section-title">지출 상세 내역</div>
+
+    @foreach (var item in _items)
+    {
+        var it = item;
+        <div class="mr-item">
+            <div class="mr-item-head">
+                <span class="mr-item-title">@(string.IsNullOrWhiteSpace(it.Category) ? "지출항목" : it.Category)</span>
+                <button class="mr-item-x" title="삭제" @onclick="() => RemoveItem(it)"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="mr-item-calc">@(string.IsNullOrWhiteSpace(it.CalcDetail) ? "산출근거 없음" : it.CalcDetail)</div>
+            <div class="mr-item-amount">@it.Amount.ToString("N0")</div>
+        </div>
+    }
+
+    @if (_showItemForm)
+    {
+        <div class="mr-item">
+            <div class="ma-field">
+                <div class="ma-label">지출항목</div>
+                <div class="ma-box">
+                    <input list="mrCats" type="text" placeholder="예: 여름성경학교" @bind="_newItem.Category" />
+                </div>
+                <datalist id="mrCats">
+                    @foreach (var c in _categorySuggestions)
+                    {
+                        <option value="@c" />
+                    }
+                </datalist>
+            </div>
+            <div class="ma-field">
+                <div class="ma-label">산출근거 (내용)</div>
+                <div class="ma-box">
+                    <input type="text" placeholder="예: 교사 간식 15인 × 8,000" @bind="_newItem.CalcDetail" />
+                </div>
+            </div>
+            <div class="ma-field" style="margin-bottom:12px;">
+                <div class="ma-label">청구금액</div>
+                <div class="ma-box">
+                    <input type="text" inputmode="numeric" class="amount" placeholder="0" @bind="NewItemAmountText" @bind:event="onchange" />
+                    <span class="ma-unit">원</span>
+                </div>
+            </div>
+            <div class="ma-actions">
+                <button class="ma-btn secondary narrow" @onclick="CancelItem">취소</button>
+                <button class="ma-btn primary" @onclick="AddItem">항목 담기</button>
+            </div>
+        </div>
+    }
+    else if (CanEdit)
+    {
+        <button class="ma-btn secondary" style="margin-bottom:16px;" @onclick="() => _showItemForm = true">
+            <i class="bi bi-plus-lg"></i>항목 추가
+        </button>
+    }
+
+    @if (_error.Length > 0)
+    {
+        <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_error</div>
+    }
+
+    <div class="mr-total">
+        <span class="k">총 청구금액</span>
+        <span class="v">@_items.Sum(i => i.Amount).ToString("N0")원</span>
+    </div>
+    <div class="ma-caption">승인·반려 절차는 없습니다. 저장 후 재정부에 제출하세요.</div>
+
+    @if (CanEdit)
+    {
+        <div class="ma-bottom">
+            <button class="ma-btn secondary narrow" @onclick="BackToList">임시 저장</button>
+            <button class="ma-btn primary" disabled="@_isSaving" @onclick="SaveReport">저장</button>
+        </div>
+    }
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private string _mode = "list";
+    private int _year = DateTime.Now.Year;
+    private bool _isLoading = true, _isSaving, _showItemForm;
+    private string _error = "";
+
+    private List<ExpenseReport> _reports = new();
+    private ExpenseReport _current = new();
+    private List<BudgetPlan> _items = new();
+    private BudgetPlan _newItem = new();
+    private List<string> _categorySuggestions = new();
+
+    private bool CanView => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+    private bool CanEdit => CurrentUser?.CanEdit == true;
+
+    private string NewItemAmountText
+    {
+        get => _newItem.Amount > 0 ? _newItem.Amount.ToString("N0") : "";
+        set
+        {
+            var digits = new string((value ?? "").Where(char.IsDigit).ToArray());
+            _newItem.Amount = decimal.TryParse(digits, out var d) ? d : 0;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null || !CanView) { _isLoading = false; return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            _reports = await Accounting.GetExpenseReportsAsync(CurrentUser.DepartmentId, _year);
+            _categorySuggestions = await Accounting.GetCategorySuggestionsAsync(CurrentUser.DepartmentId, "Expense");
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task ChangeYear(int offset)
+    {
+        _year += offset;
+        await LoadAsync();
+    }
+
+    private void NewReport()
+    {
+        if (!CanEdit) return;
+        _current = new ExpenseReport { Date = DateTime.Today, PaymentMethod = "계좌" };
+        _items = new();
+        _newItem = new();
+        _showItemForm = false;
+        _error = "";
+        _mode = "edit";
+    }
+
+    private void OpenReport(ExpenseReport r)
+    {
+        _current = new ExpenseReport
+        {
+            Id = r.Id,
+            Date = r.Date,
+            Title = r.Title,
+            FiscalYear = r.FiscalYear,
+            DepartmentId = r.DepartmentId,
+            TotalAmount = r.TotalAmount,
+            PaymentMethod = string.IsNullOrWhiteSpace(r.PaymentMethod) ? "계좌" : r.PaymentMethod,
+            Status = r.Status
+        };
+
+        try { _items = JsonSerializer.Deserialize<List<BudgetPlan>>(r.DetailsJson) ?? new(); }
+        catch { _items = new(); }
+
+        _newItem = new();
+        _showItemForm = false;
+        _error = "";
+        _mode = "edit";
+    }
+
+    private void BackToList() { _mode = "list"; _error = ""; }
+
+    private void AddItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newItem.Category)) { _error = "지출항목을 입력해주세요."; return; }
+        if (_newItem.Amount <= 0) { _error = "청구금액을 입력해주세요."; return; }
+
+        _items.Add(new BudgetPlan
+        {
+            Category = _newItem.Category.Trim(),
+            CalcDetail = _newItem.CalcDetail,
+            Amount = _newItem.Amount
+        });
+        _newItem = new();
+        _showItemForm = false;
+        _error = "";
+    }
+
+    private void CancelItem() { _newItem = new(); _showItemForm = false; _error = ""; }
+
+    private void RemoveItem(BudgetPlan item) => _items.Remove(item);
+
+    private async Task SaveReport()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        if (string.IsNullOrWhiteSpace(_current.Title)) { _error = "문서 제목(청구인)을 입력해주세요."; return; }
+        if (!_items.Any()) { _error = "지출 상세 내역을 한 건 이상 추가해주세요."; return; }
+
+        _isSaving = true;
+        _error = "";
+        try
+        {
+            _current.DepartmentId = CurrentUser.DepartmentId;
+            _current.FiscalYear = _year;
+            _current.TotalAmount = _items.Sum(i => i.Amount);
+            _current.DetailsJson = JsonSerializer.Serialize(_items);
+
+            await Accounting.SaveExpenseReportAsync(_current);
+            await JSRuntime.AlertAsync("저장되었습니다.");
+            _mode = "list";
+            await LoadAsync();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task DeleteReport()
+    {
+        if (!CanEdit || _current.Id == 0) return;
+        if (!await JSRuntime.ConfirmAsync("이 지출결의서를 삭제하시겠습니까?")) return;
+
+        await Accounting.DeleteExpenseReportAsync(_current.Id);
+        _mode = "list";
+        await LoadAsync();
+    }
+}

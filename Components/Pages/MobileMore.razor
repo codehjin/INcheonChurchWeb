@@ -1,0 +1,150 @@
+@page "/more"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject NavigationManager Nav
+
+<PageTitle>더보기</PageTitle>
+
+<style>
+    /* 16 더보기 */
+    .mo-profile { display: flex; align-items: center; gap: 12px; padding: 16px 14px; }
+    .mo-avatar {
+        flex-shrink: 0; width: 48px; height: 48px; border-radius: 999px; background: var(--ma-brand-soft);
+        display: flex; align-items: center; justify-content: center; color: var(--ma-brand); font-size: 22px;
+    }
+    .mo-name { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+    .mo-menu-label { font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mo-menu i.lead { font-size: 20px; color: var(--ma-text-sub); flex-shrink: 0; width: 24px; }
+    .mo-menu.danger .mo-menu-label, .mo-menu.danger i.lead { color: var(--ma-expense); }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else
+{
+    <div class="ma-header">
+        <h2 class="ma-title">더보기</h2>
+    </div>
+
+    <div class="ma-card">
+        <div class="mo-profile">
+            <span class="mo-avatar"><i class="bi bi-person"></i></span>
+            <span style="min-width:0;">
+                <span class="mo-name">@(string.IsNullOrWhiteSpace(CurrentUser.FullName) ? CurrentUser.Username : CurrentUser.FullName) 님</span><br />
+                <span class="ma-badge brand">@DeptName · @RoleLabel</span>
+            </span>
+        </div>
+    </div>
+
+    @if (CanEdit || CanViewAll)
+    {
+        <div class="ma-card">
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/resolution")'>
+                <i class="bi bi-file-earmark-text lead"></i>
+                <span class="mo-menu-label">지출결의서</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/event-report-app")'>
+                <i class="bi bi-clipboard-check lead"></i>
+                <span class="mo-menu-label">행사 보고서</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+            @if (CanEditLedger)
+            {
+                <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/matching")'>
+                    <i class="bi bi-link-45deg lead"></i>
+                    <span class="mo-menu-label">장부 매칭</span>
+                    <i class="bi bi-chevron-right ma-chevron"></i>
+                </button>
+            }
+        </div>
+    }
+
+    <div class="ma-card">
+        <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/settings-app")'>
+            <i class="bi bi-gear lead"></i>
+            <span class="mo-menu-label">환경설정</span>
+            <i class="bi bi-chevron-right ma-chevron"></i>
+        </button>
+        @if (CanEdit)
+        {
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/manual")'>
+                <i class="bi bi-question-circle lead"></i>
+                <span class="mo-menu-label">도움말</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
+    </div>
+
+    @* 앱 화면으로 옮기지 않은 기존 웹 전용 기능 — 디자인에 없던 메뉴는 여기에 모은다 *@
+    <div class="ma-section-title">웹 화면으로 열기</div>
+    <p class="ma-sub" style="margin-top:-8px;">엑셀 일괄 업로드 · 예산 대량 편성 · 인쇄는 아래 화면에서 처리합니다.</p>
+    <div class="ma-card">
+        @if (CanAccessDataCollection)
+        {
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/data-collection?web=1")'>
+                <i class="bi bi-receipt-cutoff lead"></i>
+                <span class="mo-menu-label">수집 및 정리</span>
+                <span class="ma-badge neutral">웹</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
+        <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/monthly?web=1")'>
+            <i class="bi bi-table lead"></i>
+            <span class="mo-menu-label">월별 장부 · 인쇄</span>
+            <span class="ma-badge neutral">웹</span>
+            <i class="bi bi-chevron-right ma-chevron"></i>
+        </button>
+        @if (CanEdit)
+        {
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/settings?web=1")'>
+                <i class="bi bi-sliders lead"></i>
+                <span class="mo-menu-label">예산 편성 · 전체 설정</span>
+                <span class="ma-badge neutral">웹</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
+    </div>
+
+    <div class="ma-card">
+        <button type="button" class="ma-row tappable mo-menu danger" @onclick='() => Nav.NavigateTo("/settings-app?section=account")'>
+            <i class="bi bi-box-arrow-right lead"></i>
+            <span class="mo-menu-label">로그아웃</span>
+            <i class="bi bi-chevron-right ma-chevron"></i>
+        </button>
+    </div>
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+    private string _deptName = "";
+
+    private bool CanEdit => CurrentUser?.CanEdit == true;
+    private bool CanViewAll => CurrentUser?.CanViewAll == true;
+    private bool CanEditLedger => CurrentUser?.CanEditLedger == true;
+    private bool CanAccessDataCollection => CurrentUser?.CanAccessDataCollection == true;
+
+    private string DeptName => _deptName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+        var depts = await Accounting.GetDepartmentsAsync();
+        _deptName = depts.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "";
+    }
+
+    private string RoleLabel => CurrentUser?.Role switch
+    {
+        "Admin" => "최고관리자",
+        "Manager" => "부서운영자",
+        "Auditor" => "감사·국장",
+        _ => "일반조회"
+    };
+}

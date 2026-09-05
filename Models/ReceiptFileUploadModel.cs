@@ -18,5 +18,6 @@ namespace INcheonChurchWeb.Models
         public DateTime? ParsedDate { get; set; }
         public decimal ParsedAmount { get; set; }
         public string ParsedDescription { get; set; } = string.Empty;
+        public string? ThumbUrl { get; set; }        // 목록 썸네일 (없으면 아이콘 placeholder)
     }
 }

@@ -1,0 +1,484 @@
+@page "/dashboard"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+
+<PageTitle>대시보드</PageTitle>
+
+<style>
+    /* ── 03 홈 대시보드 — 모바일 앱 디자인 토큰 (이 페이지 안에서만 유효) ── */
+    .mh-wrap {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 0 20px 20px;
+        background: var(--ma-bg-sub);
+        color: var(--ma-text);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.5;
+        min-height: 100%;
+        overflow-x: hidden;
+    }
+
+    .mh-header { display: flex; align-items: center; gap: 4px; height: 56px; background: var(--ma-bg); margin: 0 -20px; padding: 0 20px; }
+    .mh-dept { display: inline-flex; align-items: center; gap: 6px; border: none; background: none; padding: 0; cursor: default; }
+    .mh-dept.pickable { cursor: pointer; }
+    .mh-dept-name { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+    .mh-dept i { font-size: 14px; color: var(--ma-muted); }
+    .mh-icon-btn {
+        width: 44px; height: 44px; border: none; background: none; color: var(--ma-text);
+        font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .mh-icon-btn:last-of-type { margin-left: auto; }
+
+    /* 연도 스테퍼 */
+    .mh-year {
+        display: flex; align-items: center; height: 40px; border-radius: 999px; background: var(--ma-bg);
+        box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05); margin: 16px 0 20px;
+    }
+    .mh-year button { width: 44px; height: 40px; border: none; background: none; color: var(--ma-text-sub); font-size: 14px; cursor: pointer; }
+    .mh-year .val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+
+    .mh-summary-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+    .mh-summary-sub { font-size: 13px; color: var(--ma-muted); margin: 0 0 16px; }
+
+    /* 히어로 카드 */
+    .mh-hero {
+        background: var(--ma-bg); border-radius: 16px; padding: 14px; margin-bottom: 12px;
+        box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05);
+    }
+    .mh-hero-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 4px; }
+    .mh-hero-row { display: flex; align-items: baseline; gap: 8px; }
+    .mh-hero-amount { font-size: clamp(20px, 7vw, 28px); font-weight: 700; letter-spacing: -0.03em; white-space: nowrap; }
+    .mh-hero-amount.income { color: var(--ma-income); }
+    .mh-hero-rate { margin-left: auto; font-size: 14px; font-weight: 600; color: var(--ma-brand); white-space: nowrap; }
+    .mh-hero-rate.income { color: var(--ma-income); }
+    .mh-hero-foot { font-size: 13px; color: var(--ma-muted); margin-top: 8px; }
+
+    .mh-track { height: 8px; border-radius: 999px; background: var(--ma-bg-inset); margin-top: 10px; overflow: hidden; }
+    .mh-fill { height: 100%; border-radius: 999px; background: var(--ma-brand); }
+    .mh-fill.income { background: var(--ma-income); }
+    .mh-fill.over { background: var(--ma-expense); }
+
+    /* 섹션 */
+    .mh-section-head {
+        display: flex; align-items: center; gap: 8px; width: 100%;
+        border: none; background: none; padding: 0; margin: 24px 0 12px;
+        min-height: 44px; cursor: pointer; text-align: left; color: inherit;
+    }
+    .mh-section-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; }
+    /* 접기 헤더 밖에서 단독으로 쓰일 때는 위아래 여백을 갖는다 */
+    .mh-section-title.standalone { display: block; margin: 28px 0 12px; }
+    .mh-section-count { font-size: 14px; color: var(--ma-muted); }
+    .mh-section-chevron { margin-left: auto; font-size: 14px; color: var(--ma-muted); }
+    .mh-sorts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .mh-chip {
+        height: 36px; display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px; border: none; border-radius: 999px;
+        font-size: 14px; font-weight: 500; cursor: pointer;
+        background: var(--ma-bg-inset); color: var(--ma-text-sub);
+        min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* 균등 폭 격자 */
+    .mh-sorts.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); }
+    .mh-sorts.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); }
+    .mh-sorts.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+    .mh-chip.on { background: var(--ma-brand-soft); color: var(--ma-brand); font-weight: 600; }
+
+    .mh-card { background: var(--ma-bg); border-radius: 16px; box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05); overflow: hidden; }
+    .mh-stat-row { padding: 14px; }
+    .mh-stat-row + .mh-stat-row { border-top: 1px solid var(--ma-line); }
+    .mh-stat-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .mh-stat-name { font-size: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .mh-stat-figs { margin-left: auto; font-size: clamp(12px, 3.7vw, 14px); font-weight: 600; white-space: nowrap; }
+    .mh-stat-figs.over { color: var(--ma-expense); }
+    .mh-stat-figs.income { color: var(--ma-income); }
+    .mh-badge-off {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: #FBE9E9; color: var(--ma-expense);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .mh-badge-off-income {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: #E5EDF6; color: var(--ma-income);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+
+    /* 지출결의서 신청현황 */
+    .mh-req-row { display: flex; align-items: center; gap: 12px; padding: 14px; min-height: 64px; }
+    .mh-req-row + .mh-req-row { border-top: 1px solid var(--ma-line); }
+    .mh-req-body { flex: 1; min-width: 0; }
+    .mh-req-title { font-size: 16px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .mh-req-sub { font-size: 13px; color: var(--ma-muted); margin-top: 2px; white-space: nowrap; }
+    .mh-badge-wait {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: var(--ma-brand-soft); color: var(--ma-warn);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .mh-badge-done {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: #E5EDF6; color: var(--ma-income);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .mh-total { display: flex; align-items: baseline; gap: 12px; padding: 16px 4px 0; }
+    .mh-total .k { font-size: 14px; color: var(--ma-text-sub); }
+    .mh-total .v { margin-left: auto; font-size: 17px; font-weight: 700; white-space: nowrap; }
+
+    .mh-empty { text-align: center; padding: 48px 20px; color: var(--ma-text-sub); }
+    .mh-empty i { font-size: 40px; color: var(--ma-muted); display: block; margin-bottom: 12px; }
+
+    .mh-dim {
+        position: fixed; inset: 0; background: rgba(27, 28, 21, 0.45); z-index: 200;
+        display: flex; align-items: flex-end; justify-content: center;
+    }
+    .mh-sheet {
+        width: 100%; max-width: 430px; max-height: 85vh; overflow-y: auto;
+        background: var(--ma-bg); border-radius: 20px 20px 0 0;
+        padding: 0 20px calc(20px + env(safe-area-inset-bottom));
+        box-shadow: 0 8px 28px rgba(30, 28, 20, 0.12);
+    }
+    .mh-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--ma-line); margin: 10px auto 14px; }
+    .mh-sheet-title { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+    .mh-sheet-sub { font-size: 13px; color: var(--ma-muted); margin: 0 0 20px; }
+    .mh-btn {
+        width: 100%; min-height: 52px; border: none; border-radius: 12px;
+        font-size: 16px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .mh-btn.primary { background: var(--ma-brand); color: #FFFFFF; }
+    .mh-btn.primary:active { background: var(--ma-brand-deep); }
+    .mh-btn.secondary { background: var(--ma-bg-inset); color: var(--ma-text); }
+    .mh-btn.ghost { background: none; color: var(--ma-text-sub); }
+    .mh-btn + .mh-btn { margin-top: 8px; }
+
+    .mh-block-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 8px; }
+</style>
+
+<div class="mh-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="mh-empty"><i class="bi bi-hourglass-split"></i><div>불러오는 중…</div></div>
+}
+else
+{
+    <div class="mh-header">
+        <button class="mh-dept @(CanPickDept ? "pickable" : "")" @onclick="OpenDeptSheet" disabled="@(!CanPickDept)">
+            <span class="mh-dept-name">@DeptLabel</span>
+            @if (CanPickDept)
+            {
+                <i class="bi bi-chevron-down"></i>
+            }
+        </button>
+        <a class="mh-icon-btn" title="계정 및 보안" href="settings-app">
+            <i class="bi bi-person-circle"></i>
+        </a>
+    </div>
+
+    <div class="mh-year">
+        <button title="이전 회계연도" @onclick="() => ChangeYear(-1)"><i class="bi bi-chevron-left"></i></button>
+        <span class="val">@_year 회계연도</span>
+        <button title="다음 회계연도" @onclick="() => ChangeYear(1)"><i class="bi bi-chevron-right"></i></button>
+    </div>
+
+    <div class="mh-summary-title">@_year 재정 현황 요약</div>
+    <p class="mh-summary-sub">현재 회계 기간의 재정 성과 상세 내역입니다.</p>
+
+    @if (_isLoading)
+    {
+        <div class="mh-empty"><i class="bi bi-hourglass-split"></i><div>불러오는 중…</div></div>
+    }
+    else
+    {
+        <div class="mh-hero">
+            <div class="mh-hero-label">지출 실적</div>
+            <div class="mh-hero-row">
+                <span class="mh-hero-amount">@Won(_view.TotalExpense)</span>
+                <span class="mh-hero-rate">예산 대비 @(_view.ExpenseRate)%</span>
+            </div>
+            <div class="mh-track">
+                <div class="mh-fill @(_view.ExpenseRate > 100 ? "over" : "")" style="width:@(Bar(_view.ExpenseRate))%;"></div>
+            </div>
+            <div class="mh-hero-foot">편성 @_view.TotalBudget.ToString("N0") · 잔액 @_view.RemainingBudget.ToString("N0")</div>
+        </div>
+
+        <div class="mh-hero">
+            <div class="mh-hero-label">수입 내역</div>
+            <div class="mh-hero-row">
+                <span class="mh-hero-amount income">@Won(_view.TotalIncome)</span>
+                <span class="mh-hero-rate income">보조금 신청 @(_view.IncomeRate)%</span>
+            </div>
+            <div class="mh-track">
+                <div class="mh-fill income" style="width:@(Bar(_view.IncomeRate))%;"></div>
+            </div>
+        </div>
+
+        @* ── 상세 카드: 지출 예산 집행률 · 수입 예산 달성률 (하나의 토글로 함께 접는다) ── *@
+        <button type="button" class="mh-section-head" @onclick="() => _statsCollapsed = !_statsCollapsed">
+            <span class="mh-section-title">지출 예산 집행률</span>
+            @if (_statsCollapsed)
+            {
+                <span class="mh-section-count">(@(ExpenseBudgeted.Count() + ExpenseOffBudget.Count()))</span>
+            }
+            <i class="bi @(_statsCollapsed ? "bi-chevron-down" : "bi-chevron-up") mh-section-chevron"></i>
+        </button>
+
+        @if (!_statsCollapsed)
+        {
+            <div class="mh-sorts grid-3">
+                <button class="mh-chip @(_expenseSort == "rate" ? "on" : "")" @onclick='() => _expenseSort = "rate"'>집행률순</button>
+                <button class="mh-chip @(_expenseSort == "amount" ? "on" : "")" @onclick='() => _expenseSort = "amount"'>금액순</button>
+                <button class="mh-chip @(_expenseSort == "name" ? "on" : "")" @onclick='() => _expenseSort = "name"'>이름순</button>
+            </div>
+
+            @if (!ExpenseBudgeted.Any() && !ExpenseOffBudget.Any())
+            {
+                <div class="mh-empty">
+                    <i class="bi bi-inbox"></i>
+                    <div>예산 및 집행 내역이 없습니다.</div>
+                </div>
+            }
+            else
+            {
+                <div class="mh-card">
+                    @foreach (var s in ExpenseBudgeted)
+                    {
+                        <div class="mh-stat-row">
+                            <div class="mh-stat-head">
+                                <span class="mh-stat-name">@s.Category</span>
+                                <span class="mh-stat-figs @(s.Percentage > 100 ? "over" : "")">@s.Amount.ToString("N0") / @s.BudgetAmount.ToString("N0")</span>
+                            </div>
+                            <div class="mh-track">
+                                <div class="mh-fill @(s.Percentage > 100 ? "over" : "")" style="width:@(Bar(s.Percentage))%;"></div>
+                            </div>
+                        </div>
+                    }
+
+                    @foreach (var s in ExpenseOffBudget)
+                    {
+                        <div class="mh-stat-row">
+                            <div class="mh-stat-head">
+                                <span class="mh-badge-off">예산 외</span>
+                                <span class="mh-stat-name">@s.Category</span>
+                                <span class="mh-stat-figs over">@s.Amount.ToString("N0") / 0</span>
+                            </div>
+                            <div class="mh-track">
+                                <div class="mh-fill over" style="width:100%;"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        <button type="button" class="mh-section-head" @onclick="() => _statsCollapsed = !_statsCollapsed">
+            <span class="mh-section-title">수입 예산 달성률</span>
+            @if (_statsCollapsed)
+            {
+                <span class="mh-section-count">(@(IncomeBudgeted.Count() + IncomeOffBudget.Count()))</span>
+            }
+            <i class="bi @(_statsCollapsed ? "bi-chevron-down" : "bi-chevron-up") mh-section-chevron"></i>
+        </button>
+
+        @if (!_statsCollapsed)
+        {
+            <div class="mh-sorts grid-3">
+                <button class="mh-chip @(_incomeSort == "rate" ? "on" : "")" @onclick='() => _incomeSort = "rate"'>달성률순</button>
+                <button class="mh-chip @(_incomeSort == "amount" ? "on" : "")" @onclick='() => _incomeSort = "amount"'>금액순</button>
+                <button class="mh-chip @(_incomeSort == "name" ? "on" : "")" @onclick='() => _incomeSort = "name"'>이름순</button>
+            </div>
+
+            @if (!IncomeBudgeted.Any() && !IncomeOffBudget.Any())
+            {
+                <div class="mh-empty">
+                    <i class="bi bi-inbox"></i>
+                    <div>예산 및 집행 내역이 없습니다.</div>
+                </div>
+            }
+            else
+            {
+                <div class="mh-card">
+                    @foreach (var s in IncomeBudgeted)
+                    {
+                        <div class="mh-stat-row">
+                            <div class="mh-stat-head">
+                                <span class="mh-stat-name">@s.Category</span>
+                                <span class="mh-stat-figs income">@s.Amount.ToString("N0") / @s.BudgetAmount.ToString("N0")</span>
+                            </div>
+                            <div class="mh-track">
+                                <div class="mh-fill income" style="width:@(Bar(s.Percentage))%;"></div>
+                            </div>
+                        </div>
+                    }
+
+                    @foreach (var s in IncomeOffBudget)
+                    {
+                        <div class="mh-stat-row">
+                            <div class="mh-stat-head">
+                                <span class="mh-badge-off-income">예산 외</span>
+                                <span class="mh-stat-name">@s.Category</span>
+                                <span class="mh-stat-figs income">@s.Amount.ToString("N0") / 0</span>
+                            </div>
+                            <div class="mh-track">
+                                <div class="mh-fill income" style="width:100%;"></div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        @if (ShowSubsidySection)
+        {
+            <div class="mh-section-title standalone">지출결의서 신청현황</div>
+            @if (!_view.SubsidyRequests.Any())
+            {
+                <div class="mh-empty">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <div>작성된 지출결의서가 없습니다.</div>
+                </div>
+            }
+            else
+            {
+                <div class="mh-card">
+                    @foreach (var r in _view.SubsidyRequests)
+                    {
+                        <div class="mh-req-row">
+                            <span class="mh-req-body">
+                                <span class="mh-req-title">@r.Title</span>
+                                <span class="mh-req-sub">@r.RequestDate.ToString("yyyy-MM-dd") · @r.Amount.ToString("N0")원</span>
+                            </span>
+                            @if (r.DepositDate.HasValue)
+                            {
+                                <span class="mh-badge-done">입금완료</span>
+                            }
+                            else
+                            {
+                                <span class="mh-badge-wait">입금대기</span>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="mh-total">
+                    <span class="k">총 신청액 누계</span>
+                    <span class="v">@Won(_view.SubsidyRequested)</span>
+                </div>
+            }
+        }
+    }
+
+}
+
+</div>
+
+@* ── 부서 선택 시트 (최고관리자·감사) ── *@
+@if (_showDeptSheet)
+{
+    <div class="mh-wrap mh-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="() => _showDeptSheet = false">
+        <div class="mh-sheet" @onclick:stopPropagation="true">
+            <div class="mh-handle"></div>
+            <h3 class="mh-sheet-title">부서</h3>
+            <div class="mh-sorts grid-2" style="margin-bottom:20px;">
+                <button class="mh-chip @(_deptId == 0 ? "on" : "")" @onclick="() => PickDept(0)">전체 부서</button>
+                @foreach (var d in _departments)
+                {
+                    var dd = d;
+                    <button class="mh-chip @(_deptId == dd.Id ? "on" : "")" @onclick="() => PickDept(dd.Id)">@dd.Name</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int _year = DateTime.Now.Year;
+    private int _deptId = 0;
+    private string _expenseSort = "rate";
+    private string _incomeSort = "rate";
+    // 지출·수입 상세 카드는 하나의 토글로 함께 접는다 (한쪽만 접히면 빈 배경이 남는다)
+    private bool _statsCollapsed = false;
+    private bool _isLoading = true;
+    private bool _showDeptSheet;
+
+    private List<Department> _departments = new();
+    private AccountingService.DashboardView _view = new();
+
+    private bool CanPickDept => CurrentUser?.CanViewAll == true;
+
+    // 일반조회(교사)는 지출결의서 섹션을 보지 않는다
+    private bool ShowSubsidySection => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+
+    private string DeptLabel =>
+        _deptId == 0
+            ? (CanPickDept ? "전체 부서" : (_departments.FirstOrDefault(d => d.Id == CurrentUser?.DepartmentId)?.Name ?? "내 부서"))
+            : (_departments.FirstOrDefault(d => d.Id == _deptId)?.Name ?? "부서");
+
+    // 예산이 잡힌 항목만 골라 선택한 기준으로 정렬한다
+    private static IEnumerable<AccountingService.CategoryStat> Budgeted(
+        List<AccountingService.CategoryStat> stats, string sort)
+    {
+        var q = stats.Where(s => s.BudgetAmount > 0);
+        return sort switch
+        {
+            "amount" => q.OrderByDescending(s => s.Amount),
+            "name" => q.OrderBy(s => s.Category, StringComparer.CurrentCulture),
+            _ => q.OrderByDescending(s => s.Percentage).ThenByDescending(s => s.Amount),
+        };
+    }
+
+    // 예산 0인데 실적만 있는 항목 — 금액순 고정
+    private static IEnumerable<AccountingService.CategoryStat> OffBudget(
+        List<AccountingService.CategoryStat> stats) =>
+        stats.Where(s => s.BudgetAmount == 0 && s.Amount > 0).OrderByDescending(s => s.Amount);
+
+    private IEnumerable<AccountingService.CategoryStat> ExpenseBudgeted => Budgeted(_view.ExpenseStats, _expenseSort);
+    private IEnumerable<AccountingService.CategoryStat> ExpenseOffBudget => OffBudget(_view.ExpenseStats);
+    private IEnumerable<AccountingService.CategoryStat> IncomeBudgeted => Budgeted(_view.IncomeStats, _incomeSort);
+    private IEnumerable<AccountingService.CategoryStat> IncomeOffBudget => OffBudget(_view.IncomeStats);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+        _departments = await Accounting.GetDepartmentsAsync();
+        if (!CanPickDept) _deptId = 0;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            var names = _departments.ToDictionary(d => d.Id, d => d.Name);
+            _view = await Accounting.GetDashboardAsync(_deptId, CurrentUser.DepartmentId, _year, names);
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task ChangeYear(int offset)
+    {
+        _year += offset;
+        await LoadAsync();
+    }
+
+    private void OpenDeptSheet()
+    {
+        if (CanPickDept) _showDeptSheet = true;
+    }
+
+    private async Task PickDept(int id)
+    {
+        _deptId = id;
+        _showDeptSheet = false;
+        await LoadAsync();
+    }
+
+    private static string Won(decimal v) => v.ToString("N0") + "원";
+
+    // 진행률 바는 100%를 넘겨 그리지 않는다 (수치는 그대로 보여준다)
+    private static int Bar(int percent) => Math.Clamp(percent, 0, 100);
+}
