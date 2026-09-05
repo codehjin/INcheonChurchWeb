@@ -265,8 +265,12 @@
     private string UserDepartmentName => CurrentUser?.Department?.Name ?? "";
     private DateTime? _lastTransactionDate = null;
 
-    private static List<LedgerEntry> _savedPreviewList = new();
-    private static string _savedCurrentTab = GlobalConstants.TransactionTypeExpense;
+    // ⚠️ static 이면 안 된다. Blazor Server 에서 static 필드는 프로세스 전역이라
+    //    접속한 모든 사용자의 회로가 같은 인스턴스를 공유하고, 그 결과 부서가 다른
+    //    담당자들의 가져오기 미리보기가 한 리스트에 섞여 서로의 장부에 저장됐다.
+    //    회로(=사용자 세션)마다 독립이어야 하므로 인스턴스 필드로 둔다.
+    private List<LedgerEntry> _savedPreviewList = new();
+    private string _savedCurrentTab = GlobalConstants.TransactionTypeExpense;
 
     private List<CategoryMapping> _autoRules = new();
     private bool _isLoading = false;
