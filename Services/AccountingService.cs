@@ -77,6 +77,21 @@ namespace INcheonChurchWeb.Services
             _dbFactory = dbFactory;
             _env = env;
         }
+
+        // 소속이 없는 사용자를 닫는 쪽으로 떨어뜨릴 때 쓰는 값.
+        // 어떤 부서 Id 와도 일치하지 않으므로 조회 결과가 빈다.
+        private const int NoDepartmentSentinel = -1;
+
+        // 🚀 조회 대상 부서를 확정한다. 부서 인자 0 은 '전체 부서'라는 뜻이지만,
+        //    전체 조회 권한이 없는 사용자에게는 절대 허용해선 안 된다.
+        //    화면이 실수로 0 을 넘기더라도(모바일 장부·대시보드에서 실제로 발생했다)
+        //    여기서 자기 부서로 좁힌다. 권한 판단을 호출부에 맡기면 화면을 하나
+        //    추가할 때마다 같은 실수가 재발하므로, 판정은 서비스가 단독으로 한다.
+        private static int ResolveViewDepartmentId(int viewDeptId, int userDeptId, bool canViewAll)
+        {
+            if (canViewAll) return viewDeptId;
+            return userDeptId > 0 ? userDeptId : NoDepartmentSentinel;
+        }
         // =========================================================
         // [1-1] 보조금 현황 계산 로직
         // =========================================================

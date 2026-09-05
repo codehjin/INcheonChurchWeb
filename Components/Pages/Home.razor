@@ -684,7 +684,8 @@
             //     서비스와 한 줄 달랐다 — 웹_상세_구조문서.md §6.3)
             var names = _departments.ToDictionary(d => d.Id, d => d.Name);
             var view = await Accounting.GetDashboardAsync(
-                _dashboardDeptId, CurrentUser?.DepartmentId ?? 0, _currentYear, names);
+                _dashboardDeptId, CurrentUser?.DepartmentId ?? 0, CurrentUser?.CanViewAll == true,
+                _currentYear, names);
 
             _totalBudget = view.TotalBudget;
             _totalExpense = view.TotalExpense;

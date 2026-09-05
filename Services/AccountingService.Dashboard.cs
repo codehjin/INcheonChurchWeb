@@ -62,9 +62,12 @@ namespace INcheonChurchWeb.Services
             string.Equals(t, "Income", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "수입", StringComparison.OrdinalIgnoreCase);
 
         // deptId 0 = 전체 부서(관리자·감사). departmentNames는 전체 조회일 때 제목 앞에 [부서명]을 붙이는 용도.
-        public async Task<DashboardView> GetDashboardAsync(int deptId, int userDeptId, int year,
+        // canViewAll 이 false 면 deptId 가 무엇이든 userDeptId 로 좁혀진다 → 부서간 열람 차단.
+        public async Task<DashboardView> GetDashboardAsync(int deptId, int userDeptId, bool canViewAll, int year,
                                                            IReadOnlyDictionary<int, string>? departmentNames = null)
         {
+            deptId = ResolveViewDepartmentId(deptId, userDeptId, canViewAll);
+
             using var db = _dbFactory.CreateDbContext();
             var view = new DashboardView();
 

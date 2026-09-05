@@ -129,10 +129,12 @@ else
             int year = Year ?? DateTime.Now.Year;
             // dept 는 URL 쿼리라 사용자가 임의로 바꿀 수 있다.
             // 전체 조회 권한이 없으면 무엇이 넘어오든 자기 부서로 강제한다.
+            // (서비스도 같은 판정을 하지만, 아래 _deptLabel 표기가 실제 조회 범위와
+            //  어긋나지 않도록 여기서도 확정해 둔다.)
             int deptId = CurrentUser.CanViewAll ? (Dept ?? 0) : CurrentUser.DepartmentId;
 
             _view = await Accounting.GetLedgerViewAsync(
-                deptId, CurrentUser.DepartmentId, year, Quarter ?? 0, Month ?? 0,
+                deptId, CurrentUser.DepartmentId, CurrentUser.CanViewAll, year, Quarter ?? 0, Month ?? 0,
                 string.IsNullOrEmpty(Type) ? null : Type);
 
             var depts = await Accounting.GetDepartmentsAsync();

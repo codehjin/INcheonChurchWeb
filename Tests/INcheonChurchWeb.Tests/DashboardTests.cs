@@ -55,7 +55,7 @@ public class DashboardTests : IDisposable
         예산("지출", "여름성경학교", 2_000_000);
         거래("2026-07-10", "여름성경학교", expense: 1_500_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(2_000_000, view.TotalBudget);
         Assert.Equal(1_500_000, view.TotalExpense);
@@ -69,7 +69,7 @@ public class DashboardTests : IDisposable
         예산("지출", "여름성경학교", 1_000_000);
         거래("2026-07-10", "여름성경학교", expense: 1_500_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(150, view.ExpenseRate);          // 초과분이 그대로 보여야 한다
         Assert.Equal(-500_000, view.RemainingBudget);
@@ -81,7 +81,7 @@ public class DashboardTests : IDisposable
         // 편성이 없는데 쓴 항목. 0%로 두면 화면에서 "안 쓴 것"처럼 보인다.
         거래("2026-07-10", "훈련비", expense: 350_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
         var stat = Assert.Single(view.ExpenseStats);
 
         Assert.Equal("훈련비", stat.Category);
@@ -97,7 +97,7 @@ public class DashboardTests : IDisposable
         거래("2026-03-11", "은행이자", income: 500);
         거래("2026-03-12", "환급금", income: 20_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(1_000_000, view.TotalIncome);
         Assert.DoesNotContain(view.IncomeStats, s => s.Category == "은행이자");
@@ -110,7 +110,7 @@ public class DashboardTests : IDisposable
         // 편성했는데 아직 안 쓴 항목이 목록에서 사라지면 안 된다
         예산("지출", "겨울성경학교", 2_100_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
         var stat = Assert.Single(view.ExpenseStats);
 
         Assert.Equal(2_100_000, stat.BudgetAmount);
@@ -133,7 +133,7 @@ public class DashboardTests : IDisposable
             db.SaveChanges();
         }
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(1_000_000, view.SubsidyRequested);
         Assert.Equal(25, view.IncomeRate);
@@ -157,7 +157,7 @@ public class DashboardTests : IDisposable
             db.SaveChanges();
         }
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(new DateTime(2026, 6, 5), view.SubsidyRequests[0].DepositDate);
     }
@@ -167,7 +167,7 @@ public class DashboardTests : IDisposable
     {
         거래("2026-07-10", "여름성경학교", expense: 100_000);
 
-        var view = await _svc.GetDashboardAsync(DeptId, DeptId, Year);
+        var view = await _svc.GetDashboardAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(0, view.TotalBudget);
         Assert.Equal(0, view.ExpenseRate);

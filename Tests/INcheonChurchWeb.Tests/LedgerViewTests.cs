@@ -60,7 +60,7 @@ public class LedgerViewTests : IDisposable
     {
         예산_이월금(1_000_000);
 
-        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 0, 0, null);
+        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 0, null);
 
         Assert.Equal(1_000_000, view.CarryOver);
         Assert.Equal(1_000_000, view.Balance);
@@ -74,7 +74,7 @@ public class LedgerViewTests : IDisposable
         거래("2025-06-10", income: 500_000);
         거래("2025-06-20", expense: 200_000);
 
-        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 0, 0, null);
+        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 0, null);
 
         Assert.Equal(1_300_000, view.CarryOver);   // 100만 + 50만 − 20만
         Assert.Empty(view.Entries);                 // 조회 기간 밖이라 목록에는 없다
@@ -87,7 +87,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-10", income: 400_000);   // 2분기
         거래("2026-07-10", expense: 100_000);  // 3분기
 
-        var q3 = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 3, 0, null);
+        var q3 = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 3, 0, null);
 
         Assert.Equal(1_400_000, q3.CarryOver);          // 3분기 이전 증감이 접힘
         Assert.Single(q3.Entries);
@@ -103,7 +103,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-10", income: 50_000);
         거래("2026-03-15", expense: 30_000);
 
-        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 0, 3, null);
+        var view = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 3, null);
 
         var balances = view.Entries.Select(e => view.Balances[e.Id]).ToList();
 
@@ -121,8 +121,8 @@ public class LedgerViewTests : IDisposable
         거래("2026-02-22", expense: 10_000);   // Q1 마지막 날
         거래("2026-02-23", expense: 20_000);   // Q2 첫날
 
-        var q1 = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 1, 0, null);
-        var q2 = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 2, 0, null);
+        var q1 = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 1, 0, null);
+        var q2 = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 2, 0, null);
 
         Assert.Single(q1.Entries);
         Assert.Equal(new DateTime(2026, 2, 22), q1.Entries[0].Date);
@@ -136,7 +136,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-10", expense: 10_000);
         거래("2026-04-10", expense: 20_000);
 
-        var march = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 2, 3, null);
+        var march = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 2, 3, null);
 
         Assert.Single(march.Entries);
         Assert.Equal(3, march.Entries[0].Date.Month);
@@ -148,7 +148,7 @@ public class LedgerViewTests : IDisposable
         // 2026 회계연도의 12월은 2025년 12월이다
         거래("2025-12-10", expense: 10_000);
 
-        var dec = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 0, 12, null);
+        var dec = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 12, null);
 
         Assert.Single(dec.Entries);
         Assert.Equal(2025, dec.Entries[0].Date.Year);
@@ -162,8 +162,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-05", expense: 100_000);
         거래("2026-03-10", income: 50_000);
 
-        var onlyExpense = await _svc.GetLedgerViewAsync(
-            DeptId, DeptId, Year, 0, 3, GlobalConstants.TransactionTypeExpense);
+        var onlyExpense = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 3, GlobalConstants.TransactionTypeExpense);
 
         Assert.Single(onlyExpense.Entries);
         Assert.Equal(1_000_000, onlyExpense.CarryOver);   // 이월금은 필터와 무관
@@ -176,7 +175,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-05", expense: 10_000, deptId: DeptId);
         거래("2026-03-06", expense: 99_000, deptId: 99);
 
-        var mine = await _svc.GetLedgerViewAsync(DeptId, DeptId, Year, 0, 3, null);
+        var mine = await _svc.GetLedgerViewAsync(DeptId, DeptId, canViewAll: true, Year, 0, 3, null);
 
         Assert.Single(mine.Entries);
         Assert.Equal(10_000, mine.TotalExpense);
@@ -188,7 +187,7 @@ public class LedgerViewTests : IDisposable
         거래("2026-03-05", expense: 10_000, deptId: DeptId);
         거래("2026-03-06", expense: 99_000, deptId: 99);
 
-        var all = await _svc.GetLedgerViewAsync(0, DeptId, Year, 0, 3, null);
+        var all = await _svc.GetLedgerViewAsync(0, DeptId, canViewAll: true, Year, 0, 3, null);
 
         Assert.Equal(2, all.Entries.Count);
         Assert.Equal(109_000, all.TotalExpense);

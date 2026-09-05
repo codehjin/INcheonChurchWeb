@@ -455,7 +455,8 @@ else
         try
         {
             var names = _departments.ToDictionary(d => d.Id, d => d.Name);
-            _view = await Accounting.GetDashboardAsync(_deptId, CurrentUser.DepartmentId, _year, names);
+            _view = await Accounting.GetDashboardAsync(
+                _deptId, CurrentUser.DepartmentId, CanPickDept, _year, names);
         }
         finally { _isLoading = false; }
     }

@@ -52,7 +52,7 @@ public class CategoryMapsTests : IDisposable
         예산("지출", "여름성경학교", "공과교재");
         예산("수입", "회비수입");
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(new[] { "여름성경학교" }, maps.ExpenseCategories);
         Assert.Equal(new[] { "회비수입" }, maps.IncomeCategories);
@@ -67,7 +67,7 @@ public class CategoryMapsTests : IDisposable
         예산("지출", "겨울성경학교");
         예산("수입", "회비수입");
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(new[] { "겨울성경학교", "여름성경학교" }, maps.SubsFor("수입", "회비수입").OrderBy(x => x));
     }
@@ -77,7 +77,7 @@ public class CategoryMapsTests : IDisposable
     {
         거래("훈련비", "교사훈련(MT)", expense: 500_000);
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Contains("훈련비", maps.ExpenseCategories);
         Assert.Contains("교사훈련(MT)", maps.SubsFor("지출", "훈련비"));
@@ -89,7 +89,7 @@ public class CategoryMapsTests : IDisposable
         // 레거시 데이터에 Type이 비어 있어도 수입으로 잡혀야 한다
         거래("회비수입", "여름성경학교", income: 300_000, type: "");
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Contains("회비수입", maps.IncomeCategories);
         Assert.DoesNotContain("회비수입", maps.ExpenseCategories);
@@ -101,7 +101,7 @@ public class CategoryMapsTests : IDisposable
         // 금액이 0인 이상 데이터라도 Type이 Income이면 수입으로
         거래("찬조금", "달란트행사", income: 0, expense: 0, type: "Income");
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Contains("찬조금", maps.IncomeCategories);
     }
@@ -112,7 +112,7 @@ public class CategoryMapsTests : IDisposable
         예산("지출", "여름성경학교", "식사", deptId: DeptId);
         예산("지출", "타부서행사", "식사", deptId: OtherDept);
 
-        var mine = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var mine = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(new[] { "여름성경학교" }, mine.ExpenseCategories);
     }
@@ -124,7 +124,7 @@ public class CategoryMapsTests : IDisposable
         예산("지출", "여름성경학교", "식사", deptId: DeptId);
         예산("지출", "타부서행사", "식사", deptId: OtherDept);
 
-        var all = await _svc.GetCategoryMapsAsync(0, Year);
+        var all = await _svc.GetCategoryMapsAsync(0, DeptId, canViewAll: true, Year);
 
         Assert.Contains("여름성경학교", all.ExpenseCategories);
         Assert.Contains("타부서행사", all.ExpenseCategories);
@@ -136,7 +136,7 @@ public class CategoryMapsTests : IDisposable
         예산("지출", "여름성경학교", "식사");
         예산("지출", "교사회의비", "교사간식");
 
-        var maps = await _svc.GetCategoryMapsAsync(DeptId, Year);
+        var maps = await _svc.GetCategoryMapsAsync(DeptId, DeptId, canViewAll: true, Year);
 
         Assert.Equal(new[] { "교사간식", "식사" }, maps.SubsFor("지출", null));
     }

@@ -106,9 +106,12 @@ namespace INcheonChurchWeb.Services
             }
         }
 
-        /// <summary>deptId 0 = 전체 부서 (GetLedgerViewAsync와 같은 규칙).</summary>
-        public async Task<CategoryMaps> GetCategoryMapsAsync(int deptId, int year)
+        /// <summary>viewDeptId 0 = 전체 부서 (GetLedgerViewAsync와 같은 규칙).
+        /// canViewAll 이 false 면 무엇이 넘어오든 userDeptId 로 좁혀진다.</summary>
+        public async Task<CategoryMaps> GetCategoryMapsAsync(int viewDeptId, int userDeptId, bool canViewAll, int year)
         {
+            int deptId = ResolveViewDepartmentId(viewDeptId, userDeptId, canViewAll);
+
             using var db = _dbFactory.CreateDbContext();
 
             var budgetQuery = db.BudgetPlans.AsNoTracking().Where(b => b.Year == year);
@@ -242,8 +245,11 @@ namespace INcheonChurchWeb.Services
 
         // viewDeptId 0 = 전체 부서(관리자·감사). month > 0이면 월 우선, 아니면 quarter, 둘 다 0이면 회계연도 전체.
         // type은 "수입"/"지출"/null(전체).
-        public async Task<LedgerView> GetLedgerViewAsync(int viewDeptId, int userDeptId, int year, int quarter, int month, string? type)
+        // canViewAll 이 false 면 viewDeptId 가 무엇이든 userDeptId 로 좁혀진다 → 부서간 열람 차단.
+        public async Task<LedgerView> GetLedgerViewAsync(int viewDeptId, int userDeptId, bool canViewAll, int year, int quarter, int month, string? type)
         {
+            viewDeptId = ResolveViewDepartmentId(viewDeptId, userDeptId, canViewAll);
+
             using var db = _dbFactory.CreateDbContext();
 
             int qDeptId = viewDeptId == 0 ? userDeptId : viewDeptId;

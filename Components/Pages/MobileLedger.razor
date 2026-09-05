@@ -754,11 +754,12 @@ else
         try
         {
             _view = await Accounting.GetLedgerViewAsync(
-                _deptId, CurrentUser.DepartmentId, _year, _quarter, _month,
+                _deptId, CurrentUser.DepartmentId, CanPickDept, _year, _quarter, _month,
                 string.IsNullOrEmpty(_type) ? null : _type);
 
             int mapDeptId = _deptId == 0 ? CurrentUser.DepartmentId : _deptId;
-            _maps = await Accounting.GetCategoryMapsAsync(mapDeptId, _year);
+            _maps = await Accounting.GetCategoryMapsAsync(
+                mapDeptId, CurrentUser.DepartmentId, CanPickDept, _year);
         }
         finally { _isLoading = false; }
     }
