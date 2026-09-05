@@ -1,0 +1,317 @@
+@page "/event-report-app"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject IJSRuntime JSRuntime
+
+<PageTitle>행사 보고서</PageTitle>
+
+<style>
+    /* 15 행사 보고서 */
+    .me-year {
+        display: flex; align-items: center; height: 40px; border-radius: 999px; background: var(--ma-bg);
+        box-shadow: var(--ma-shadow-card); margin: 16px 0;
+    }
+    .me-year button { width: 44px; height: 40px; border: none; background: none; color: var(--ma-text-sub); font-size: 14px; cursor: pointer; }
+    .me-year .val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+
+    .me-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 20px; }
+    .me-sum, .me-fig { min-width: 0; }
+    .me-sum {
+        background: var(--ma-bg); border-radius: 16px; padding: 10px 12px;
+        box-shadow: var(--ma-shadow-card); min-width: 0;
+    }
+    .me-sum .k { font-size: 13px; color: var(--ma-text-sub); }
+    .me-sum .v { font-size: clamp(12px, 3.9vw, 15px); font-weight: 700; white-space: nowrap; }
+    .me-sum .v.income { color: var(--ma-income); }
+
+    .me-card {
+        background: var(--ma-bg); border-radius: 16px; box-shadow: var(--ma-shadow-card);
+        padding: 14px; margin-bottom: 12px; width: 100%; border: none; text-align: left; color: inherit;
+        cursor: pointer; display: block;
+    }
+    .me-card:active { background: var(--ma-bg-sub); }
+    .me-card-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .me-card-title { font-size: 17px; font-weight: 600; letter-spacing: -0.02em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .me-figs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .me-fig .k { font-size: 13px; color: var(--ma-text-sub); }
+    .me-fig .v { font-size: clamp(12px, 3.9vw, 15px); font-weight: 700; white-space: nowrap; }
+    .me-fig .v.expense { color: var(--ma-expense); }
+    .me-fig .v.income { color: var(--ma-income); }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (!CanView)
+{
+    <div class="ma-empty">
+        <i class="bi bi-lock"></i>
+        <div class="main">이 화면을 볼 수 있는 권한이 없습니다.</div>
+        <div class="sub">관리자에게 문의하세요.</div>
+    </div>
+}
+else if (_mode == "list")
+{
+    <div class="ma-header">
+        <h2 class="ma-title">행사 보고서</h2>
+    </div>
+
+    <div class="me-year">
+        <button title="이전 회계연도" @onclick="() => ChangeYear(-1)"><i class="bi bi-chevron-left"></i></button>
+        <span class="val">@_year 회계연도</span>
+        <button title="다음 회계연도" @onclick="() => ChangeYear(1)"><i class="bi bi-chevron-right"></i></button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+    }
+    else if (!_finances.Any())
+    {
+        <div class="ma-empty">
+            <i class="bi bi-clipboard-check"></i>
+            <div class="main">이 연도에 집행된 행사가 없습니다.</div>
+        </div>
+    }
+    else
+    {
+        <div class="me-summary">
+            <div class="me-sum">
+                <div class="k">작성 완료</div>
+                <div class="v">@WrittenCount/@_finances.Count</div>
+            </div>
+            <div class="me-sum">
+                <div class="k">집행 총액</div>
+                <div class="v">@_finances.Sum(f => f.Spent).ToString("N0")</div>
+            </div>
+            <div class="me-sum">
+                <div class="k">수입 총액</div>
+                <div class="v income">@_finances.Sum(f => f.Income).ToString("N0")</div>
+            </div>
+        </div>
+
+        @foreach (var f in _finances)
+        {
+            var ff = f;
+            var written = _reportByName.ContainsKey(ff.EventName.Trim());
+            <button type="button" class="me-card" @onclick="() => OpenReport(ff.EventName)">
+                <span class="me-card-top">
+                    <span class="me-card-title">@ff.EventName</span>
+                    <span class="ma-badge @(written ? "income" : "warn") ma-push-right">@(written ? "작성완료" : "미작성")</span>
+                </span>
+                <span class="me-figs">
+                    <span class="me-fig"><span class="k">예산</span><br /><span class="v">@ff.Budget.ToString("N0")</span></span>
+                    <span class="me-fig"><span class="k">지출</span><br /><span class="v expense">@ff.Spent.ToString("N0")</span></span>
+                    <span class="me-fig"><span class="k">수입</span><br /><span class="v income">@ff.Income.ToString("N0")</span></span>
+                </span>
+            </button>
+        }
+
+        <div class="ma-caption">재정 수치는 장부에서 자동 집계됩니다.</div>
+    }
+}
+else
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">@_edit.EventName</h2>
+        <button class="ma-header-action ma-push-right" @onclick="BackToList">목록으로</button>
+    </div>
+
+    @if (!CanEdit)
+    {
+        <div class="ma-card">
+            <div class="ma-readonly"><span class="k">시작일</span><span class="v">@DateText(_edit.StartDate)</span></div>
+            <div class="ma-readonly"><span class="k">종료일</span><span class="v">@DateText(_edit.EndDate)</span></div>
+            <div class="ma-readonly"><span class="k">장소</span><span class="v">@Or(_edit.Location)</span></div>
+            <div class="ma-readonly"><span class="k">참석 인원</span><span class="v">@(_edit.Attendees?.ToString("N0") ?? "-")</span></div>
+            <div class="ma-readonly"><span class="k">담당자</span><span class="v">@Or(_edit.Organizer)</span></div>
+            <div class="ma-readonly"><span class="k">진행 내용</span><span class="v">@Or(_edit.Content)</span></div>
+            <div class="ma-readonly"><span class="k">잘된 점</span><span class="v">@Or(_edit.WhatWentWell)</span></div>
+            <div class="ma-readonly"><span class="k">개선할 점</span><span class="v">@Or(_edit.WhatToImprove)</span></div>
+        </div>
+        <button class="ma-btn secondary" @onclick="BackToList">닫기</button>
+    }
+    else
+    {
+        <div class="ma-field ma-two">
+            <div>
+                <div class="ma-label">시작일</div>
+                <div class="ma-box"><input type="date" @bind="_startDate" /></div>
+            </div>
+            <div>
+                <div class="ma-label">종료일</div>
+                <div class="ma-box"><input type="date" @bind="_endDate" /></div>
+            </div>
+        </div>
+
+        <div class="ma-field">
+            <div class="ma-label">장소</div>
+            <div class="ma-box"><input type="text" placeholder="예: 본당 소예배실" @bind="_edit.Location" /></div>
+        </div>
+
+        <div class="ma-field ma-two">
+            <div>
+                <div class="ma-label">참석 인원</div>
+                <div class="ma-box">
+                    <input type="number" min="0" placeholder="0" @bind="_attendees" />
+                    <span class="ma-unit">명</span>
+                </div>
+            </div>
+            <div>
+                <div class="ma-label">담당자</div>
+                <div class="ma-box"><input type="text" placeholder="예: 김OO" @bind="_edit.Organizer" /></div>
+            </div>
+        </div>
+
+        <div class="ma-field">
+            <div class="ma-label">진행 내용</div>
+            <div class="ma-box" style="align-items:stretch;">
+                <textarea rows="4" placeholder="무엇을 어떻게 했나" @bind="_edit.Content"></textarea>
+            </div>
+        </div>
+
+        <div class="ma-field">
+            <div class="ma-label">잘된 점</div>
+            <div class="ma-box" style="align-items:stretch;">
+                <textarea rows="3" placeholder="다음에도 이어갈 것" @bind="_edit.WhatWentWell"></textarea>
+            </div>
+        </div>
+
+        <div class="ma-field">
+            <div class="ma-label">개선할 점</div>
+            <div class="ma-box" style="align-items:stretch;">
+                <textarea rows="3" placeholder="다음 담당자가 참고할 것" @bind="_edit.WhatToImprove"></textarea>
+            </div>
+        </div>
+
+        <div class="ma-caption">재정 수치는 장부에서 자동 집계됩니다.</div>
+
+        <div class="ma-bottom">
+            <button class="ma-btn secondary narrow" @onclick="BackToList">취소</button>
+            <button class="ma-btn primary" disabled="@_isSaving" @onclick="SaveReport">저장</button>
+        </div>
+    }
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private string _mode = "list";
+    private int _year = DateTime.Now.Year;
+    private bool _isLoading = true, _isSaving;
+
+    private List<AccountingService.EventFinance> _finances = new();
+    private Dictionary<string, EventReport> _reportByName = new();
+
+    private EventReport _edit = new();
+    private DateTime? _startDate, _endDate;
+    private int? _attendees;
+
+    private bool CanView => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+    private bool CanEdit => CurrentUser?.CanEdit == true;
+
+    private int WrittenCount => _finances.Count(f => _reportByName.ContainsKey(f.EventName.Trim()));
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null || !CanView) { _isLoading = false; return; }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            int deptId = CurrentUser.DepartmentId;
+            _finances = (await Accounting.GetEventFinancesAsync(deptId, _year))
+                        .Where(f => f.Budget > 0 || f.Spent > 0 || f.Income > 0)
+                        .ToList();
+
+            var reports = await Accounting.GetEventReportsAsync(deptId, _year);
+            _reportByName = reports
+                .GroupBy(r => r.EventName.Trim())
+                .ToDictionary(g => g.Key, g => g.First());
+        }
+        finally { _isLoading = false; }
+    }
+
+    private async Task ChangeYear(int offset)
+    {
+        _year += offset;
+        await LoadAsync();
+    }
+
+    private void OpenReport(string eventName)
+    {
+        var key = eventName.Trim();
+        if (_reportByName.TryGetValue(key, out var existing))
+        {
+            _edit = new EventReport
+            {
+                Id = existing.Id,
+                DepartmentId = existing.DepartmentId,
+                FiscalYear = existing.FiscalYear,
+                EventName = existing.EventName,
+                AnnualPlanId = existing.AnnualPlanId,
+                Location = existing.Location,
+                Organizer = existing.Organizer,
+                Content = existing.Content,
+                WhatWentWell = existing.WhatWentWell,
+                WhatToImprove = existing.WhatToImprove
+            };
+            _startDate = existing.StartDate;
+            _endDate = existing.EndDate;
+            _attendees = existing.Attendees;
+        }
+        else
+        {
+            _edit = new EventReport
+            {
+                DepartmentId = CurrentUser!.DepartmentId,
+                FiscalYear = _year,
+                EventName = key
+            };
+            _startDate = null;
+            _endDate = null;
+            _attendees = null;
+        }
+
+        _mode = "edit";
+    }
+
+    private void BackToList() => _mode = "list";
+
+    private async Task SaveReport()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        _isSaving = true;
+        try
+        {
+            _edit.StartDate = _startDate;
+            _edit.EndDate = _endDate;
+            _edit.Attendees = _attendees;
+            _edit.DepartmentId = CurrentUser.DepartmentId;
+            _edit.FiscalYear = _year;
+
+            await Accounting.SaveEventReportAsync(_edit, CurrentUser.Username);
+            await JSRuntime.AlertAsync("저장되었습니다.");
+            _mode = "list";
+            await LoadAsync();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private static string DateText(DateTime? d) => d?.ToString("yyyy-MM-dd") ?? "-";
+    private static string Or(string? v) => string.IsNullOrWhiteSpace(v) ? "-" : v;
+}

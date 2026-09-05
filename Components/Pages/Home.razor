@@ -592,18 +592,10 @@
     private decimal _subsidyBudget = 0;
     private decimal _subsidyRequested = 0;
 
-    public class CategoryStat
-    {
-        public string Category { get; set; } = "";
-        public decimal Amount { get; set; }
-        // 🚀 추가: 예산액을 담을 변수
-        public decimal BudgetAmount { get; set; }
-        public int Percentage { get; set; }
-    }
-
+    // 🚀 집계와 DTO는 AccountingService 한 곳에 있다 (웹_상세_구조문서.md §6.3)
     private decimal _totalIncome = 0;
-    private List<CategoryStat> _incomeStats = new();
-    private List<CategoryStat> _expenseStats = new();
+    private List<AccountingService.CategoryStat> _incomeStats = new();
+    private List<AccountingService.CategoryStat> _expenseStats = new();
 
     // ── 상세 카드 표시 상태(화면 내에서만 유지 — localStorage 미사용) ──
     // 지출·수입 상세 카드는 하나의 토글로 함께 접는다(한쪽만 접히면 빈 배경이 남는다).
@@ -615,7 +607,7 @@
     private decimal SubsidyRemaining => _subsidyBudget - _subsidyRequested;
 
     // 예산이 잡힌 항목만 골라 선택한 기준으로 정렬. 원본 리스트는 변형하지 않는다.
-    private IEnumerable<CategoryStat> Budgeted(List<CategoryStat> stats, string sort)
+    private IEnumerable<AccountingService.CategoryStat> Budgeted(List<AccountingService.CategoryStat> stats, string sort)
     {
         var q = stats.Where(s => s.BudgetAmount > 0);
         return sort switch
@@ -627,17 +619,10 @@
     }
 
     // 예산 0인데 실적만 있는 항목 — 금액순 고정. 예산·실적 모두 0이면 여기서도 빠진다.
-    private IEnumerable<CategoryStat> OffBudget(List<CategoryStat> stats) =>
+    private IEnumerable<AccountingService.CategoryStat> OffBudget(List<AccountingService.CategoryStat> stats) =>
         stats.Where(s => s.BudgetAmount == 0 && s.Amount > 0).OrderByDescending(s => s.Amount);
 
-    public class SubsidyRequestItem
-    {
-        public DateTime RequestDate { get; set; }
-        public string Title { get; set; } = "";
-        public decimal Amount { get; set; }
-        public DateTime? DepositDate { get; set; }
-    }
-    private List<SubsidyRequestItem> _subsidyRequests = new();
+    private List<AccountingService.SubsidyRequestItem> _subsidyRequests = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -689,121 +674,35 @@
         }
     }
 
-    private bool IsExpenseType(string t) => string.Equals(t, "Expense", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "지출", StringComparison.OrdinalIgnoreCase);
-    private bool IsIncomeType(string t) => string.Equals(t, "Income", StringComparison.OrdinalIgnoreCase) || string.Equals(t, "수입", StringComparison.OrdinalIgnoreCase);
-
     private async Task LoadDashboardData()
     {
         StateHasChanged();
         try
         {
-            using var context = DbContextFactory.CreateDbContext();
-            var budgetQuery = context.BudgetPlans.AsNoTracking().Where(b => b.Year == _currentYear);
-            if (_dashboardDeptId != 0) budgetQuery = budgetQuery.Where(b => b.DepartmentId == _dashboardDeptId);
-            var budgetList = await budgetQuery.ToListAsync();
+            // 🚀 예산 합계·항목별 집행률·보조금 신청현황 집계는 AccountingService 한 곳에서 한다.
+            //    (예전에는 같은 계산이 이 파일에도 복제되어 있었고, 예산 0인 항목의 집행률이
+            //     서비스와 한 줄 달랐다 — 웹_상세_구조문서.md §6.3)
+            var names = _departments.ToDictionary(d => d.Id, d => d.Name);
+            var view = await Accounting.GetDashboardAsync(
+                _dashboardDeptId, CurrentUser?.DepartmentId ?? 0, _currentYear, names);
 
-            _totalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
-            _subsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
+            _totalBudget = view.TotalBudget;
+            _totalExpense = view.TotalExpense;
+            _totalIncome = view.TotalIncome;
+            _subsidyBudget = view.SubsidyBudget;
+            _subsidyRequested = view.SubsidyRequested;
 
-            int queryDeptId = _dashboardDeptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : _dashboardDeptId;
+            // 초과 집행을 100%로 깎지 않는다. 막대만 화면에서 100%로 자른다.
+            _progressPercentage = view.ExpenseRate;
+            _incomeRate = view.IncomeRate;
 
-            var q1 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, _currentYear, 1);
-            var q4 = await Accounting.GetQuarterDateRangeAsync(queryDeptId, _currentYear, 4);
-
-            DateTime dashboardStartDate = q1.Start.Date;
-            DateTime dashboardEndDate = q4.End.Date.AddDays(1);
-
-            var transQuery = context.Transactions.AsNoTracking()
-                .Where(t => t.FiscalYear == _currentYear && t.Date >= dashboardStartDate && t.Date < dashboardEndDate);
-            if (_dashboardDeptId != 0) transQuery = transQuery.Where(t => t.DepartmentId == _dashboardDeptId);
-
-            var transactions = await transQuery.ToListAsync();
-
-            _totalExpense = transactions.Where(t => IsExpenseType(t.Type)).Sum(t => t.Expense);
-            _totalIncome = transactions.Where(t => IsIncomeType(t.Type) && t.Category != "은행이자" && t.Category != "환급금").Sum(t => t.Income);
-
-            if (_totalBudget > 0)
-            {
-                _progressPercentage = (double)(_totalExpense / _totalBudget) * 100;
-                if (_progressPercentage > 100) _progressPercentage = 100;
-            }
-            else { _progressPercentage = 0; }
-
-            // _incomeRate(보조금 수령 비율)는 reports 로드 후 신청액 기준으로 계산 (아래 참조)
-
-            // 🚀 수입/지출: 예산 등록 항목 + 실제 발생 항목을 합쳐 항목별 통계 계산 (은행이자·환급금은 수입에서 제외)
-            _incomeStats = BuildCategoryStats(budgetList, transactions, IsIncomeType, t => t.Income, "은행이자", "환급금");
-            _expenseStats = BuildCategoryStats(budgetList, transactions, IsExpenseType, t => t.Expense);
-
-            var reportsQuery = context.ExpenseReports.AsNoTracking().Where(r => r.FiscalYear == _currentYear);
-            if (_dashboardDeptId != 0) reportsQuery = reportsQuery.Where(r => r.DepartmentId == _dashboardDeptId);
-            var reports = await reportsQuery.OrderByDescending(r => r.Date).ToListAsync();
-
-            // 보조금 수령 비율 = 지출결의서 신청액 누계 / 교회보조금 수입예산
-            _subsidyRequested = reports.Sum(r => r.TotalAmount);
-            _incomeRate = _subsidyBudget > 0 ? (int)Math.Round((_subsidyRequested / _subsidyBudget) * 100) : 0;
-
-            var allIncomeQuery = context.Transactions.AsNoTracking().Where(t => t.Type == "수입" || t.Type == "Income");
-            if (_dashboardDeptId != 0) allIncomeQuery = allIncomeQuery.Where(t => t.DepartmentId == _dashboardDeptId);
-            var incomeListForMatching = await allIncomeQuery.OrderBy(t => t.Date).ToListAsync();
-
-            _subsidyRequests.Clear();
-            foreach (var rep in reports)
-            {
-                var matchedIncome = incomeListForMatching.FirstOrDefault(t =>
-                    t.Date.Date >= rep.Date.Date &&
-                    t.Income == rep.TotalAmount &&
-                    (_dashboardDeptId == 0 || t.DepartmentId == rep.DepartmentId));
-
-                string deptPrefix = "";
-                if (_dashboardDeptId == 0)
-                {
-                    var repDept = _departments.FirstOrDefault(d => d.Id == rep.DepartmentId);
-                    if (repDept != null) deptPrefix = $"[{repDept.Name}] ";
-                }
-
-                _subsidyRequests.Add(new SubsidyRequestItem
-                {
-                    RequestDate = rep.Date,
-                    Title = deptPrefix + rep.Title,
-                    Amount = rep.TotalAmount,
-                    DepositDate = matchedIncome?.Date
-                });
-
-                if (matchedIncome != null) incomeListForMatching.Remove(matchedIncome);
-            }
+            _expenseStats = view.ExpenseStats;
+            _incomeStats = view.IncomeStats;
+            _subsidyRequests = view.SubsidyRequests;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"대시보드 로드 오류: {ex.Message}");
         }
-    }
-
-    // 예산(budgetList)과 실거래(transactions)를 합쳐 항목별 집행/달성 통계를 생성하는 공용 헬퍼
-    // isType: 수입/지출 구분 함수, amount: 거래에서 집계할 금액(수입 또는 지출), excludeCategories: 통계에서 제외할 항목
-    private List<CategoryStat> BuildCategoryStats(
-        List<BudgetPlan> budgetList,
-        List<LedgerEntry> transactions,
-        Func<string, bool> isType,
-        Func<LedgerEntry, decimal> amount,
-        params string[] excludeCategories)
-    {
-        var categories = budgetList.Where(b => isType(b.Type)).Select(b => b.Category)
-            .Union(transactions.Where(t => isType(t.Type) && amount(t) > 0).Select(t => t.Category))
-            .Where(c => !string.IsNullOrWhiteSpace(c) && !excludeCategories.Contains(c))
-            .Distinct();
-
-        return categories.Select(cat =>
-        {
-            decimal budgetAmount = budgetList.Where(b => isType(b.Type) && b.Category == cat).Sum(b => b.Amount);
-            decimal actualAmount = transactions.Where(t => isType(t.Type) && t.Category == cat).Sum(amount);
-            return new CategoryStat
-            {
-                Category = cat,
-                Amount = actualAmount,
-                BudgetAmount = budgetAmount,
-                Percentage = budgetAmount > 0 ? (int)Math.Round((actualAmount / budgetAmount) * 100) : (actualAmount > 0 ? 100 : 0)
-            };
-        }).OrderByDescending(x => x.Percentage).ThenByDescending(x => x.Amount).ToList();
     }
 }

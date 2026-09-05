@@ -1227,20 +1227,7 @@
     </div>
 </div>
 
-<script>
-    window.downloadJsonFile = (fileName, jsonContent) => {
-        const blob = new Blob([jsonContent], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = fileName; link.href = url; document.body.appendChild(link); link.click(); document.body.removeChild(link); URL.revokeObjectURL(url);
-    };
-    window.downloadExcelFile = (fileName, base64String) => {
-        const link = document.createElement('a');
-        link.download = fileName;
-        link.href = `data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,${base64String}`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    };
-</script>
+@* 다운로드 함수는 wwwroot/js/app.js 한 곳에만 둔다 (예전에는 여기에도 같은 정의가 있었다) *@
 
 @code {
     [CascadingParameter] public User? CurrentUser { get; set; }
@@ -1461,7 +1448,7 @@
         int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, isAdmin);
         string msg = isAdmin ? $"{_targetYear}년도 전체 분기 기간이 전 부서에 일괄 저장되었습니다." : $"{_targetYear}년도 전체 분기 기간이 저장되었습니다.";
         if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
-        await ShowAlertAsync(msg);
+        await JSRuntime.AlertAsync(msg);
     }
 
     protected override async Task OnInitializedAsync()
@@ -1622,7 +1609,7 @@
         var nOff = _newOfficers[deptId];
         if (string.IsNullOrWhiteSpace(nOff.Name) || string.IsNullOrWhiteSpace(nOff.Role))
         {
-            await ShowAlertAsync("직분과 이름을 입력해주세요.");
+            await JSRuntime.AlertAsync("직분과 이름을 입력해주세요.");
             return;
         }
         using var context = DbContextFactory.CreateDbContext();
@@ -1652,31 +1639,31 @@
     
     private async Task ConfirmReplaceOfficer()
     {
-        if (_officerToReplace == null || string.IsNullOrWhiteSpace(_replaceNewName)) { await ShowAlertAsync("새로운 임원의 이름을 입력해주세요."); return; }
+        if (_officerToReplace == null || string.IsNullOrWhiteSpace(_replaceNewName)) { await JSRuntime.AlertAsync("새로운 임원의 이름을 입력해주세요."); return; }
         using var context = DbContextFactory.CreateDbContext();
         _officerToReplace.EndDate = _replaceStartDate.AddDays(-1); var ex = await context.DepartmentOfficers.FindAsync(_officerToReplace.Id);
         if (ex != null) context.Entry(ex).CurrentValues.SetValues(_officerToReplace);
         context.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = _officerToReplace.DepartmentId, Year = _targetYear, Role = _officerToReplace.Role, Name = _replaceNewName, StartDate = _replaceStartDate, EndDate = _quarterEndDates[3] });
-        await context.SaveChangesAsync(); await LoadData(); CancelReplace(); await ShowAlertAsync("성공적으로 교체되었습니다!");
+        await context.SaveChangesAsync(); await LoadData(); CancelReplace(); await JSRuntime.AlertAsync("성공적으로 교체되었습니다!");
     }
     
     private async Task ImportPreviousYearOfficers(int deptId)
     {
         using var context = DbContextFactory.CreateDbContext();
         var prevOfficers = await context.DepartmentOfficers.AsNoTracking().Where(o => o.DepartmentId == deptId && o.Year == _targetYear - 1).ToListAsync();
-        if (!prevOfficers.Any()) { await ShowAlertAsync($"{_targetYear - 1}년도 정보가 없습니다."); return; }
+        if (!prevOfficers.Any()) { await JSRuntime.AlertAsync($"{_targetYear - 1}년도 정보가 없습니다."); return; }
         if (await JSRuntime.InvokeAsync<bool?>("confirm", $"직전년도 명단을 불러오시겠습니까?") != true) return;
         var latestPrevOfficers = prevOfficers.GroupBy(o => o.Role).Select(g => g.OrderByDescending(o => o.EndDate).First()).ToList();
         foreach (var o in latestPrevOfficers) context.DepartmentOfficers.Add(new DepartmentOfficer { DepartmentId = deptId, Year = _targetYear, Role = o.Role, Name = o.Name, StartDate = _quarterStartDates[0], EndDate = _quarterEndDates[3] });
-        await context.SaveChangesAsync(); await LoadData(); await ShowAlertAsync("불러왔습니다.");
+        await context.SaveChangesAsync(); await LoadData(); await JSRuntime.AlertAsync("불러왔습니다.");
     }
     
     private async Task SaveAccountInfo(Department targetDept)
     {
-        if (string.IsNullOrWhiteSpace(targetDept.BankName) || string.IsNullOrWhiteSpace(targetDept.AccountNumber)) { await ShowAlertAsync("은행명과 계좌번호를 입력해주세요."); return; }
+        if (string.IsNullOrWhiteSpace(targetDept.BankName) || string.IsNullOrWhiteSpace(targetDept.AccountNumber)) { await JSRuntime.AlertAsync("은행명과 계좌번호를 입력해주세요."); return; }
         await AccService.UpdateDepartmentAsync(targetDept);
         if (CurrentUser?.DepartmentId == targetDept.Id && CurrentUser?.Department != null) { CurrentUser.Department.BankName = targetDept.BankName; CurrentUser.Department.AccountNumber = targetDept.AccountNumber; CurrentUser.Department.AccountHolder = targetDept.AccountHolder; }
-        await ShowAlertAsync("저장되었습니다!");
+        await JSRuntime.AlertAsync("저장되었습니다!");
     }
 
     private async Task DownloadAllDataJson()
@@ -1687,12 +1674,12 @@
             var allData = new SystemBackupDto { ExportDate = DateTime.Now, Departments = await context.Departments.AsNoTracking().ToListAsync(), Users = await context.Users.AsNoTracking().ToListAsync(), Transactions = await context.Transactions.AsNoTracking().ToListAsync(), BudgetPlans = await context.BudgetPlans.AsNoTracking().ToListAsync(), CategoryMappings = await context.CategoryMappings.AsNoTracking().ToListAsync() };
             var jsonOptions = new JsonSerializerOptions { WriteIndented = true, ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles };
             var json = JsonSerializer.Serialize(allData, jsonOptions);
-            await JSRuntime.InvokeVoidAsync("downloadJsonFile", $"전체시스템백업_{DateTime.Now:yyyyMMdd_HHmm}.json", json);
+            await JSRuntime.DownloadJsonAsync(json, $"전체시스템백업_{DateTime.Now:yyyyMMdd_HHmm}.json");
         }
-        catch (Exception ex) { await ShowAlertAsync($"백업 중 오류 발생: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"백업 중 오류 발생: {ex.Message}"); }
     }
 
-    private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('systemRestoreInput').click()"); }
+    private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("clickElement", "systemRestoreInput"); }
     
     private async Task HandleSystemRestore(InputFileChangeEventArgs e)
     {
@@ -1706,7 +1693,7 @@
             using var reader = new StreamReader(stream);
             var json = await reader.ReadToEndAsync();
             var backupData = JsonSerializer.Deserialize<SystemBackupDto>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (backupData == null || backupData.Departments == null || backupData.Users == null) { await ShowAlertAsync("유효하지 않은 백업 파일입니다."); return; }
+            if (backupData == null || backupData.Departments == null || backupData.Users == null) { await JSRuntime.AlertAsync("유효하지 않은 백업 파일입니다."); return; }
 
             using var context = DbContextFactory.CreateDbContext();
             context.CategoryMappings.RemoveRange(context.CategoryMappings); context.BudgetPlans.RemoveRange(context.BudgetPlans); context.Transactions.RemoveRange(context.Transactions); context.Users.RemoveRange(context.Users); context.Departments.RemoveRange(context.Departments);
@@ -1717,9 +1704,9 @@
             if (backupData.BudgetPlans.Any()) context.BudgetPlans.AddRange(backupData.BudgetPlans);
             if (backupData.CategoryMappings.Any()) context.CategoryMappings.AddRange(backupData.CategoryMappings);
             await context.SaveChangesAsync(); await LoadData();
-            await ShowAlertAsync("시스템 복원이 완료되었습니다."); Nav.NavigateTo("/", forceLoad: true);
+            await JSRuntime.AlertAsync("시스템 복원이 완료되었습니다."); Nav.NavigateTo("/", forceLoad: true);
         }
-        catch (Exception ex) { await ShowAlertAsync($"복원 중 오류 발생: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"복원 중 오류 발생: {ex.Message}"); }
         finally { _isRestoring = false; _systemRestoreKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
@@ -1756,10 +1743,9 @@
                 wsBudget.Cell(bRow, 7).Value = item.Amount; bRow++; 
             }
             wsBudget.Columns().AdjustToContents();
-            using var stream = new MemoryStream(); workbook.SaveAs(stream); var base64 = Convert.ToBase64String(stream.ToArray());
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"전체부서_통합백업_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
+            await JSRuntime.DownloadExcelAsync(workbook, $"전체부서_통합백업_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 백업 중 오류: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"엑셀 백업 중 오류: {ex.Message}"); }
     }
 
     private async Task SavePlan() { if (string.IsNullOrWhiteSpace(_newPlan.Category)) return; _newPlan.Year = _targetYear; _newPlan.Type = _budgetSubTab; _newPlan.DepartmentId = CurrentUser?.DepartmentId ?? 0; await AccService.SaveBudgetPlanAsync(_newPlan); _newPlan = new(); await LoadData(); }
@@ -1774,14 +1760,14 @@
         int updated = await AccService.BulkRecalcFiscalYearQuarterAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, isAdmin);
         string msg = isAdmin ? $"{_targetYear}년도 {q}분기 기간이 전 부서에 일괄 설정되었습니다." : $"{_targetYear}년도 {q}분기 기간이 설정되었습니다.";
         if (updated > 0) msg += $"\n장부 데이터 {updated}건의 회계연도/분기가 재계산되었습니다.";
-        await ShowAlertAsync(msg);
+        await JSRuntime.AlertAsync(msg);
     }
     private async Task SafeDeletePlan(int id) { if (await JSRuntime.InvokeAsync<bool?>("confirm", "삭제하시겠습니까?") == true) { await AccService.DeleteBudgetPlanAsync(id); await LoadData(); } }
     
    private async Task AddUser() 
     { 
         if (string.IsNullOrWhiteSpace(_newUser.Username) || _newUser.DepartmentId == 0) { 
-            await ShowAlertAsync("아이디와 부서를 선택하세요."); 
+            await JSRuntime.AlertAsync("아이디와 부서를 선택하세요."); 
             return; 
         } 
         _newUser.Username = _newUser.Username.Replace(" ", "");
@@ -1808,11 +1794,11 @@
             var currentPlans = await context.BudgetPlans.Where(b => b.DepartmentId == deptId && b.Year == _targetYear).ToListAsync();
             if (currentPlans.Any()) context.BudgetPlans.RemoveRange(currentPlans);
             var prevPlans = await context.BudgetPlans.AsNoTracking().Where(b => b.DepartmentId == deptId && b.Year == _targetYear - 1).ToListAsync();
-            if (!prevPlans.Any()) { await ShowAlertAsync($"?? {_targetYear - 1}년도 예산이 없습니다."); return; }
+            if (!prevPlans.Any()) { await JSRuntime.AlertAsync($"?? {_targetYear - 1}년도 예산이 없습니다."); return; }
             foreach (var plan in prevPlans) context.BudgetPlans.Add(new BudgetPlan { DepartmentId = deptId, Year = _targetYear, Type = plan.Type, Category = plan.Category, SubCategory = plan.SubCategory, CalcDetail = plan.CalcDetail, Amount = plan.Amount });
-            await context.SaveChangesAsync(); await LoadData(); await ShowAlertAsync("직전년도 예산 불러오기 완료!");
+            await context.SaveChangesAsync(); await LoadData(); await JSRuntime.AlertAsync("직전년도 예산 불러오기 완료!");
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
         finally { _isImporting = false; StateHasChanged(); }
     }
 
@@ -1822,18 +1808,17 @@
         try
         {
             var bytes = await AccService.ExportSettingsExcelAsync(CurrentUser?.DepartmentId ?? 0, _targetYear, CurrentUser?.IsSystemAdmin == true);
-            var base64 = Convert.ToBase64String(bytes);
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"환경설정백업_{_targetYear}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx", base64);
+            await JSRuntime.DownloadExcelAsync(bytes, $"환경설정백업_{_targetYear}_{DateTime.Now:yyyyMMdd_HHmm}.xlsx");
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 생성 오류: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"엑셀 생성 오류: {ex.Message}"); }
     }
 
     // 숨겨진 settingsImportInput 파일 선택창 트리거
     private async Task TriggerSettingsImport()
     {
         if (_isSettingsImporting) return;
-        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "다운로드한 '환경설정 엑셀'(예산항목·자동분류 시트)을 업로드하여 현재 설정에 병합합니다.\n계속하시겠습니까?");
-        if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('settingsImportInput').click()"); }
+        bool confirmed = await JSRuntime.ConfirmAsync("다운로드한 '환경설정 엑셀'(예산항목·자동분류 시트)을 업로드하여 현재 설정에 병합합니다.\n계속하시겠습니까?");
+        if (confirmed) { await JSRuntime.InvokeVoidAsync("clickElement", "settingsImportInput"); }
     }
 
     // 🚀 환경설정 엑셀 일괄 업로드(복원)
@@ -1848,13 +1833,13 @@
             await file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024).CopyToAsync(memoryStream); memoryStream.Position = 0;
             var (budgetCount, mappingCount) = await AccService.ImportSettingsExcelAsync(CurrentUser.DepartmentId, _targetYear, CurrentUser.IsSystemAdmin, memoryStream);
             await LoadData();
-            await ShowAlertAsync($"환경설정 복원 완료!\n- 예산항목: {budgetCount}건\n- 자동분류: {mappingCount}건");
+            await JSRuntime.AlertAsync($"환경설정 복원 완료!\n- 예산항목: {budgetCount}건\n- 자동분류: {mappingCount}건");
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"엑셀 처리 중 오류: {ex.Message}"); }
         finally { _isSettingsImporting = false; _settingsImportKey = Guid.NewGuid(); StateHasChanged(); }
     }
 
-    private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(_customBackupMemo) ? "사용자 수동 백업" : _customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); _customBackupMemo = ""; await LoadData(); await ShowAlertAsync("성공적으로 백업되었습니다."); }
+    private async Task SafeBackup(string type) { string finalMemo = string.IsNullOrWhiteSpace(_customBackupMemo) ? "사용자 수동 백업" : _customBackupMemo; await AccService.CreateBackupAsync(CurrentUser?.DepartmentId ?? 0, type, finalMemo); _customBackupMemo = ""; await LoadData(); await JSRuntime.AlertAsync("성공적으로 백업되었습니다."); }
 
     // 🚀 [최고관리자/1회성] 레거시 장부(LedgerEntry) → 신규 통합 장부(LedgerTransaction) 이관
     private bool _isMigratingLedger = false;
@@ -1863,7 +1848,7 @@
     private async Task MigrateLedgerData()
     {
         // 권한 가드(이중 안전장치): 최고관리자만 실행 허용
-        if (CurrentUser?.IsSystemAdmin != true) { await ShowAlertAsync("최고 관리자만 실행할 수 있습니다."); return; }
+        if (CurrentUser?.IsSystemAdmin != true) { await JSRuntime.AlertAsync("최고 관리자만 실행할 수 있습니다."); return; }
 
         _isMigratingLedger = true;
         _ledgerMigrationResult = null;
@@ -1871,12 +1856,12 @@
         try
         {
             _ledgerMigrationResult = await AccService.MigrateLedgerDataAsync();
-            await ShowAlertAsync(_ledgerMigrationResult.Message);
+            await JSRuntime.AlertAsync(_ledgerMigrationResult.Message);
         }
         catch (Exception ex)
         {
             _ledgerMigrationResult = new LedgerMigrationResult { SchemaReady = false, Message = $"이관 중 오류가 발생했습니다: {ex.Message}" };
-            await ShowAlertAsync($"이관 실패: {ex.Message}");
+            await JSRuntime.AlertAsync($"이관 실패: {ex.Message}");
         }
         finally
         {
@@ -1888,7 +1873,7 @@
     {
         if (string.IsNullOrWhiteSpace(b.JsonData))
         {
-            await ShowAlertAsync("이 백업 데이터는 비어 있어 복구할 수 없습니다. 새 백업을 생성해 주세요.");
+            await JSRuntime.AlertAsync("이 백업 데이터는 비어 있어 복구할 수 없습니다. 새 백업을 생성해 주세요.");
             return;
         }
 
@@ -1903,7 +1888,7 @@
     {
         if (string.IsNullOrWhiteSpace(b.JsonData))
         {
-            await ShowAlertAsync("이 백업 데이터는 비어 있어 다운로드할 수 없습니다. 새로 백업을 생성한 뒤 다시 시도해 주세요.");
+            await JSRuntime.AlertAsync("이 백업 데이터는 비어 있어 다운로드할 수 없습니다. 새로 백업을 생성한 뒤 다시 시도해 주세요.");
             return;
         }
 
@@ -1911,10 +1896,10 @@
         var targetDept = context.Departments.FirstOrDefault(d => d.Id == b.DepartmentId);
         string deptName = targetDept?.Name ?? "unknown";
         string fileName = $"Backup_{deptName}_{b.DataType}_{b.BackupDate:yyyyMMdd_HHmm}.json";
-        await JSRuntime.InvokeVoidAsync("downloadJsonFile", fileName, b.JsonData);
+        await JSRuntime.DownloadJsonAsync(b.JsonData, fileName);
     }
     private async Task EditPlan(BudgetPlan p) { _newPlan = new BudgetPlan { Id = p.Id, Category = p.Category, SubCategory = p.SubCategory, CalcDetail = p.CalcDetail, Amount = p.Amount, Year = p.Year, Type = p.Type, DepartmentId = p.DepartmentId }; _expandedCategories[p.Category] = true; }
-    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = _mappingTargetDeptId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await ShowAlertAsync("키워드와 항목을 입력하세요."); } }
+    private async Task AddMapping() { if (CurrentUser != null && !string.IsNullOrWhiteSpace(_newMapping.Keyword) && !string.IsNullOrWhiteSpace(_newMapping.Category)) { _newMapping.DepartmentId = _mappingTargetDeptId; await AccService.SaveMappingAsync(_newMapping); _newMapping = new CategoryMapping(); await LoadData(); } else { await JSRuntime.AlertAsync("키워드와 항목을 입력하세요."); } }
     private async Task DeleteMapping(int id) { await AccService.DeleteMappingAsync(id); await LoadData(); }
 
     // 🚀 규칙 인라인 수정 상태 (월별 장부와 동일한 행 단위 직접 수정)
@@ -1944,10 +1929,10 @@
     private async Task SaveEditMappingAsync()
     {
         bool canEdit = CurrentUser?.IsSystemAdmin == true || _mappingTargetDeptId == (CurrentUser?.DepartmentId ?? 0);
-        if (!canEdit) { await ShowAlertAsync("해당 부서의 규칙을 수정할 권한이 없습니다."); return; }
+        if (!canEdit) { await JSRuntime.AlertAsync("해당 부서의 규칙을 수정할 권한이 없습니다."); return; }
         if (string.IsNullOrWhiteSpace(_editMappingTemp.Keyword) || string.IsNullOrWhiteSpace(_editMappingTemp.Category))
         {
-            await ShowAlertAsync("키워드와 항목을 입력하세요.");
+            await JSRuntime.AlertAsync("키워드와 항목을 입력하세요.");
             return;
         }
 
@@ -1989,7 +1974,7 @@
     private async Task AddSuggestedRule(KeywordSuggestion s)
     {
         if (CurrentUser == null) return;
-        if (_mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword)) { await ShowAlertAsync("이미 등록된 키워드입니다."); return; }
+        if (_mappingList.Any(m => (m.Keyword ?? "").Trim() == s.Keyword)) { await JSRuntime.AlertAsync("이미 등록된 키워드입니다."); return; }
 
         await AccService.SaveMappingAsync(new CategoryMapping
         {
@@ -1998,16 +1983,16 @@
             Category = s.RecommendedCategory
         });
         await LoadData(); // 상단 '지출 항목 자동분류 규칙' 목록(_mappingList) 갱신
-        await ShowAlertAsync($"'{s.Keyword}' → '{s.RecommendedCategory}' 규칙이 등록되었습니다.");
+        await JSRuntime.AlertAsync($"'{s.Keyword}' → '{s.RecommendedCategory}' 규칙이 등록되었습니다.");
     }
 
     // 🚀 체크된 추천 키워드들을 한 번에 규칙으로 등록
     private async Task BulkAddSuggestedRulesAsync()
     {
-        if (_selectedSuggestions.Count == 0) { await ShowAlertAsync("등록할 추천 항목을 선택하세요."); return; }
+        if (_selectedSuggestions.Count == 0) { await JSRuntime.AlertAsync("등록할 추천 항목을 선택하세요."); return; }
 
         bool canEdit = CurrentUser?.IsSystemAdmin == true || _mappingTargetDeptId == (CurrentUser?.DepartmentId ?? 0);
-        if (!canEdit) { await ShowAlertAsync("해당 부서의 규칙을 등록할 권한이 없습니다."); return; }
+        if (!canEdit) { await JSRuntime.AlertAsync("해당 부서의 규칙을 등록할 권한이 없습니다."); return; }
 
         // 선택된 항목 중 아직 등록되지 않은 것만 저장(중복 방지)
         var targets = FilteredSuggestions
@@ -2031,20 +2016,20 @@
         _selectedSuggestions.Clear();
         await LoadData();           // 상단 규칙 목록 갱신
         await RunMappingAnalysis(); // 추천 리스트 재분석(이미 등록된 항목 배지 반영)
-        await ShowAlertAsync($"{added}건의 {_analysisType} 규칙이 일괄 등록되었습니다.");
+        await JSRuntime.AlertAsync($"{added}건의 {_analysisType} 규칙이 일괄 등록되었습니다.");
     }
 
     private async Task HandlePasswordKey(KeyboardEventArgs e) { if (e.Key == "Enter") { await ChangeMyPassword(); } }
     
     private async Task ChangeMyPassword()
     {
-        if (string.IsNullOrWhiteSpace(_newSelfPassword)) { await ShowAlertAsync("새 비밀번호를 입력하세요."); return; }
-        if (_newSelfPassword != _confirmSelfPassword) { await ShowAlertAsync("입력하신 두 비밀번호가 서로 일치하지 않습니다. 다시 확인해주세요."); return; }
+        if (string.IsNullOrWhiteSpace(_newSelfPassword)) { await JSRuntime.AlertAsync("새 비밀번호를 입력하세요."); return; }
+        if (_newSelfPassword != _confirmSelfPassword) { await JSRuntime.AlertAsync("입력하신 두 비밀번호가 서로 일치하지 않습니다. 다시 확인해주세요."); return; }
         if (await JSRuntime.InvokeAsync<bool?>("confirm", "새로운 비밀번호로 변경하시겠습니까?") == true && CurrentUser != null) 
         { 
             await AccService.ChangePasswordAsync(CurrentUser.Username, _newSelfPassword);
             _newSelfPassword = ""; _confirmSelfPassword = "";
-            await ShowAlertAsync("비밀번호가 성공적으로 변경되었습니다!");
+            await JSRuntime.AlertAsync("비밀번호가 성공적으로 변경되었습니다!");
         }
     }
     
@@ -2063,15 +2048,14 @@
                 {
                     user.TwoFactorSecret = _tempSecret; user.IsTwoFactorEnabled = true; await context.SaveChangesAsync();
                     CurrentUser.IsTwoFactorEnabled = true; _tempSecret = ""; _setupOtpCode = "";
-                    await ShowAlertAsync("성공! 이제 로그인 시 OTP 인증이 필요합니다.");
+                    await JSRuntime.AlertAsync("성공! 이제 로그인 시 OTP 인증이 필요합니다.");
                 }
             }
         } 
-        else { await ShowAlertAsync("번호가 일치하지 않습니다. 다시 확인하세요."); }
+        else { await JSRuntime.AlertAsync("번호가 일치하지 않습니다. 다시 확인하세요."); }
     }
     
     // 반복되던 단순 알림(alert) 호출을 한 곳으로 모은 내부 헬퍼
-    private async Task ShowAlertAsync(string message) => await JSRuntime.InvokeVoidAsync("alert", message);
 
     private async Task Disable2FA()
     {
@@ -2084,7 +2068,7 @@
                 if (user != null)
                 {
                     user.IsTwoFactorEnabled = false; user.TwoFactorSecret = null; await context.SaveChangesAsync();
-                    CurrentUser.IsTwoFactorEnabled = false; await ShowAlertAsync("보안 인증이 해제되었습니다.");
+                    CurrentUser.IsTwoFactorEnabled = false; await JSRuntime.AlertAsync("보안 인증이 해제되었습니다.");
                 }
             }
         }

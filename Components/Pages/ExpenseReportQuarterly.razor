@@ -873,7 +873,6 @@
     private decimal CurrentRequestTotal => _itemList.Sum(x => x.Amount);
 
     // 🚀 반복되는 alert 호출 압축용 헬퍼
-    private async Task ShowAlertAsync(string message) => await JSRuntime.InvokeVoidAsync("alert", message);
 
     // 🚀 항목(Category)인지 내용(Detail)인지 구분해서 글자 축소 & 두 줄 넘김 적용
     private string GetDynamicStyle(string? text, string colType = "Detail")
@@ -986,7 +985,7 @@
 
         if (_totalBudget > 0 && _usedBudget + CurrentRequestTotal + amountToCheck > _totalBudget)
         {
-            bool proceed = await JSRuntime.InvokeAsync<bool>("confirm",
+            bool proceed = await JSRuntime.ConfirmAsync(
                 "⚠️ 신청 금액이 현재 남은 예산을 초과합니다.\n\n" +
                 "(추가 보조금 등의 수입 예정 사유가 있다면 계속 진행하실 수 있습니다.)\n\n" +
                 "그래도 명세표에 추가하시겠습니까?");
@@ -1053,12 +1052,12 @@
     {
         if (!_itemList.Any())
         {
-            await ShowAlertAsync("내역을 입력하세요.");
+            await JSRuntime.AlertAsync("내역을 입력하세요.");
             return;
         }
         if (string.IsNullOrWhiteSpace(_currentReport.Title))
         {
-            await ShowAlertAsync("청구인을 입력하세요.");
+            await JSRuntime.AlertAsync("청구인을 입력하세요.");
             return;
         }
 
@@ -1069,7 +1068,7 @@
 
         await AccService.SaveExpenseReportAsync(_currentReport);
         await LoadData();
-        await ShowAlertAsync("저장되었습니다.");
+        await JSRuntime.AlertAsync("저장되었습니다.");
     }
 
     private void LoadReport(ExpenseReport report)
@@ -1107,13 +1106,13 @@
 
         if (isDeposited)
         {
-            await ShowAlertAsync("⚠️ 이미 입금이 확인(완료)된 지출결의서입니다.\n\n" +
+            await JSRuntime.AlertAsync("⚠️ 이미 입금이 확인(완료)된 지출결의서입니다.\n\n" +
                 "삭제가 필요하신 경우, 회계 장부(또는 입금 내역)에서\n" +
                 "해당 건을 먼저 취소(삭제)하신 후 다시 시도해 주세요.");
             return;
         }
 
-        bool confirmDelete = await JSRuntime.InvokeAsync<bool>("confirm",
+        bool confirmDelete = await JSRuntime.ConfirmAsync(
             "⚠️ 정말 이 지출결의서를 삭제하시겠습니까?\n\n" +
             "※ 주의: 삭제된 데이터는 다시 되돌릴 수 없습니다!");
 
@@ -1130,22 +1129,6 @@
         if (e.Key == "Enter") _ = AddOrUpdateItem();
     }
 
-    private async Task PrintPage()
-    {
-        await JSRuntime.InvokeVoidAsync("eval", @"
-            (function(){
-                var style = document.createElement('style');
-                style.id = '__printHide';
-                style.innerHTML =
-                    '@media print {' +
-                    '  body * { visibility: hidden !important; }' +
-                    '  .print-only, .print-only * { visibility: visible !important; }' +
-                    '  .print-only { position: absolute !important; left: 0; top: 0; width: 100%; display: flex; justify-content: center; }' +
-                    '}';
-                document.head.appendChild(style);
-                window.print();
-                setTimeout(function(){ var s=document.getElementById('__printHide'); if(s) s.remove(); }, 2000);
-            })();
-        ");
-    }
+    // 인쇄용 스타일 주입은 app.js의 printMaskedArea가 맡는다.
+    private async Task PrintPage() => await JSRuntime.InvokeVoidAsync("printMaskedArea");
 }

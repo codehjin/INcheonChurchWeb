@@ -1,0 +1,476 @@
+@page "/settings-app"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Data
+@using INcheonChurchWeb.Services
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject AccountingService Accounting
+@inject IDbContextFactory<AppDbContext> DbContextFactory
+@inject ProtectedLocalStorage BrowserStorage
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+
+<PageTitle>환경설정</PageTitle>
+
+<style>
+    /* 16-1 ~ 16-5 환경설정 */
+    .ms-menu-label { font-size: 16px; }
+    .ms-menu-sub { font-size: 13px; color: var(--ma-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-rule { display: flex; align-items: center; gap: 8px; padding: 14px; }
+    .ms-rule + .ms-rule { border-top: 1px solid var(--ma-line); }
+    .ms-rule-target { flex: 1; min-width: 0; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ms-rule-x { flex-shrink: 0; width: 24px; height: 24px; border: none; background: none; color: var(--ma-muted); font-size: 14px; cursor: pointer; padding: 0; }
+    .ms-note { background: var(--ma-bg-inset); border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+    .ms-note .t { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    .ms-note .d { font-size: 14px; color: var(--ma-text-sub); }
+</style>
+
+<div class="ma-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ma-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else if (_section == "")
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Nav.NavigateTo("/more")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">환경설정</h2>
+    </div>
+
+    <div class="ma-card">
+        @if (CanSeeDeptInfo)
+        {
+            <button type="button" class="ma-row tappable" @onclick='() => Go("dept")'>
+                <span class="ma-row-body">
+                    <span class="ms-menu-label">부서 기본 정보</span>
+                    <span class="ms-menu-sub">은행 · 계좌번호 · 예금주 · 임원</span>
+                </span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
+        @if (CanEdit)
+        {
+            <button type="button" class="ma-row tappable" @onclick='() => Go("budget")'>
+                <span class="ma-row-body">
+                    <span class="ms-menu-label">예산 및 회계 기준</span>
+                    <span class="ms-menu-sub">수입 예산 · 지출 예산 · 분기(회계) 설정</span>
+                </span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+            <button type="button" class="ma-row tappable" @onclick='() => Go("mapping")'>
+                <span class="ma-row-body">
+                    <span class="ms-menu-label">자동분류 설정</span>
+                    <span class="ms-menu-sub">키워드 → 분류될 항목</span>
+                </span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+            <button type="button" class="ma-row tappable" @onclick='() => Go("data")'>
+                <span class="ma-row-body">
+                    <span class="ms-menu-label">데이터 및 엑셀 관리</span>
+                    <span class="ms-menu-sub">엑셀 작업은 웹에서 이용하세요.</span>
+                </span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
+        <button type="button" class="ma-row tappable" @onclick='() => Go("account")'>
+            <span class="ma-row-body">
+                <span class="ms-menu-label">계정 및 보안</span>
+                <span class="ms-menu-sub">비밀번호 및 OTP</span>
+            </span>
+            <i class="bi bi-chevron-right ma-chevron"></i>
+        </button>
+    </div>
+
+    @if (CanEdit)
+    {
+        <button class="ma-btn secondary" disabled="@_isBusy" @onclick="RunBackup">지금 백업하기</button>
+    }
+}
+else if (_section == "dept")
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Go("")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">부서 기본 정보</h2>
+    </div>
+
+    <div class="ma-section-title" style="margin-top:0;">@_deptName</div>
+    <div class="ma-card">
+        @if (CanEdit)
+        {
+            <div class="ma-card-pad">
+                <div class="ma-field">
+                    <div class="ma-label">은행</div>
+                    <div class="ma-box"><input type="text" placeholder="예: ○○은행" @bind="_dept.BankName" /></div>
+                </div>
+                <div class="ma-field">
+                    <div class="ma-label">계좌번호</div>
+                    <div class="ma-box"><input type="text" placeholder="예: 123-456-789012" @bind="_dept.AccountNumber" /></div>
+                </div>
+                <div class="ma-field" style="margin-bottom:0;">
+                    <div class="ma-label">예금주</div>
+                    <div class="ma-box"><input type="text" placeholder="예: 인천중앙교회 유년부" @bind="_dept.AccountHolder" /></div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="ma-readonly"><span class="k">은행</span><span class="v">@Or(_dept.BankName)</span></div>
+            <div class="ma-readonly"><span class="k">계좌번호</span><span class="v">@Or(_dept.AccountNumber)</span></div>
+            <div class="ma-readonly"><span class="k">예금주</span><span class="v">@Or(_dept.AccountHolder)</span></div>
+        }
+    </div>
+
+    <div class="ma-section-title">임원</div>
+    <div class="ma-card">
+        @if (!_officers.Any())
+        {
+            <div class="ma-readonly"><span class="k">등록된 임원</span><span class="v">없음</span></div>
+        }
+        else
+        {
+            @foreach (var o in _officers)
+            {
+                <div class="ma-readonly"><span class="k">@o.Role</span><span class="v">@Or(o.Name)</span></div>
+            }
+        }
+    </div>
+
+    @if (CanEdit)
+    {
+        <div class="ma-bottom">
+            <button class="ma-btn primary" disabled="@_isBusy" @onclick="SaveDept">저장</button>
+        </div>
+    }
+}
+else if (_section == "budget")
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Go("")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">예산 및 회계 기준</h2>
+    </div>
+
+    <div class="ma-segment" style="margin-bottom:16px;">
+        <button class="@(_budgetType == "Income" ? "on" : "")" @onclick='() => SwitchBudget("Income")'>수입 예산</button>
+        <button class="@(_budgetType == "Expense" ? "on" : "")" @onclick='() => SwitchBudget("Expense")'>지출 예산</button>
+    </div>
+
+    @if (!_budgets.Any())
+    {
+        <div class="ma-empty" style="padding:32px 20px;">
+            <i class="bi bi-inbox"></i>
+            <div class="main">등록된 예산이 없습니다.</div>
+        </div>
+    }
+    else
+    {
+        <div class="ma-card">
+            @foreach (var b in _budgets)
+            {
+                <div class="ma-row">
+                    <span class="ma-row-body">
+                        <span class="ma-row-main">@b.Category@(string.IsNullOrWhiteSpace(b.SubCategory) ? "" : " · " + b.SubCategory)</span>
+                        <span class="ma-row-sub">@Or(b.CalcDetail)</span>
+                    </span>
+                    <span class="ma-row-right"><span class="ma-amount" style="font-size:16px;">@b.Amount.ToString("N0")</span></span>
+                </div>
+            }
+        </div>
+
+        <div class="mr-total" style="display:flex;align-items:baseline;gap:12px;padding:4px;margin-bottom:16px;">
+            <span style="font-size:14px;color:var(--ma-text-sub);">@(_budgetType == "Income" ? "수입" : "지출") 예산 합계</span>
+            <span style="margin-left:auto;font-size:22px;font-weight:700;color:var(--ma-brand);white-space:nowrap;">@_budgets.Sum(b => b.Amount).ToString("N0")원</span>
+        </div>
+    }
+
+    <div class="ma-section-title">분기(회계) 설정</div>
+    <div class="ma-card">
+        @foreach (var q in _quarterRanges)
+        {
+            <div class="ma-readonly"><span class="k">@(q.Quarter)분기</span><span class="v">@q.Start.ToString("yyyy-MM-dd") ~ @q.End.ToString("yyyy-MM-dd")</span></div>
+        }
+    </div>
+    <div class="ma-caption">회계연도는 11월 넷째 주 일요일에 끝납니다.</div>
+
+    <div class="ms-note" style="margin-top:16px;">
+        <div class="t">예산 편성은 웹에서 이용하세요.</div>
+        <div class="d">예산 항목 추가·수정과 분기 경계 조정은 데스크톱 웹에서 처리합니다.</div>
+    </div>
+}
+else if (_section == "mapping")
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Go("")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">자동분류 설정</h2>
+    </div>
+
+    <p class="ma-sub">내역에 키워드가 있으면 분류될 항목으로 자동 지정합니다.</p>
+
+    @if (!_mappings.Any())
+    {
+        <div class="ma-empty" style="padding:32px 20px;">
+            <i class="bi bi-inbox"></i>
+            <div class="main">등록된 규칙이 없습니다.</div>
+        </div>
+    }
+    else
+    {
+        <div class="ma-card">
+            @foreach (var m in _mappings)
+            {
+                var mm = m;
+                <div class="ms-rule">
+                    <span class="ma-badge brand">@mm.Keyword</span>
+                    <i class="bi bi-arrow-right ma-chevron"></i>
+                    <span class="ms-rule-target">@mm.Category</span>
+                    <button class="ms-rule-x" title="삭제" @onclick="() => DeleteMapping(mm.Id)"><i class="bi bi-x-lg"></i></button>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="ma-section-title">규칙 등록</div>
+    <div class="ma-field">
+        <div class="ma-label">키워드</div>
+        <div class="ma-box"><input type="text" placeholder="내역에 포함될 단어" @bind="_newMapping.Keyword" /></div>
+    </div>
+    <div class="ma-field">
+        <div class="ma-label">분류될 항목</div>
+        <div class="ma-box">
+            <input list="msCats" type="text" placeholder="분류항목 · 세부 선택" @bind="_newMapping.Category" />
+        </div>
+        <datalist id="msCats">
+            @foreach (var c in _categorySuggestions)
+            {
+                <option value="@c" />
+            }
+        </datalist>
+    </div>
+
+    @if (_error.Length > 0)
+    {
+        <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_error</div>
+    }
+
+    <div class="ma-bottom">
+        <button class="ma-btn primary" disabled="@_isBusy" @onclick="SaveMapping">규칙 등록</button>
+    </div>
+}
+else if (_section == "data")
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Go("")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">데이터 및 엑셀 관리</h2>
+    </div>
+
+    <div class="ma-card">
+        <div class="ma-readonly"><span class="k">@(_year) 회계연도 장부</span><span class="v">@_ledgerCount.ToString("N0")건</span></div>
+        <div class="ma-readonly"><span class="k">증빙 사진</span><span class="v">@_receiptCount.ToString("N0")장</span></div>
+        <div class="ma-readonly"><span class="k">마지막 백업</span><span class="v">@(_lastBackup?.ToString("yyyy-MM-dd HH:mm") ?? "없음")</span></div>
+    </div>
+
+    <button class="ma-btn primary" style="margin-bottom:16px;" disabled="@_isBusy" @onclick="RunBackup">지금 백업하기</button>
+
+    <div class="ms-note">
+        <div class="t">엑셀 작업은 웹에서 이용하세요.</div>
+        <div class="d">엑셀 일괄 업로드와 예산 대량 편성, 인쇄는 데스크톱 웹에서 처리합니다.</div>
+    </div>
+}
+else
+{
+    <div class="ma-header">
+        <button class="ma-back" @onclick='() => Go("")'><i class="bi bi-arrow-left"></i></button>
+        <h2 class="ma-title">계정 및 보안</h2>
+    </div>
+
+    <div class="ma-card">
+        <div class="ma-readonly"><span class="k">사용자 아이디</span><span class="v">@CurrentUser.Username</span></div>
+        <div class="ma-readonly"><span class="k">이름</span><span class="v">@Or(CurrentUser.FullName)</span></div>
+        <div class="ma-readonly">
+            <span class="k">2단계 보안 인증</span>
+            <span class="v">
+                @if (CurrentUser.IsTwoFactorEnabled)
+                {
+                    <span class="ma-badge brand">사용 중</span>
+                }
+                else
+                {
+                    <span class="ma-badge neutral">사용 안 함</span>
+                }
+            </span>
+        </div>
+    </div>
+
+    <div class="ms-note">
+        <div class="t">비밀번호와 OTP는 웹에서 변경하세요.</div>
+        <div class="d">계정 발급과 비밀번호 재설정은 관리자가 처리합니다.</div>
+    </div>
+
+    <div class="ma-card">
+        <button type="button" class="ma-row tappable" style="color:var(--ma-expense);" @onclick="Logout">
+            <i class="bi bi-box-arrow-right" style="font-size:20px;"></i>
+            <span class="ma-row-body"><span class="ms-menu-label">로그아웃</span></span>
+        </button>
+    </div>
+}
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "section")] public string? SectionFromQuery { get; set; }
+
+    private string _section = "";
+    private int _year = DateTime.Now.Year;
+    private bool _isBusy;
+    private string _error = "";
+
+    private Department _dept = new();
+    private string _deptName = "";
+    private List<DepartmentOfficer> _officers = new();
+
+    private string _budgetType = "Expense";
+    private List<BudgetPlan> _budgets = new();
+    private List<(int Quarter, DateTime Start, DateTime End)> _quarterRanges = new();
+
+    private List<CategoryMapping> _mappings = new();
+    private CategoryMapping _newMapping = new();
+    private List<string> _categorySuggestions = new();
+
+    private int _ledgerCount, _receiptCount;
+    private DateTime? _lastBackup;
+
+    private bool CanEdit => CurrentUser?.CanEdit == true;
+    // 감사·국장은 부서 기본 정보만 볼 수 있다
+    private bool CanSeeDeptInfo => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+        if (!string.IsNullOrWhiteSpace(SectionFromQuery)) _section = SectionFromQuery!;
+        await LoadSectionAsync();
+    }
+
+    private async Task Go(string section)
+    {
+        _section = section;
+        _error = "";
+        await LoadSectionAsync();
+    }
+
+    private async Task LoadSectionAsync()
+    {
+        if (CurrentUser == null) return;
+        int deptId = CurrentUser.DepartmentId;
+
+        switch (_section)
+        {
+            case "dept":
+                _dept = await Accounting.GetDepartmentAsync(deptId) ?? new Department { Id = deptId };
+                _deptName = _dept.Name;
+                using (var db = DbContextFactory.CreateDbContext())
+                {
+                    _officers = await db.DepartmentOfficers.AsNoTracking()
+                        .Where(o => o.DepartmentId == deptId && o.Year == _year)
+                        .OrderBy(o => o.Id).ToListAsync();
+                }
+                break;
+
+            case "budget":
+                _budgets = await Accounting.GetBudgetPlansAsync(deptId, _year, _budgetType);
+                _quarterRanges.Clear();
+                for (int q = 1; q <= 4; q++)
+                {
+                    var r = await Accounting.GetQuarterDateRangeAsync(deptId, _year, q);
+                    _quarterRanges.Add((q, r.Start, r.End));
+                }
+                break;
+
+            case "mapping":
+                _mappings = await Accounting.GetMappingsAsync(deptId);
+                _categorySuggestions = await Accounting.GetCategorySuggestionsAsync(deptId, "Expense");
+                break;
+
+            case "data":
+                using (var db = DbContextFactory.CreateDbContext())
+                {
+                    _ledgerCount = await db.Transactions.AsNoTracking()
+                        .CountAsync(t => t.DepartmentId == deptId && t.FiscalYear == _year);
+                    _receiptCount = await db.Transactions.AsNoTracking()
+                        .CountAsync(t => t.DepartmentId == deptId && t.ReceiptUrl != null && t.ReceiptUrl != "");
+                }
+                var backups = await Accounting.GetBackupsAsync(deptId);
+                _lastBackup = backups.FirstOrDefault()?.BackupDate;
+                break;
+        }
+    }
+
+    private async Task SwitchBudget(string type)
+    {
+        _budgetType = type;
+        if (CurrentUser != null)
+            _budgets = await Accounting.GetBudgetPlansAsync(CurrentUser.DepartmentId, _year, _budgetType);
+    }
+
+    private async Task SaveDept()
+    {
+        if (!CanEdit) return;
+        _isBusy = true;
+        try
+        {
+            await Accounting.UpdateDepartmentAsync(_dept);
+            await JSRuntime.AlertAsync("저장되었습니다.");
+        }
+        finally { _isBusy = false; }
+    }
+
+    private async Task SaveMapping()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        if (string.IsNullOrWhiteSpace(_newMapping.Keyword)) { _error = "키워드를 입력해주세요."; return; }
+        if (string.IsNullOrWhiteSpace(_newMapping.Category)) { _error = "분류될 항목을 입력해주세요."; return; }
+
+        _isBusy = true;
+        _error = "";
+        try
+        {
+            _newMapping.DepartmentId = CurrentUser.DepartmentId;
+            await Accounting.SaveMappingAsync(_newMapping);
+            _newMapping = new CategoryMapping();
+            _mappings = await Accounting.GetMappingsAsync(CurrentUser.DepartmentId);
+        }
+        finally { _isBusy = false; }
+    }
+
+    private async Task DeleteMapping(int id)
+    {
+        if (!CanEdit || CurrentUser == null) return;
+        if (!await JSRuntime.ConfirmAsync("이 규칙을 삭제하시겠습니까?")) return;
+
+        await Accounting.DeleteMappingAsync(id);
+        _mappings = await Accounting.GetMappingsAsync(CurrentUser.DepartmentId);
+    }
+
+    private async Task RunBackup()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+        _isBusy = true;
+        try
+        {
+            await Accounting.CreateBackupAsync(CurrentUser.DepartmentId, "수동", "모바일 앱에서 백업");
+            await JSRuntime.AlertAsync("백업이 완료되었습니다.");
+            if (_section == "data") await LoadSectionAsync();
+        }
+        finally { _isBusy = false; }
+    }
+
+    private async Task Logout()
+    {
+        if (!await JSRuntime.ConfirmAsync("로그아웃 하시겠습니까?")) return;
+        await BrowserStorage.DeleteAsync("LoggedInUsername");
+        Nav.NavigateTo("/", forceLoad: true);
+    }
+
+    private static string Or(string? v) => string.IsNullOrWhiteSpace(v) ? "-" : v;
+}

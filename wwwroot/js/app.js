@@ -1,4 +1,58 @@
-﻿if (typeof window.downloadExcelFile !== 'function') {
+﻿// 🖨️ 현재 페이지에서 .print-only 영역만 남기고 인쇄한다. (지출결의서 등)
+//    인쇄용 스타일을 잠깐 붙였다가 뗀다.
+window.printMaskedArea = function () {
+    var style = document.createElement('style');
+    style.id = '__printHide';
+    style.textContent =
+        '@media print {' +
+        '  body * { visibility: hidden !important; }' +
+        '  .print-only, .print-only * { visibility: visible !important; }' +
+        '  .print-only { position: absolute !important; left: 0; top: 0; width: 100%;' +
+        '                display: flex; justify-content: center; }' +
+        '}';
+    document.head.appendChild(style);
+
+    window.print();
+
+    setTimeout(function () {
+        var s = document.getElementById('__printHide');
+        if (s) s.remove();
+    }, 2000);
+};
+
+// 숨겨둔 <input type="file">을 코드에서 열 때 쓴다.
+window.clickElement = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.click();
+};
+
+// 🖨️ 화면에 숨겨둔 인쇄 영역(.print-only)의 내용을 읽어온다.
+//    예전에는 razor에서 eval로 같은 문자열을 두 번 넘겼다. eval은 CSP를 막을 때 걸리고
+//    문자열 안에 HTML이 섞여 있어 따옴표 escape 실수가 나기 쉬웠다.
+window.readPrintArea = function (label) {
+    var el = document.querySelector('.print-only');
+    if (el) return el.innerHTML;
+
+    var what = label || '인쇄';
+    return '<div style="color:red; text-align:center; padding:30px; font-weight:bold;">'
+         + what + ' 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>';
+};
+
+if (typeof window.downloadJsonFile !== 'function') {
+    window.downloadJsonFile = (fileName, jsonContent) => {
+        const blob = new Blob([jsonContent], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+}
+
+if (typeof window.downloadExcelFile !== 'function') {
     window.downloadExcelFile = (fileName, base64String) => {
         const link = document.createElement('a');
         link.download = fileName;
@@ -9,28 +63,77 @@
     };
 }
 
+// 🖨️ 인쇄 — 팝업 창 대신 화면 밖 iframe에서 인쇄한다.
+//    팝업 방식은 인쇄를 취소했을 때 미리보기 창이 남고(크롬), 모바일에서는 아예 차단된다.
+//    iframe은 눈에 보이지 않으므로 취소해도 남을 것이 없다.
 window.printPopup = function (htmlContent) {
-    var printed = false;
-    var w = window.open('', '_blank', 'width=1000,height=800');
+    // 이전 인쇄에서 남은 프레임이 있으면 정리
+    var stale = document.getElementById('ma-print-frame');
+    if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
 
-    if (!w) {
-        alert('팝업이 차단되었습니다. 브라우저에서 팝업을 허용해 주세요.');
+    var f = document.createElement('iframe');
+    f.id = 'ma-print-frame';
+    f.setAttribute('aria-hidden', 'true');
+    // display:none이면 브라우저가 내용을 그리지 않아 빈 종이가 나온다 → 화면 밖으로 밀어둔다
+    f.style.cssText = 'position:fixed; left:-10000px; top:0; width:820px; height:1160px; border:0;';
+    document.body.appendChild(f);
+
+    var doc = f.contentDocument || (f.contentWindow && f.contentWindow.document);
+    if (!doc) {
+        alert('인쇄 화면을 준비하지 못했습니다.');
         return;
     }
 
-    w.document.open();
-    w.document.write(htmlContent);
-    w.document.close();
-    w.focus();
+    doc.open();
+    doc.write(htmlContent);
+    doc.close();
 
-    function doPrint() {
-        if (printed) return;
-        printed = true;
-        w.print();
-        // 사용자가 인쇄 대화상자에서 명시적으로 취소나 닫기를 누르도록 w.close() 제거
+    var win = f.contentWindow;
+    var cleaned = false;
+
+    function cleanup() {
+        if (cleaned) return;
+        cleaned = true;
+        setTimeout(function () {
+            try { if (f.parentNode) f.parentNode.removeChild(f); } catch (e) { }
+        }, 300);
     }
 
-    // onload 이벤트로 호출하거나, 이벤트 미발생 대비 1.5초 후 호출
-    w.onload = function () { setTimeout(doPrint, 300); };
-    setTimeout(doPrint, 1500);
+    // 영수증 이미지까지 다 그려진 뒤에 인쇄한다 (최대 5초 대기)
+    function whenImagesReady(cb) {
+        var imgs = [];
+        try { imgs = Array.prototype.slice.call(doc.images || []); } catch (e) { }
+        var pending = imgs.filter(function (im) { return !im.complete; });
+        if (pending.length === 0) { cb(); return; }
+
+        var left = pending.length;
+        var fired = false;
+        function one() { if (--left <= 0) done(); }
+        function done() { if (fired) return; fired = true; cb(); }
+
+        pending.forEach(function (im) {
+            im.addEventListener('load', one, { once: true });
+            im.addEventListener('error', one, { once: true });
+        });
+        setTimeout(done, 5000);
+    }
+
+    function go() {
+        whenImagesReady(function () {
+            try {
+                win.addEventListener('afterprint', cleanup);
+                win.focus();
+                win.print();
+            } catch (e) {
+                cleanup();
+                return;
+            }
+            // 크롬에서 print()는 대화상자가 닫힐 때까지 멈춰 있으므로,
+            // 여기까지 왔다는 건 인쇄를 마쳤거나 취소했다는 뜻이다.
+            setTimeout(cleanup, 1000);
+        });
+    }
+
+    if (doc.readyState === 'complete') setTimeout(go, 200);
+    else win.addEventListener('load', function () { setTimeout(go, 200); });
 };

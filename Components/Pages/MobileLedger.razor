@@ -1,0 +1,968 @@
+@page "/ledger"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Data
+@using INcheonChurchWeb.Services
+@using Microsoft.EntityFrameworkCore
+@inject AccountingService Accounting
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Nav
+
+<PageTitle>월별 장부</PageTitle>
+
+<style>
+    /* ── 04 월별 장부 · 05 조회 조건 — 모바일 앱 디자인 토큰 (이 페이지 안에서만 유효) ── */
+    .ml-wrap {
+        max-width: 430px;
+        margin: 0 auto;
+        padding: 0 20px 20px;
+        background: var(--ma-bg-sub);
+        color: var(--ma-text);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.5;
+        position: relative;
+        min-height: 100%;
+        overflow-x: hidden;
+    }
+
+    .ml-header { display: flex; align-items: center; gap: 4px; height: 56px; background: var(--ma-bg); margin: 0 -20px; padding: 0 20px; }
+    .ml-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.3; margin: 0; }
+    .ml-icon-btn {
+        position: relative; width: 44px; height: 44px; border: none; background: none;
+        color: var(--ma-text); font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .ml-icon-btn:first-of-type { margin-left: auto; }
+    .ml-dot {
+        position: absolute; top: 8px; right: 8px; width: 7px; height: 7px;
+        border-radius: 999px; background: var(--ma-brand);
+    }
+
+    /* 검색 */
+    .ml-search { position: relative; margin: 0 0 12px; }
+    .ml-search input {
+        width: 100%; height: 44px; border: none; border-radius: 12px; background: var(--ma-bg-inset);
+        padding: 0 14px 0 38px; font-size: 16px; color: var(--ma-text); outline: none;
+    }
+    .ml-search input:focus { background: #FFFFFF; box-shadow: inset 0 0 0 2px var(--ma-brand); }
+    .ml-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--ma-muted); font-size: 14px; }
+
+    /* 필터 요약 칩 */
+    .ml-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 0 16px; }
+    .ml-chip {
+        height: 36px; display: inline-flex; align-items: center; justify-content: center;
+        padding: 0 12px; border: none; border-radius: 999px;
+        font-size: 14px; font-weight: 500; cursor: pointer;
+        background: var(--ma-bg-inset); color: var(--ma-text-sub);
+        min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ml-chip.on { background: var(--ma-brand-soft); color: var(--ma-brand); font-weight: 600; }
+
+    /* 균등 폭 격자 — 항목이 많아도 들쭉날쭉 접히지 않는다 */
+    .ml-chips.grid-2, .ml-chips.grid-3, .ml-chips.grid-4, .ml-chips.grid-5 { display: grid; }
+    .ml-chips.grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .ml-chips.grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .ml-chips.grid-4 { grid-template-columns: repeat(4, 1fr); }
+    .ml-chips.grid-5 { grid-template-columns: repeat(5, 1fr); }
+    .ml-chips.grid-5 .ml-chip { padding: 0 4px; font-size: 13px; }
+    .ml-chips.grid-4 .ml-chip { padding: 0 8px; }
+
+    /* 04 요약 칩 — 한 줄 고정, 넘치면 각 칩이 줄어들며 말줄임 */
+    .ml-chips.oneline { flex-wrap: nowrap; }
+    .ml-chips.oneline .ml-chip { flex: 0 1 auto; }
+
+    /* 통계 카드 2×2 */
+    .ml-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .ml-stat {
+        background: var(--ma-bg); border-radius: 16px; padding: 14px;
+        box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05); min-width: 0;
+    }
+    .ml-stat-label { font-size: 13px; color: var(--ma-text-sub); margin-bottom: 4px; }
+    .ml-stat-value { font-size: clamp(15px, 4.6vw, 20px); font-weight: 700; white-space: nowrap; }
+    .ml-stat-value.income { color: var(--ma-income); }
+    .ml-stat-value.expense { color: var(--ma-expense); }
+    .ml-stat-value.brand { color: var(--ma-brand); }
+
+    /* 거래 목록 */
+    .ml-group-head { font-size: 13px; color: var(--ma-muted); margin: 0 0 8px 4px; }
+    .ml-card { background: var(--ma-bg); border-radius: 16px; box-shadow: 0 2px 12px rgba(30, 28, 20, 0.05); overflow: hidden; margin-bottom: 20px; }
+    .ml-row { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 14px; }
+    .ml-row + .ml-row { border-top: 1px solid var(--ma-line); }
+    .ml-thumb {
+        flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px; background: var(--ma-bg-inset);
+        display: flex; align-items: center; justify-content: center; overflow: hidden;
+        color: var(--ma-muted); font-size: 16px;
+    }
+    .ml-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .ml-noproof {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: var(--ma-bg-inset); color: var(--ma-muted);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .ml-row-body { flex: 1; min-width: 0; }
+    .ml-row-main {
+        font-size: 16px; font-weight: 500; color: var(--ma-text);
+        display: flex; align-items: center; gap: 6px; min-width: 0;
+    }
+    .ml-row-main span.text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ml-row-sub { font-size: 14px; color: var(--ma-text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .ml-badge-warn {
+        flex-shrink: 0; height: 22px; display: inline-flex; align-items: center; padding: 0 8px;
+        border-radius: 999px; background: var(--ma-brand-soft); color: var(--ma-warn);
+        font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .ml-row-right { flex-shrink: 0; text-align: right; }
+    .ml-amount { font-size: 17px; font-weight: 700; white-space: nowrap; }
+    .ml-amount.income { color: var(--ma-income); }
+    .ml-amount.expense { color: var(--ma-expense); }
+    .ml-balance { font-size: 12px; color: var(--ma-muted); white-space: nowrap; margin-top: 2px; }
+
+    .ml-empty { text-align: center; padding: 56px 20px; color: var(--ma-text-sub); }
+    .ml-empty i { font-size: 40px; color: var(--ma-muted); display: block; margin-bottom: 12px; }
+    .ml-empty .main { font-size: 16px; margin-bottom: 16px; }
+
+    /* 06 거래 상세·편집 */
+    .ml-proof {
+        width: 100%; height: 88px; border-radius: 16px; background: var(--ma-bg-inset);
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+        overflow: hidden; margin-bottom: 20px; border: none; padding: 0; cursor: default;
+        color: var(--ma-muted); font-size: 13px;
+    }
+    .ml-proof.has-image { cursor: pointer; }
+    .ml-proof img { width: 100%; height: 100%; object-fit: cover; }
+    .ml-proof i { font-size: 22px; }
+
+    .ml-field { margin-bottom: 16px; }
+    .ml-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .ml-box {
+        position: relative; display: flex; align-items: center; gap: 8px;
+        min-height: 52px; border-radius: 12px; background: var(--ma-bg-inset); padding: 0 14px;
+    }
+    .ml-box.focus { background: #FFFFFF; box-shadow: inset 0 0 0 2px var(--ma-brand); }
+    .ml-box input, .ml-box select {
+        flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+        font-size: 16px; color: var(--ma-text); height: 50px; font-variant-numeric: tabular-nums;
+    }
+    .ml-box select { appearance: none; cursor: pointer; }
+    .ml-box input::placeholder { color: var(--ma-muted); }
+    .ml-box .amount {
+        text-align: right; font-size: 22px; font-weight: 700; white-space: nowrap;
+    }
+    .ml-box .amount.expense { color: var(--ma-expense); }
+    .ml-box .amount.income { color: var(--ma-income); }
+    .ml-unit { font-size: 16px; color: var(--ma-text-sub); white-space: nowrap; }
+    .ml-chevron { color: var(--ma-muted); font-size: 13px; pointer-events: none; }
+
+    .ml-readonly { display: flex; align-items: baseline; gap: 12px; padding: 14px 0; }
+    .ml-readonly + .ml-readonly { border-top: 1px solid var(--ma-line); }
+    .ml-readonly .k { flex: 0 0 auto; min-width: 88px; max-width: 60%; font-size: 14px; color: var(--ma-text-sub); }
+    .ml-readonly .v { flex: 1; min-width: 0; font-size: 16px; text-align: right; }
+
+    .ml-help { font-size: 12px; color: var(--ma-muted); margin: 4px 0 16px; }
+    .ml-sheet-del {
+        margin-left: auto; border: none; background: none; color: var(--ma-expense);
+        font-size: 16px; font-weight: 600; min-height: 44px; padding: 0 6px; cursor: pointer;
+    }
+    .ml-actions { display: flex; gap: 8px; }
+    .ml-actions .ml-btn { margin-top: 0; }
+    .ml-actions .ml-btn.secondary { flex: 0 0 120px; }
+
+    .ml-row.tappable { cursor: pointer; text-align: left; width: 100%; border: none; background: none; }
+    .ml-row.tappable:active { background: var(--ma-bg-sub); }
+
+    /* 바텀시트 */
+    .ml-dim {
+        position: fixed; inset: 0; background: rgba(27, 28, 21, 0.45); z-index: 200;
+        display: flex; align-items: flex-end; justify-content: center;
+    }
+    .ml-sheet {
+        width: 100%; max-width: 430px; max-height: 85vh; overflow-y: auto;
+        background: var(--ma-bg); border-radius: 20px 20px 0 0;
+        padding: 0 20px calc(20px + env(safe-area-inset-bottom));
+        box-shadow: 0 8px 28px rgba(30, 28, 20, 0.12);
+    }
+    .ml-handle { width: 36px; height: 4px; border-radius: 999px; background: var(--ma-line); margin: 10px auto 14px; }
+    .ml-sheet-head { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .ml-sheet-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin: 0; }
+    .ml-sheet-reset {
+        margin-left: auto; border: none; background: none; color: var(--ma-brand);
+        font-size: 16px; font-weight: 600; min-height: 44px; padding: 0 6px; cursor: pointer;
+    }
+    .ml-sheet-sub { font-size: 14px; color: var(--ma-muted); margin: 0 0 20px; }
+    .ml-block { margin-bottom: 20px; }
+    .ml-block-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 8px; }
+    .ml-caption { font-size: 12px; color: var(--ma-muted); margin-top: 8px; }
+
+    .ml-stepper {
+        display: flex; align-items: center; height: 40px; border-radius: 12px; background: var(--ma-bg-inset);
+    }
+    .ml-stepper button {
+        width: 44px; height: 40px; border: none; background: none; color: var(--ma-text-sub);
+        font-size: 14px; cursor: pointer;
+    }
+    .ml-stepper .val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; }
+
+    .ml-segment { display: flex; height: 40px; border-radius: 12px; background: var(--ma-bg-inset); padding: 4px; gap: 4px; }
+    .ml-segment button {
+        flex: 1; border: none; background: none; border-radius: 9px; font-size: 14px;
+        color: var(--ma-text-sub); cursor: pointer;
+    }
+    .ml-segment button.on { background: #FFFFFF; font-weight: 600; color: var(--ma-text); box-shadow: 0 1px 3px rgba(30, 28, 20, 0.08); }
+
+    .ml-btn {
+        width: 100%; min-height: 52px; border: none; border-radius: 12px;
+        font-size: 16px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .ml-btn.primary { background: var(--ma-brand); color: #FFFFFF; }
+    .ml-btn.primary:active { background: var(--ma-brand-deep); }
+    .ml-btn.secondary { background: var(--ma-bg-inset); color: var(--ma-text); }
+    .ml-btn.ghost { background: none; color: var(--ma-text-sub); }
+    .ml-btn + .ml-btn { margin-top: 8px; }
+</style>
+
+<div class="ml-wrap" data-no-font-bump>
+
+@if (CurrentUser is null)
+{
+    <div class="ml-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+}
+else
+{
+    <div class="ml-header">
+        <h2 class="ml-title">월별 장부</h2>
+        <button class="ml-icon-btn" title="검색" @onclick="ToggleSearch"><i class="bi bi-search"></i></button>
+        <button class="ml-icon-btn" title="조회 조건" @onclick="OpenFilter">
+            <i class="bi bi-sliders"></i>
+            @if (HasActiveFilter)
+            {
+                <span class="ml-dot"></span>
+            }
+        </button>
+        <button class="ml-icon-btn" title="인쇄" @onclick="() => _showPrint = true">
+            <i class="bi bi-printer"></i>
+        </button>
+        @if (CanEdit)
+        {
+            <button class="ml-icon-btn" title="내역 추가" @onclick="OpenNewEntry">
+                <i class="bi bi-plus-lg"></i>
+            </button>
+        }
+    </div>
+
+    @if (_showSearch)
+    {
+        <div class="ml-search">
+            <i class="bi bi-search"></i>
+            <input type="text" placeholder="분류항목 · 세부 · 내역 검색"
+                   @bind="_keyword" @bind:event="oninput" />
+        </div>
+    }
+
+    <div class="ml-chips oneline">
+        <button class="ml-chip on" @onclick="OpenFilter">@_year</button>
+        <button class="ml-chip @(_quarter > 0 ? "on" : "")" @onclick="OpenFilter">@(_quarter > 0 ? $"{_quarter}분기" : "전체 분기")</button>
+        <button class="ml-chip @(_month > 0 ? "on" : "")" @onclick="OpenFilter">@(_month > 0 ? $"{_month}월" : "전체 월")</button>
+        <button class="ml-chip @(_type.Length > 0 ? "on" : "")" @onclick="OpenFilter">@(_type.Length > 0 ? _type : "전체")</button>
+        <button class="ml-chip" @onclick="OpenFilter">@DeptChipLabel</button>
+    </div>
+
+    <div class="ml-stats">
+        <div class="ml-stat">
+            <div class="ml-stat-label">전월 이월금</div>
+            <div class="ml-stat-value">@Won(_view.CarryOver)</div>
+        </div>
+        <div class="ml-stat">
+            <div class="ml-stat-label">조회 기간 수입</div>
+            <div class="ml-stat-value income">@Won(_view.TotalIncome)</div>
+        </div>
+        <div class="ml-stat">
+            <div class="ml-stat-label">조회 기간 지출</div>
+            <div class="ml-stat-value expense">@Won(_view.TotalExpense)</div>
+        </div>
+        <div class="ml-stat">
+            <div class="ml-stat-label">현재 잔액</div>
+            <div class="ml-stat-value brand">@Won(_view.Balance)</div>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="ml-empty"><i class="bi bi-hourglass-split"></i><div class="main">불러오는 중…</div></div>
+    }
+    else if (!Visible.Any())
+    {
+        <div class="ml-empty">
+            <i class="bi bi-inbox"></i>
+            <div class="main">조회된 장부 내역이 없습니다.</div>
+            <button class="ml-btn secondary" @onclick="OpenFilter">조회 조건 변경</button>
+            @if (CanEdit)
+            {
+                <button class="ml-btn primary" style="margin-top:8px;" @onclick="OpenNewEntry">내역 추가</button>
+            }
+        </div>
+    }
+    else
+    {
+        @foreach (var g in Visible.GroupBy(t => t.Date.Date).OrderByDescending(g => g.Key))
+        {
+            <div class="ml-group-head">@GroupLabel(g.Key)</div>
+            <div class="ml-card">
+                @foreach (var t in g.OrderByDescending(t => t.Id))
+                {
+                    var entry = t;
+                    <button type="button" class="ml-row tappable" @onclick="() => OpenEntry(entry)">
+                        @if (ReceiptOf(t) is string url)
+                        {
+                            <span class="ml-thumb"><img src="@url" alt="증빙" /></span>
+                        }
+                        else
+                        {
+                            <span class="ml-noproof">증빙없음</span>
+                        }
+
+                        <span class="ml-row-body">
+                            <span class="ml-row-main">
+                                <span class="text">@MainLabel(t)</span>
+                                @if (IsUnclassified(t))
+                                {
+                                    <span class="ml-badge-warn">미분류</span>
+                                }
+                            </span>
+                            <span class="ml-row-sub">@t.Description</span>
+                        </span>
+
+                        <span class="ml-row-right">
+                            <span class="ml-amount @(t.Income > 0 ? "income" : "expense")">@Signed(t)</span>
+                            <span class="ml-balance">잔액 @BalanceOf(t)</span>
+                        </span>
+                    </button>
+                }
+            </div>
+        }
+    }
+
+}
+
+</div>
+
+@* ══════════ 06 거래 상세 · 편집 (바텀시트) ══════════ *@
+@if (_edit is not null)
+{
+    <div class="ml-wrap ml-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="CloseEntry">
+        <div class="ml-sheet" @onclick:stopPropagation="true">
+            <div class="ml-handle"></div>
+            <div class="ml-sheet-head">
+                <h3 class="ml-sheet-title">@(IsNewEntry ? "내역 추가" : "장부 내역")</h3>
+                @if (CanEdit && !IsNewEntry)
+                {
+                    <button class="ml-sheet-del" @onclick="DeleteEntry">삭제</button>
+                }
+            </div>
+
+            @if (ReceiptOf(_edit) is string proof)
+            {
+                <a class="ml-proof has-image" href="@proof" target="_blank" rel="noopener">
+                    <img src="@proof" alt="증빙 사진" />
+                </a>
+            }
+            else if (IsNewEntry)
+            {
+                <div class="ml-proof">
+                    <i class="bi bi-receipt"></i>
+                    <span>증빙은 저장 후 장부 매칭에서 연결합니다</span>
+                </div>
+            }
+            else
+            {
+                <div class="ml-proof">
+                    <i class="bi bi-receipt"></i>
+                    <span>증빙 사진</span>
+                </div>
+            }
+
+            @if (!CanEdit)
+            {
+                @* 조회 전용 역할 — 읽기 전용 정보 행 *@
+                <div class="ml-readonly"><span class="k">날짜</span><span class="v">@_edit.Date.ToString("yyyy-MM-dd")</span></div>
+                <div class="ml-readonly"><span class="k">구분</span><span class="v">@_edit.Type</span></div>
+                <div class="ml-readonly"><span class="k">분류항목</span><span class="v">@MainLabel(_edit)</span></div>
+                <div class="ml-readonly"><span class="k">내역</span><span class="v">@_edit.Description</span></div>
+                <div class="ml-readonly">
+                    <span class="k">금액</span>
+                    <span class="v" style="font-weight:700;color:@(_edit.Income > 0 ? "var(--ma-income)" : "var(--ma-expense)");">@Won(_edit.Income > 0 ? _edit.Income : _edit.Expense)</span>
+                </div>
+                <div class="ml-readonly"><span class="k">비고</span><span class="v">@_edit.Note</span></div>
+
+                <div style="height:20px;"></div>
+                <button class="ml-btn secondary" @onclick="CloseEntry">닫기</button>
+            }
+            else
+            {
+                <div class="ml-field">
+                    <div class="ml-block-label">날짜</div>
+                    <div class="ml-box">
+                        <input type="date" @bind="_eDate" />
+                        <i class="bi bi-calendar3 ml-chevron"></i>
+                    </div>
+                </div>
+
+                <div class="ml-field">
+                    <div class="ml-block-label">구분</div>
+                    <div class="ml-segment">
+                        <button class="@(_eType == "수입" ? "on" : "")" @onclick='() => SetEntryType("수입")'>수입</button>
+                        <button class="@(_eType == "지출" ? "on" : "")" @onclick='() => SetEntryType("지출")'>지출</button>
+                    </div>
+                </div>
+
+                <div class="ml-field ml-two">
+                    <div>
+                        <div class="ml-block-label">분류항목</div>
+                        <div class="ml-box">
+                            <select @bind="_eCategory" @bind:after="OnCategoryChanged">
+                                <option value="">선택</option>
+                                @foreach (var c in CategoryOptions)
+                                {
+                                    <option value="@c">@c</option>
+                                }
+                            </select>
+                            <i class="bi bi-chevron-down ml-chevron"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="ml-block-label">세부</div>
+                        <div class="ml-box">
+                            <select @bind="_eSubCategory">
+                                <option value="">선택</option>
+                                @foreach (var sub in SubOptions)
+                                {
+                                    <option value="@sub">@sub</option>
+                                }
+                            </select>
+                            <i class="bi bi-chevron-down ml-chevron"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ml-field">
+                    <div class="ml-block-label">내역</div>
+                    <div class="ml-box">
+                        <input type="text" placeholder="예: ○○마트 간식 구입" @bind="_eDescription" />
+                    </div>
+                </div>
+
+                <div class="ml-field">
+                    <div class="ml-block-label">금액</div>
+                    <div class="ml-box focus">
+                        <input type="text" inputmode="numeric" placeholder="0"
+                               class="amount @(_eType == "수입" ? "income" : "expense")"
+                               @bind="EntryAmountText" @bind:event="onchange" />
+                        <span class="ml-unit">원</span>
+                    </div>
+                </div>
+
+                <div class="ml-field">
+                    <div class="ml-block-label">비고</div>
+                    <div class="ml-box">
+                        <input type="text" placeholder="적요" @bind="_eNote" />
+                    </div>
+                </div>
+
+                @if (CanPickDept)
+                {
+                    <div class="ml-field">
+                        <div class="ml-block-label">부서</div>
+                        <div class="ml-box">
+                            <select @bind="_eDeptId">
+                                <option value="0">부서를 선택하세요</option>
+                                @foreach (var d in _departments.Where(d => d.Name != "관리자"))
+                                {
+                                    <option value="@d.Id">@d.Name</option>
+                                }
+                            </select>
+                            <i class="bi bi-chevron-down ml-chevron"></i>
+                        </div>
+                    </div>
+                }
+
+                <div class="ml-help">지출은 분류=행사, 세부=비용 종류입니다. 수입은 분류=회비수입·찬조금, 세부=행사명입니다.</div>
+
+                <div class="ml-actions">
+                    <button class="ml-btn secondary" @onclick="CloseEntry">취소</button>
+                    <button class="ml-btn primary" disabled="@_isSaving" @onclick="SaveEntry">
+                        @if (_isSaving)
+                        {
+                            <span class="spinner-border spinner-border-sm" role="status"></span>
+                        }
+                        <span>저장</span>
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@* ══════════ 장부 인쇄 (바텀시트) ══════════ *@
+@if (_showPrint)
+{
+    <div class="ml-wrap ml-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="() => _showPrint = false">
+        <div class="ml-sheet" @onclick:stopPropagation="true">
+            <div class="ml-handle"></div>
+            <div class="ml-sheet-head">
+                <h3 class="ml-sheet-title">인쇄</h3>
+            </div>
+
+            <div class="ml-block">
+                <div class="ml-block-label">인쇄 종류</div>
+                <div class="ml-segment">
+                    <button class="@(_printMode == "Ledger" ? "on" : "")" @onclick='() => _printMode = "Ledger"'>장부 인쇄</button>
+                    <button class="@(_printMode == "Receipt" ? "on" : "")" @onclick='() => _printMode = "Receipt"'>영수증 인쇄</button>
+                </div>
+            </div>
+
+            @if (_printMode == "Receipt")
+            {
+                <div class="ml-block">
+                    <div class="ml-block-label">A4 1장당 영수증 개수</div>
+                    <div class="ml-chips grid-3" style="padding:0;">
+                        <button class="ml-chip @(_printPerSheet == 1 ? "on" : "")" @onclick="() => _printPerSheet = 1">1장</button>
+                        <button class="ml-chip @(_printPerSheet == 2 ? "on" : "")" @onclick="() => _printPerSheet = 2">2장</button>
+                        <button class="ml-chip @(_printPerSheet == 4 ? "on" : "")" @onclick="() => _printPerSheet = 4">4장</button>
+                    </div>
+                </div>
+
+                <div class="ml-block">
+                    <div class="ml-block-label">증빙 이미지 함께 인쇄</div>
+                    <div class="ml-segment">
+                        <button class="@(_printWithImage ? "on" : "")" @onclick="() => _printWithImage = true">포함</button>
+                        <button class="@(!_printWithImage ? "on" : "")" @onclick="() => _printWithImage = false">제외</button>
+                    </div>
+                </div>
+            }
+
+            <div class="ml-caption" style="margin-bottom:16px;">
+                현재 조회 조건(@_year@(_quarter > 0 ? $" · {_quarter}분기" : "")@(_month > 0 ? $" · {_month}월" : ""))의 내역을 인쇄합니다.
+                인쇄 창에서 <b>PDF로 저장</b>을 고르면 파일로 받을 수 있습니다.
+            </div>
+
+            <button class="ml-btn primary" @onclick="GoPrint">인쇄 화면 열기</button>
+        </div>
+    </div>
+}
+
+@* ══════════ 05 조회 조건 (바텀시트) ══════════ *@
+@if (_showFilter)
+{
+    <div class="ml-wrap ml-dim" data-no-font-bump style="padding:0;max-width:none;min-height:0;" @onclick="CloseFilter">
+        <div class="ml-sheet" @onclick:stopPropagation="true">
+            <div class="ml-handle"></div>
+            <div class="ml-sheet-head">
+                <h3 class="ml-sheet-title">조회 조건</h3>
+                <button class="ml-sheet-reset" @onclick="ResetDraft">초기화</button>
+            </div>
+
+            <div class="ml-block">
+                <div class="ml-block-label">회계연도</div>
+                <div class="ml-stepper">
+                    <button @onclick="() => _dYear--"><i class="bi bi-chevron-left"></i></button>
+                    <span class="val">@_dYear</span>
+                    <button @onclick="() => _dYear++"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <div class="ml-block">
+                <div class="ml-block-label">분기</div>
+                <div class="ml-chips grid-5" style="padding:0;">
+                    <button class="ml-chip @(_dQuarter == 0 ? "on" : "")" @onclick="() => SetDraftQuarter(0)">전체</button>
+                    @for (int q = 1; q <= 4; q++)
+                    {
+                        var qq = q;
+                        <button class="ml-chip @(_dQuarter == qq ? "on" : "")" @onclick="() => SetDraftQuarter(qq)">@(qq)분기</button>
+                    }
+                </div>
+                @if (_dQuarter > 0 && _quarterRangeLabel.Length > 0)
+                {
+                    <div class="ml-caption">@_quarterRangeLabel</div>
+                }
+            </div>
+
+            <div class="ml-block">
+                <div class="ml-block-label">월</div>
+                <div class="ml-chips grid-4" style="padding:0;">
+                    <button class="ml-chip @(_dMonth == 0 ? "on" : "")" @onclick="() => SetDraftMonth(0)">전체</button>
+                    @foreach (var m in FiscalMonths)
+                    {
+                        var mm = m;
+                        <button class="ml-chip @(_dMonth == mm ? "on" : "")" @onclick="() => SetDraftMonth(mm)">@(mm)월</button>
+                    }
+                </div>
+            </div>
+
+            @if (CanPickDept)
+            {
+                <div class="ml-block">
+                    <div class="ml-block-label">부서</div>
+                    <div class="ml-chips grid-2" style="padding:0;">
+                        <button class="ml-chip @(_dDeptId == 0 ? "on" : "")" @onclick="() => _dDeptId = 0">전체</button>
+                        @foreach (var d in _departments)
+                        {
+                            var dd = d;
+                            <button class="ml-chip @(_dDeptId == dd.Id ? "on" : "")" @onclick="() => _dDeptId = dd.Id">@dd.Name</button>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="ml-block">
+                <div class="ml-block-label">구분</div>
+                <div class="ml-segment">
+                    <button class="@(_dType == "" ? "on" : "")" @onclick='() => _dType = ""'>전체</button>
+                    <button class="@(_dType == "수입" ? "on" : "")" @onclick='() => _dType = "수입"'>수입</button>
+                    <button class="@(_dType == "지출" ? "on" : "")" @onclick='() => _dType = "지출"'>지출</button>
+                </div>
+            </div>
+
+            <button class="ml-btn primary" @onclick="ApplyFilter">적용하기</button>
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    // 적용된 조회 조건
+    private int _year = DateTime.Now.Year;
+    private int _quarter = 0;
+    private int _month = DateTime.Now.Month;
+    private int _deptId = 0;
+    private string _type = "";
+
+    // 시트에서 편집 중인 조건 (적용하기를 눌러야 반영)
+    private int _dYear, _dQuarter, _dMonth, _dDeptId;
+    private string _dType = "";
+    private string _quarterRangeLabel = "";
+
+    private bool _showFilter, _showSearch, _isLoading = true;
+
+    // 인쇄 옵션 (웹 인쇄 모달과 같은 항목)
+    private bool _showPrint;
+    private string _printMode = "Ledger";
+    private int _printPerSheet = 2;
+    private bool _printWithImage = true;
+    private string _keyword = "";
+
+    private List<Department> _departments = new();
+    private AccountingService.LedgerView _view = new();
+    private AccountingService.CategoryMaps _maps = new();
+
+    // 현재 조회 조건을 그대로 인쇄 화면에 넘긴다
+    private void GoPrint()
+    {
+        _showPrint = false;
+        var q = $"/ledger/print?year={_year}&quarter={_quarter}&month={_month}&dept={_deptId}" +
+                $"&type={Uri.EscapeDataString(_type)}&mode={_printMode}" +
+                $"&per={_printPerSheet}&img={(_printWithImage ? "true" : "false")}";
+        Nav.NavigateTo(q);
+    }
+
+    // ── 06 거래 상세·편집 ──
+    private LedgerEntry? _edit;
+    private DateTime _eDate = DateTime.Today;
+    private string _eType = GlobalConstants.TransactionTypeExpense;
+    private string _eCategory = "";
+    private string _eSubCategory = "";
+    private string _eDescription = "";
+    private string _eNote = "";
+    private decimal? _eAmount;
+    private int _eDeptId;
+    private bool _isSaving;
+
+    private bool CanPickDept => CurrentUser?.CanViewAll == true;
+    private bool CanEdit => CurrentUser?.CanEditLedger == true;
+
+    private List<string> CategoryOptions
+    {
+        get
+        {
+            var list = _maps.CategoriesFor(_eType).ToList();
+            if (!string.IsNullOrWhiteSpace(_eCategory) && !list.Contains(_eCategory)) list.Insert(0, _eCategory);
+            return list;
+        }
+    }
+
+    private List<string> SubOptions
+    {
+        get
+        {
+            var list = _maps.SubsFor(_eType, _eCategory);
+            if (!string.IsNullOrWhiteSpace(_eSubCategory) && !list.Contains(_eSubCategory))
+            {
+                list = list.ToList();
+                list.Insert(0, _eSubCategory);
+            }
+            return list;
+        }
+    }
+
+    // 금액은 입력 중에는 숫자만, 포커스를 벗어나면 천 단위 콤마로 보여준다.
+    private string EntryAmountText
+    {
+        get => _eAmount.HasValue ? _eAmount.Value.ToString("N0") : "";
+        set
+        {
+            var digits = new string((value ?? "").Where(char.IsDigit).ToArray());
+            _eAmount = decimal.TryParse(digits, out var v) && v > 0 ? v : null;
+        }
+    }
+    private bool HasActiveFilter => _quarter > 0 || _month > 0 || _deptId > 0 || _type.Length > 0;
+
+    // 회계연도 순서: 12월부터 11월까지
+    private static readonly int[] FiscalMonths = { 12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11 };
+
+    private string DeptChipLabel =>
+        _deptId == 0
+            ? (CanPickDept ? "전체 부서" : (_departments.FirstOrDefault(d => d.Id == CurrentUser?.DepartmentId)?.Name ?? "내 부서"))
+            : (_departments.FirstOrDefault(d => d.Id == _deptId)?.Name ?? "부서");
+
+    private IEnumerable<LedgerEntry> Visible
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_keyword)) return _view.Entries;
+            var k = _keyword.Trim();
+            return _view.Entries.Where(t =>
+                (t.Category?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (t.SubCategory?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (t.Description?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (t.Note?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser == null) return;
+        _departments = await Accounting.GetDepartmentsAsync();
+        if (!CanPickDept) _deptId = 0;   // 부서운영자·일반조회는 자기 부서로 고정된다
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        if (CurrentUser == null) return;
+        _isLoading = true;
+        StateHasChanged();
+        try
+        {
+            _view = await Accounting.GetLedgerViewAsync(
+                _deptId, CurrentUser.DepartmentId, _year, _quarter, _month,
+                string.IsNullOrEmpty(_type) ? null : _type);
+
+            int mapDeptId = _deptId == 0 ? CurrentUser.DepartmentId : _deptId;
+            _maps = await Accounting.GetCategoryMapsAsync(mapDeptId, _year);
+        }
+        finally { _isLoading = false; }
+    }
+
+    private void ToggleSearch()
+    {
+        _showSearch = !_showSearch;
+        if (!_showSearch) _keyword = "";
+    }
+
+    private async Task OpenFilter()
+    {
+        _dYear = _year; _dQuarter = _quarter; _dMonth = _month; _dDeptId = _deptId; _dType = _type;
+        _showFilter = true;
+        await UpdateQuarterLabelAsync();
+    }
+
+    private void CloseFilter() => _showFilter = false;
+
+    private void ResetDraft()
+    {
+        _dYear = DateTime.Now.Year; _dQuarter = 0; _dMonth = 0; _dDeptId = 0; _dType = "";
+        _quarterRangeLabel = "";
+    }
+
+    // 분기와 월은 서로 배타적이다 (기존 월별 장부와 같은 규칙)
+    private async Task SetDraftQuarter(int q)
+    {
+        _dQuarter = q;
+        if (q > 0) _dMonth = 0;
+        await UpdateQuarterLabelAsync();
+    }
+
+    private void SetDraftMonth(int m)
+    {
+        _dMonth = m;
+        if (m > 0) { _dQuarter = 0; _quarterRangeLabel = ""; }
+    }
+
+    private async Task UpdateQuarterLabelAsync()
+    {
+        if (_dQuarter <= 0 || CurrentUser == null) { _quarterRangeLabel = ""; return; }
+        int qDeptId = _dDeptId == 0 ? CurrentUser.DepartmentId : _dDeptId;
+        var r = await Accounting.GetQuarterDateRangeAsync(qDeptId, _dYear, _dQuarter);
+        _quarterRangeLabel = $"{_dQuarter}분기 · {r.Start:yyyy-MM-dd} ~ {r.End:yyyy-MM-dd}";
+    }
+
+    private async Task ApplyFilter()
+    {
+        _year = _dYear; _quarter = _dQuarter; _month = _dMonth; _deptId = _dDeptId; _type = _dType;
+        _showFilter = false;
+        await LoadAsync();
+    }
+
+    // ── 06 거래 상세·편집 ──
+    private void OpenEntry(LedgerEntry t)
+    {
+        _edit = t;
+        _eDate = t.Date;
+        _eType = string.IsNullOrWhiteSpace(t.Type)
+            ? (t.Income > 0 ? GlobalConstants.TransactionTypeIncome : GlobalConstants.TransactionTypeExpense)
+            : t.Type;
+        _eCategory = t.Category ?? "";
+        _eSubCategory = t.SubCategory ?? "";
+        _eDescription = t.Description ?? "";
+        _eNote = t.Note ?? "";
+        _eAmount = t.Income > 0 ? t.Income : (t.Expense > 0 ? t.Expense : null);
+        _eDeptId = t.DepartmentId;
+    }
+
+    // Id == 0 이면 아직 저장되지 않은 새 내역
+    private bool IsNewEntry => _edit is { Id: 0 };
+
+    private void OpenNewEntry()
+    {
+        if (!CanEdit || CurrentUser == null) return;
+
+        _edit = new LedgerEntry { Id = 0, DepartmentId = EffectiveDeptId };
+        // 조회 중인 기간 안에서 시작한다 (전체 조회면 오늘)
+        _eDate = DefaultEntryDate();
+        _eType = GlobalConstants.TransactionTypeExpense;
+        _eCategory = "";
+        _eSubCategory = "";
+        _eDescription = "";
+        _eNote = "";
+        _eAmount = null;
+        _eDeptId = EffectiveDeptId;
+    }
+
+    private int EffectiveDeptId => _deptId == 0 ? (CurrentUser?.DepartmentId ?? 0) : _deptId;
+
+    // 조회 기간 안이면 오늘, 아니면 그 기간의 첫날을 기본값으로 둔다
+    private DateTime DefaultEntryDate()
+    {
+        var today = DateTime.Today;
+        if (_view.RangeStart == default || _view.RangeEnd == default) return today;
+        if (today >= _view.RangeStart && today <= _view.RangeEnd) return today;
+        return _view.RangeStart;
+    }
+
+    private void CloseEntry() { _edit = null; _isSaving = false; }
+
+    private void SetEntryType(string type)
+    {
+        if (_eType == type) return;
+        _eType = type;
+        // 2축 원칙상 수입·지출의 분류 체계가 다르므로 후보에 없으면 비운다
+        if (!_maps.CategoriesFor(_eType).Contains(_eCategory)) { _eCategory = ""; _eSubCategory = ""; }
+    }
+
+    private void OnCategoryChanged()
+    {
+        if (!_maps.SubsFor(_eType, _eCategory).Contains(_eSubCategory)) _eSubCategory = "";
+    }
+
+    private async Task SaveEntry()
+    {
+        if (_edit == null || !CanEdit) return;
+
+        if (string.IsNullOrWhiteSpace(_eDescription))
+        {
+            await JSRuntime.AlertAsync("내역을 입력해주세요.");
+            return;
+        }
+        if (!_eAmount.HasValue || _eAmount.Value <= 0)
+        {
+            await JSRuntime.AlertAsync("금액을 입력해주세요.");
+            return;
+        }
+
+        int targetDeptId = CanPickDept && _eDeptId > 0 ? _eDeptId : EffectiveDeptId;
+        if (targetDeptId == 0)
+        {
+            await JSRuntime.AlertAsync("부서를 선택해주세요.");
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            if (IsNewEntry)
+            {
+                await Accounting.CreateLedgerEntryAsync(
+                    targetDeptId, _eDate, _eType, _eCategory, _eSubCategory,
+                    _eDescription, _eNote, _eAmount.Value);
+            }
+            else
+            {
+                await Accounting.SaveLedgerEntryEditAsync(
+                    _edit.Id, _eDate, _eType, _eCategory, _eSubCategory,
+                    _eDescription, _eNote, _eAmount.Value,
+                    CanPickDept ? _eDeptId : null);
+            }
+
+            _edit = null;
+            await LoadAsync();
+        }
+        finally { _isSaving = false; }
+    }
+
+    private async Task DeleteEntry()
+    {
+        if (_edit == null || !CanEdit || IsNewEntry) return;
+        if (!await JSRuntime.ConfirmAsync("이 항목을 삭제하시겠습니까?")) return;
+
+        await Accounting.DeleteTransactionAsync(_edit.Id);
+        _edit = null;
+        await LoadAsync();
+    }
+
+    // ── 표시 헬퍼 ──
+    private static string Won(decimal v) => v.ToString("N0") + "원";
+
+    private static string GroupLabel(DateTime d)
+    {
+        string day = d.DayOfWeek switch
+        {
+            DayOfWeek.Sunday => "일", DayOfWeek.Monday => "월", DayOfWeek.Tuesday => "화",
+            DayOfWeek.Wednesday => "수", DayOfWeek.Thursday => "목", DayOfWeek.Friday => "금",
+            _ => "토"
+        };
+        return $"{d.Month}월 {d.Day}일 ({day})";
+    }
+
+    private static string MainLabel(LedgerEntry t)
+    {
+        var cat = string.IsNullOrWhiteSpace(t.Category) ? GlobalConstants.CategoryUnclassified : t.Category.Trim();
+        var sub = t.SubCategory?.Trim();
+        return string.IsNullOrWhiteSpace(sub) ? cat : $"{cat} · {sub}";
+    }
+
+    private static bool IsUnclassified(LedgerEntry t) =>
+        string.IsNullOrWhiteSpace(t.Category)
+        || t.Category.Trim() == GlobalConstants.CategoryUnclassified
+        || string.IsNullOrWhiteSpace(t.SubCategory);
+
+    private static string? ReceiptOf(LedgerEntry t)
+    {
+        if (!string.IsNullOrEmpty(t.ReceiptPath)) return t.ReceiptPath;
+        if (!string.IsNullOrEmpty(t.ReceiptUrl)) return t.ReceiptUrl;
+        return null;
+    }
+
+    private static string Signed(LedgerEntry t) =>
+        t.Income > 0 ? "+" + t.Income.ToString("N0") : "-" + t.Expense.ToString("N0");
+
+    private string BalanceOf(LedgerEntry t) =>
+        _view.Balances.TryGetValue(t.Id, out var b) ? b.ToString("N0") : "-";
+}

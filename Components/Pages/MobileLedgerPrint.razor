@@ -1,0 +1,183 @@
+@page "/ledger/print"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject AccountingService Accounting
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@implements IDisposable
+
+<PageTitle>장부 인쇄</PageTitle>
+
+<style>
+    /* 인쇄 화면에서는 앱/웹 레이아웃 껍데기를 모두 감춘다 */
+    .sidebar, .pc-top-bar, .mobile-top-header, .ma-tabbar { display: none !important; }
+    .main-content-area { margin-left: 0 !important; }
+    .content, .content.mobile-content {
+        padding: 0 !important; margin: 0 !important;
+    }
+    body { background: #ffffff !important; }
+
+    /* 화면에서만 보이는 도구 막대 */
+    .lp-bar {
+        position: sticky; top: 0; z-index: 10;
+        display: flex; align-items: center; gap: 8px;
+        padding: 10px 16px calc(10px + env(safe-area-inset-top));
+        background: #ffffff; border-bottom: 1px solid #E7E5DE;
+    }
+    .lp-bar .title { font-size: 16px; font-weight: 700; color: #1B1C15; margin-right: auto; }
+    .lp-btn {
+        min-height: 44px; padding: 0 16px; border: none; border-radius: 12px;
+        font-size: 15px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .lp-btn.primary { background: #785600; color: #fff; }
+    .lp-btn.secondary { background: #EFEFEA; color: #1B1C15; }
+
+    .lp-hint {
+        padding: 12px 16px; font-size: 13px; color: #8A8577; background: #F6F6F4;
+        border-bottom: 1px solid #E7E5DE;
+    }
+
+    .lp-sheet { padding: 16px; color: #000; font-family: 'Pretendard', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif; }
+
+    /* 지면 규칙은 Services/LedgerPrintCss.cs 한 곳에 있다 (웹 인쇄와 같은 값) */
+
+    @@media print {
+        .lp-bar, .lp-hint { display: none !important; }
+        .lp-sheet { padding: 0 !important; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @@page { size: A4 portrait; margin: 25mm 10mm 5mm 10mm; }
+        html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
+    }
+</style>
+
+@* 인쇄 지면 규칙 — 웹 인쇄와 동일한 단일 정의 *@
+<style>
+    @((MarkupString)LedgerPrintCss.SheetRules)
+</style>
+
+<div class="lp-bar">
+    <span class="title">@(IsReceiptMode ? "영수증 인쇄" : "장부 인쇄")</span>
+    <button class="lp-btn secondary" @onclick="GoBack">닫기</button>
+    <button class="lp-btn primary" @onclick="DoPrint"><i class="bi bi-printer"></i>인쇄 · PDF 저장</button>
+</div>
+
+<div class="lp-hint">
+    인쇄 창에서 <b>대상</b>을 <b>PDF로 저장</b>으로 바꾸면 파일로 받을 수 있습니다.
+</div>
+
+<div class="lp-sheet">
+@if (CurrentUser is null || _isLoading)
+{
+    <div style="text-align:center; padding:48px 16px; color:#8A8577;">불러오는 중…</div>
+}
+else if (IsReceiptMode && !_receiptTargets.Any())
+{
+    <div style="text-align:center; padding:48px 16px; color:#8A8577;">인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.</div>
+}
+else if (!IsReceiptMode && !_view.Entries.Any())
+{
+    <div style="text-align:center; padding:48px 16px; color:#8A8577;">조회된 장부 내역이 없습니다.</div>
+}
+else
+{
+    @* 지면은 웹 인쇄와 같은 컴포넌트를 쓴다. 기준은 웹이다. *@
+    <LedgerPrintSheet Mode="@(IsReceiptMode ? "Receipt" : "Ledger")"
+                      Entries="_view.Entries"
+                      PriorEntries="_view.Entries"
+                      CarryOver="_view.CarryOver"
+                      DeptName="@_deptLabel"
+                      ReceiptTargets="_receiptTargets"
+                      ReceiptsPerSheet="Per"
+                      IncludeReceiptImage="WithImage" />
+}
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    // 04 장부 화면의 조회 조건을 그대로 넘겨받는다
+    [Parameter, SupplyParameterFromQuery(Name = "year")] public int? Year { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "quarter")] public int? Quarter { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "month")] public int? Month { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "dept")] public int? Dept { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "type")] public string? Type { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "mode")] public string? Mode { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "per")] public int? PerSheet { get; set; }
+    [Parameter, SupplyParameterFromQuery(Name = "img")] public bool? Img { get; set; }
+
+    private AccountingService.LedgerView _view = new();
+    private List<LedgerEntry> _receiptTargets = new();
+    private string _deptLabel = "";
+    private bool _isLoading = true;
+    private bool _printed;
+    private DotNetObjectReference<MobileLedgerPrint>? _selfRef;
+
+    public void Dispose() => _selfRef?.Dispose();
+
+    private bool IsReceiptMode => string.Equals(Mode, "Receipt", StringComparison.OrdinalIgnoreCase);
+    private int Per => PerSheet is 1 or 2 or 4 ? PerSheet.Value : 2;
+    private bool WithImage => Img ?? true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (CurrentUser == null) return;
+
+        _isLoading = true;
+        try
+        {
+            int year = Year ?? DateTime.Now.Year;
+            int deptId = Dept ?? 0;
+
+            _view = await Accounting.GetLedgerViewAsync(
+                deptId, CurrentUser.DepartmentId, year, Quarter ?? 0, Month ?? 0,
+                string.IsNullOrEmpty(Type) ? null : Type);
+
+            var depts = await Accounting.GetDepartmentsAsync();
+            _deptLabel = deptId == 0
+                ? (CurrentUser.CanViewAll ? "전체 부서" : depts.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "")
+                : depts.FirstOrDefault(d => d.Id == deptId)?.Name ?? "";
+
+            _receiptTargets = _view.Entries
+                .Where(t => t.Type == GlobalConstants.TransactionTypeExpense || t.Type == "Expense")
+                .OrderBy(t => t.Date).ToList();
+        }
+        finally { _isLoading = false; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // 내용이 그려진 뒤 한 번만 인쇄 대화상자를 띄운다
+        if (_printed || _isLoading || CurrentUser == null) return;
+        _printed = true;
+        await Task.Delay(400);          // 영수증 이미지 로드 여유
+        await DoPrint();
+    }
+
+    private async Task DoPrint()
+    {
+        try
+        {
+            _selfRef ??= DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("maPrint.run", _selfRef);
+        }
+        catch
+        {
+            // maPrint를 못 부르면 최소한 인쇄는 되도록
+            try { await JSRuntime.InvokeVoidAsync("print"); } catch { }
+        }
+    }
+
+    // 인쇄를 마치거나 취소하면 인쇄 지면을 남기지 않고 장부로 돌아간다
+    [JSInvokable]
+    public Task OnPrintFinished() => InvokeAsync(() => Nav.NavigateTo("/ledger"));
+
+    private void GoBack() => Nav.NavigateTo("/ledger");
+
+    private static string? ReceiptOf(LedgerEntry t)
+    {
+        if (!string.IsNullOrEmpty(t.ReceiptPath)) return t.ReceiptPath;
+        if (!string.IsNullOrEmpty(t.ReceiptUrl)) return t.ReceiptUrl;
+        return null;
+    }
+}

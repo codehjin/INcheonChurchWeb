@@ -1,0 +1,169 @@
+@using INcheonChurchWeb.Models
+
+@*
+    장부·영수증 인쇄 지면.
+
+    웹(/monthly)과 모바일(/ledger/print)이 같은 결과물을 내도록 마크업을 한 곳에 둔다.
+    ⚠️ 기준은 웹이다. 웹이 먼저 만들어졌고 실제 인쇄에 쓰이고 있으므로,
+       여기 있는 표·여백·서식은 웹의 기존 출력과 같아야 한다.
+
+    호출부는 감싸는 껍데기만 다르다.
+      · 웹    : 화면에 숨겨둔 <div class="print-only"> 안에 두고, 그 innerHTML을 팝업으로 넘긴다
+      · 모바일: 전용 페이지가 이 컴포넌트만 그리고 바로 window.print()를 부른다
+*@
+
+@if (Mode == "Ledger")
+{
+    var grouped = Entries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
+    bool first = true;
+    foreach (var mg in grouped)
+    {
+        var pts = mg.Key.Split('-');
+        int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
+
+        decimal pI = PriorEntries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Income);
+        decimal pE = PriorEntries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Expense);
+        decimal sb = CarryOver + pI - pE;
+        decimal rb = sb; decimal mI = 0; decimal mEx = 0;
+        string pb = first ? "" : "page-break-before"; first = false;
+
+        <div class="@pb">
+            <div class="print-only-title" style="text-align:center; font-size:18pt; font-weight:bold; margin-bottom:15px;">
+                [ @gy 년 @gm 월 @DeptName 재정 장부 ]
+            </div>
+
+            <table class="ledger-table-print">
+                <thead>
+                    <tr>
+                        <th style="width:4%">No</th>
+                        <th style="width:9%">날짜</th>
+                        <th style="width:7%">구분</th>
+                        <th style="width:12%">분류항목</th>
+                        <th style="width:10%">세부</th>
+                        <th style="width:22%">내역</th>
+                        <th style="width:12%">수입</th>
+                        <th style="width:12%">지출</th>
+                        <th style="width:12%">잔액</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="background-color: #f9f9f9 !important;">
+                        <td>-</td>
+                        <td>-</td>
+                        <td>이월</td>
+                        <td>전월이월</td>
+                        <td></td>
+                        <td style="text-align:left !important;">전월 이월금액</td>
+                        <td class="money-cell-print">@sb.ToString("N0")</td>
+                        <td class="money-cell-print">-</td>
+                        <td class="money-cell-print">@sb.ToString("N0")</td>
+                    </tr>
+
+                    @{
+                        int seq = 1;
+                    }
+                    @foreach (var item in mg.OrderBy(x => x.Date))
+                    {
+                        rb += item.Income - item.Expense;
+                        mI += item.Income; mEx += item.Expense;
+                        <tr>
+                            <td>@seq</td>
+                            <td>@item.Date.ToString("MM-dd")</td>
+                            <td>@item.Type</td>
+                            <td>@item.Category</td>
+                            <td>@item.SubCategory</td>
+                            <td style="text-align:left !important;">@item.Description</td>
+                            <td class="money-cell-print">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
+                            <td class="money-cell-print">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
+                            <td class="money-cell-print">@rb.ToString("N0")</td>
+                        </tr>
+                        seq++;
+                    }
+                    <tr style="background-color: #f9f9f9 !important; font-weight: bold;">
+                        <td colspan="6" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
+                        <td class="money-cell-print">@mI.ToString("N0")</td>
+                        <td class="money-cell-print">@mEx.ToString("N0")</td>
+                        <td class="money-cell-print">@rb.ToString("N0")</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    }
+}
+else if (Mode == "Receipt")
+{
+    var receiptGroups = ReceiptTargets.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
+    bool firstMonth = true;
+
+    foreach (var group in receiptGroups)
+    {
+        string pageBreak = firstMonth ? "" : "page-break-before";
+        firstMonth = false;
+
+        int monthlySeq = 1;
+
+        <div class="@pageBreak">
+            <div class="receipt-grid-@ReceiptsPerSheet">
+                @foreach (var t in group.OrderBy(x => x.Date))
+                {
+                    string fontSize = ReceiptsPerSheet == 1 ? "13pt" : (ReceiptsPerSheet == 2 ? "11pt" : "9.5pt");
+
+                    <div class="receipt-box">
+                        <div style="display: flex; flex-wrap: nowrap; align-items: center; border-bottom: 1.5pt solid #444; padding: 4px 2px; margin-bottom: 6px; font-weight: bold; font-size: @fontSize; width: 100%; overflow: hidden;">
+                            <div style="flex: 0 0 10%; text-align: left;">
+                                <span style="border: 1.0pt solid #444; display: inline-block; width: 28px; height: 28px; line-height: 24px; text-align: center; border-radius: 2px;">
+                                    @monthlySeq
+                                </span>
+                            </div>
+                            <div style="flex: 0 0 20%; text-align: left; white-space: nowrap;">@t.Date.ToString("M월 d일")</div>
+                            <div style="flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; margin-right: 5px;">
+                                @t.Description
+                            </div>
+                            <div style="flex: 0 0 25%; text-align: right; color: #ba1a1a; white-space: nowrap;">
+                                @t.Expense.ToString("N0")
+                            </div>
+                        </div>
+
+                        @if (IncludeReceiptImage && (!string.IsNullOrEmpty(t.ReceiptPath) || !string.IsNullOrEmpty(t.ReceiptUrl)))
+                        {
+                            <div class="receipt-img-wrapper">
+                                <img src="@(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath : t.ReceiptUrl)" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="receipt-empty"></div>
+                        }
+                    </div>
+                    monthlySeq++;
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    /// <summary>"Ledger" 또는 "Receipt".</summary>
+    [Parameter, EditorRequired] public string Mode { get; set; } = "Ledger";
+
+    /// <summary>장부 인쇄 대상 행. 웹은 화면 필터가 적용된 목록을 넘긴다.</summary>
+    [Parameter] public List<LedgerEntry> Entries { get; set; } = new();
+
+    /// <summary>월별 시작 잔액을 구할 때 쓰는 기간 전체 행(필터 적용 전).</summary>
+    [Parameter] public List<LedgerEntry> PriorEntries { get; set; } = new();
+
+    /// <summary>기간 시작 시점의 이월금.</summary>
+    [Parameter] public decimal CarryOver { get; set; }
+
+    /// <summary>제목에 넣을 부서명. 전체 조회면 "전체 부서".</summary>
+    [Parameter] public string DeptName { get; set; } = "";
+
+    /// <summary>영수증 인쇄 대상(지출 내역).</summary>
+    [Parameter] public List<LedgerEntry> ReceiptTargets { get; set; } = new();
+
+    /// <summary>A4 1장당 영수증 개수 (1·2·4).</summary>
+    [Parameter] public int ReceiptsPerSheet { get; set; } = 2;
+
+    /// <summary>증빙 이미지를 함께 인쇄할지.</summary>
+    [Parameter] public bool IncludeReceiptImage { get; set; } = true;
+}

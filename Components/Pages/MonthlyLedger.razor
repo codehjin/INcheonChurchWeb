@@ -942,138 +942,16 @@
 </div>
 
 <div class="print-only">
-    @if (_printMode == "Ledger")
-    {
-        var grouped = _filtered_entries.GroupBy(e => e.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
-        bool first = true;
-        foreach (var mg in grouped)
-        {
-            var pts = mg.Key.Split('-');
-            int gy = int.Parse(pts[0]); int gm = int.Parse(pts[1]);
-
-            decimal pI = _entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Income);
-            decimal pE = _entries.Where(x => x.Date < new DateTime(gy, gm, 1)).Sum(x => x.Expense);
-            decimal sb = _carryOverAmount + pI - pE;
-            decimal rb = sb; decimal mI = 0; decimal mEx = 0;
-            string pb = first ? "" : "page-break-before"; first = false;
-
-            <div class="@pb">
-                <div class="print-only-title" style="text-align:center; font-size:18pt; font-weight:bold; margin-bottom:15px;">
-                    @{
-                        string pd = _selectedDepartmentId == 0 ? "전체 부서" : _departments.FirstOrDefault(d => d.Id == _selectedDepartmentId)?.Name ?? "";
-                    }
-                    [ @gy 년 @gm 월 @pd 재정 장부 ]
-                </div>
-
-                <table class="ledger-table-print">
-                    <thead>
-                        <tr>
-                            <th style="width:4%">No</th>
-                            <th style="width:9%">날짜</th>
-                            <th style="width:7%">구분</th>
-                            <th style="width:12%">분류항목</th>
-                            <th style="width:10%">세부</th>
-                            <th style="width:22%">내역</th>
-                            <th style="width:12%">수입</th>
-                            <th style="width:12%">지출</th>
-                            <th style="width:12%">잔액</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr style="background-color: #f9f9f9 !important;">
-                            <td>-</td>
-                            <td>-</td>
-                            <td>이월</td>
-                            <td>전월이월</td>
-                            <td></td>
-                            <td style="text-align:left !important;">전월 이월금액</td>
-                            <td class="money-cell-print">@sb.ToString("N0")</td>
-                            <td class="money-cell-print">-</td>
-                            <td class="money-cell-print">@sb.ToString("N0")</td>
-                        </tr>
-
-                        @{
-                            int seq = 1;
-                        }
-                        @foreach (var item in mg.OrderBy(x => x.Date))
-                        {
-                            rb += item.Income - item.Expense;
-                            mI += item.Income; mEx += item.Expense;
-                            <tr>
-                                <td>@seq</td>
-                                <td>@item.Date.ToString("MM-dd")</td>
-                                <td>@item.Type</td>
-                                <td>@item.Category</td>
-                                <td>@item.SubCategory</td>
-                                <td style="text-align:left !important;">@item.Description</td>
-                                <td class="money-cell-print">@(item.Income > 0 ? item.Income.ToString("N0") : "")</td>
-                                <td class="money-cell-print">@(item.Expense > 0 ? item.Expense.ToString("N0") : "")</td>
-                                <td class="money-cell-print">@rb.ToString("N0")</td>
-                            </tr>
-                            seq++;
-                        }
-                        <tr style="background-color: #f9f9f9 !important; font-weight: bold;">
-                            <td colspan="6" style="text-align:right !important; padding-right:10px !important;">@gm 월 합계</td>
-                            <td class="money-cell-print">@mI.ToString("N0")</td>
-                            <td class="money-cell-print">@mEx.ToString("N0")</td>
-                            <td class="money-cell-print">@rb.ToString("N0")</td>
-                        </tr>
-                    </tbody>
-                </table>
-                </div>
-                }
-    }
-    else if (_printMode == "Receipt")
-    {
-        var receiptGroups = _printTargets.GroupBy(t => t.Date.ToString("yyyy-MM")).OrderBy(g => g.Key).ToList();
-        bool firstMonth = true;
-
-        foreach (var group in receiptGroups)
-        {
-            string pageBreak = firstMonth ? "" : "page-break-before";
-            firstMonth = false;
-
-            int monthlySeq = 1;
-
-            <div class="@pageBreak">
-                <div class="receipt-grid-@_receiptsPerSheet">
-                    @foreach (var t in group.OrderBy(x => x.Date))
-                    {
-                        string fontSize = _receiptsPerSheet == 1 ? "13pt" : (_receiptsPerSheet == 2 ? "11pt" : "9.5pt");
-
-                        <div class="receipt-box">
-                            <div style="display: flex; flex-wrap: nowrap; align-items: center; border-bottom: 1.5pt solid #444; padding: 4px 2px; margin-bottom: 6px; font-weight: bold; font-size: @fontSize; width: 100%; overflow: hidden;">
-                                <div style="flex: 0 0 10%; text-align: left;">
-                                    <span style="border: 1.0pt solid #444; display: inline-block; width: 28px; height: 28px; line-height: 24px; text-align: center; border-radius: 2px;">
-                                        @monthlySeq
-                                    </span>
-                                </div>
-                                <div style="flex: 0 0 20%; text-align: left; white-space: nowrap;">@t.Date.ToString("M월 d일")</div>
-                                <div style="flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; margin-right: 5px;">
-                                    @t.Description
-                                </div>
-                                <div style="flex: 0 0 25%; text-align: right; color: #ba1a1a; white-space: nowrap;">
-                                    @t.Expense.ToString("N0")
-                                </div>
-                            </div>
-
-                            @if (_includeReceiptImage && (!string.IsNullOrEmpty(t.ReceiptPath) || !string.IsNullOrEmpty(t.ReceiptUrl)))
-                            {
-                                <div class="receipt-img-wrapper">
-                                    <img src="@(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath : t.ReceiptUrl)" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="receipt-empty"></div>
-                            }
-                        </div>
-                        monthlySeq++;
-                    }
-                </div>
-            </div>
-        }
-    }
+    @* 인쇄 지면은 Components/Shared/LedgerPrintSheet.razor 한 곳에 있다.
+       모바일 인쇄 화면(/ledger/print)도 같은 컴포넌트를 쓴다. *@
+    <LedgerPrintSheet Mode="@_printMode"
+                      Entries="_filtered_entries"
+                      PriorEntries="_entries"
+                      CarryOver="_carryOverAmount"
+                      DeptName="@PrintDeptName"
+                      ReceiptTargets="_printTargets"
+                      ReceiptsPerSheet="_receiptsPerSheet"
+                      IncludeReceiptImage="_includeReceiptImage" />
 </div>
 
 @code {
@@ -1186,94 +1064,38 @@
 
     private async Task OnQuarterChanged(ChangeEventArgs e) { if (int.TryParse(e.Value?.ToString(), out int q)) { _currentQuarter = q; _currentMonth = 0; await LoadData(); } }
 
+    // 인쇄 제목에 넣을 부서명 (전체 조회면 "전체 부서")
+    private string PrintDeptName =>
+        _selectedDepartmentId == 0
+            ? "전체 부서"
+            : _departments.FirstOrDefault(d => d.Id == _selectedDepartmentId)?.Name ?? "";
+
     private async Task LoadData()
     {
         _isLoading = true;
         StateHasChanged();
         try
         {
-            using var context = DbContextFactory.CreateDbContext();
-            int qDeptId = _selectedDepartmentId == 0 ? (CurrentUser?.DepartmentId ?? 0) : _selectedDepartmentId;
-            var q1Range = await Accounting.GetQuarterDateRangeAsync(qDeptId, _currentYear, 1);
-            var q4Range = await Accounting.GetQuarterDateRangeAsync(qDeptId, _currentYear, 4);
-            DateTime fiscalYearStart = q1Range.Start.Date;
-            DateTime fiscalYearEnd = q4Range.End.Date;
+            // 🚀 회계연도 범위·이월금·기간 스코프는 AccountingService 한 곳에서 계산한다.
+            //    (예전에는 같은 알고리즘이 이 파일에도 복제되어 있었다 — 웹_상세_구조문서.md §6.2)
+            var view = await Accounting.GetLedgerViewAsync(
+                _selectedDepartmentId, CurrentUser?.DepartmentId ?? 0,
+                _currentYear, _currentQuarter, _currentMonth, type: null);
 
-            var query = context.Transactions.Include(t => t.DepartmentInfo).AsNoTracking()
-                .Where(t => t.Date >= fiscalYearStart && t.Date <= fiscalYearEnd);
-            if (_selectedDepartmentId != 0) query = query.Where(t => t.DepartmentId == _selectedDepartmentId);
-            var allYearData = await query.OrderBy(t => t.Date).ToListAsync();
+            _entries = view.Entries;
+            _carryOverAmount = view.CarryOver;
 
-            var bq = context.BudgetPlans.AsNoTracking().Where(b => b.Year == _currentYear);
-            if (_selectedDepartmentId != 0) bq = bq.Where(b => b.DepartmentId == _selectedDepartmentId);
-            var bp = await bq.ToListAsync();
+            // 🚀 분류·세부 자동완성 후보도 서비스에서 받는다 (§6.4)
+            var maps = await Accounting.GetCategoryMapsAsync(_selectedDepartmentId, _currentYear);
+            _incomeCats = maps.IncomeCategories;
+            _expenseCats = maps.ExpenseCategories;
+            _incomeSubMap = maps.IncomeSubs;
+            _expenseSubMap = maps.ExpenseSubs;
 
-            _incomeCats = bp.Where(b => b.Type == "Income" || b.Type == "수입").Select(b => b.Category).Distinct().ToList();
-            _expenseCats = bp.Where(b => b.Type == "Expense" || b.Type == "지출").Select(b => b.Category).Distinct().ToList();
+            // 예산이 하나도 없는 부서를 위한 기본 후보 (기존 동작 유지)
             if (!_incomeCats.Any()) _incomeCats = new List<string> { "주일헌금", "십일조", "감사헌금", "절기특별헌금", "기타수입" };
             if (!_expenseCats.Any()) _expenseCats = new List<string> { "예배", "교육비", "부서운영비", "기타지출" };
 
-            // 🚀 세부(SubCategory) 자동완성 — 분류(Category)별로 나눠 담는다.
-            //   지출: "겨울성경학교" → [식사, 프로그램준비비, 예비비] 처럼 해당 행사의 비용만 제안
-            _expenseSubMap = bp.Where(b => (b.Type == "Expense" || b.Type == "지출")
-                                           && !string.IsNullOrWhiteSpace(b.Category)
-                                           && !string.IsNullOrWhiteSpace(b.SubCategory))
-                               .GroupBy(b => b.Category.Trim())
-                               .ToDictionary(g => g.Key,
-                                             g => g.Select(b => b.SubCategory!.Trim()).Distinct().OrderBy(s => s).ToList());
-
-            //   수입: "회비수입" → [겨울성경학교, 여름성경학교 …] 어느 행사의 회비인지 지정
-            var eventNames = _expenseCats.Where(c => !string.IsNullOrWhiteSpace(c))
-                                         .Select(c => c.Trim()).Distinct().OrderBy(s => s).ToList();
-            _incomeSubMap = _incomeCats.Where(c => !string.IsNullOrWhiteSpace(c))
-                                       .Select(c => c.Trim()).Distinct()
-                                       .ToDictionary(c => c, _ => new List<string>(eventNames));
-
-            // 장부에 이미 쓰인 값도 해당 분류의 후보에 포함(예산에 없는 항목 대응)
-            foreach (var t in allYearData.Where(x => !string.IsNullOrWhiteSpace(x.SubCategory)
-                                                     && !string.IsNullOrWhiteSpace(x.Category)))
-            {
-                var map = t.Income > 0 ? _incomeSubMap : _expenseSubMap;
-                var key = t.Category.Trim();
-                if (!map.TryGetValue(key, out var list)) { list = new List<string>(); map[key] = list; }
-                var sub = t.SubCategory!.Trim();
-                if (!list.Contains(sub)) { list.Add(sub); list.Sort(StringComparer.Ordinal); }
-            }
-
-            decimal baseCarryOver = bp.FirstOrDefault(b => b.Category.Contains("이월"))?.Amount ?? 0;
-
-            var totalPrevData = await context.Transactions.AsNoTracking()
-                .Where(t => t.DepartmentId == qDeptId && t.Date < fiscalYearStart)
-                .ToListAsync();
-            _carryOverAmount = baseCarryOver + totalPrevData.Sum(x => x.Income) - totalPrevData.Sum(x => x.Expense);
-
-            IEnumerable<LedgerEntry> fq = allYearData;
-            var prevDataIn_currentYear = new List<LedgerEntry>();
-
-            if (_currentMonth > 0)
-            {
-                int calendarYear = (_currentMonth == 11 || _currentMonth == 12) ? _currentYear - 1 : _currentYear;
-                DateTime ms = new DateTime(calendarYear, _currentMonth, 1);
-                DateTime me = new DateTime(calendarYear, _currentMonth, DateTime.DaysInMonth(calendarYear, _currentMonth));
-
-                if (_currentMonth == 11)
-                {
-                    if (ms < fiscalYearStart && calendarYear == _currentYear - 1) ms = fiscalYearStart;
-                    if (me > fiscalYearEnd && calendarYear == _currentYear) me = fiscalYearEnd;
-                }
-
-                fq = allYearData.Where(t => t.Date.Date >= ms && t.Date.Date <= me);
-                prevDataIn_currentYear = allYearData.Where(x => x.Date.Date < ms).ToList();
-            }
-            else if (_currentQuarter > 0)
-            {
-                var qRange = await Accounting.GetQuarterDateRangeAsync(qDeptId, _currentYear, _currentQuarter);
-                fq = allYearData.Where(t => t.Date.Date >= qRange.Start.Date && t.Date.Date <= qRange.End.Date);
-                prevDataIn_currentYear = allYearData.Where(x => x.Date.Date < qRange.Start.Date).ToList();
-            }
-
-            _carryOverAmount += prevDataIn_currentYear.Sum(x => x.Income) - prevDataIn_currentYear.Sum(x => x.Expense);
-            _entries = fq.ToList();
             ApplyFilters();
             _editSelectedIds.Clear(); _printSelectedIds.Clear();
         }
@@ -1334,7 +1156,7 @@
                 _printTargets = _filtered_entries.Where(t => t.Type == "지출" || t.Type == "Expense").ToList();
                 if (!_printTargets.Any())
                 {
-                    await ShowAlertAsync("인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.");
+                    await JSRuntime.AlertAsync("인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.");
                     return;
                 }
             }
@@ -1347,7 +1169,7 @@
 
             if (string.IsNullOrWhiteSpace(htmlContent))
             {
-                await ShowAlertAsync("인쇄할 내용을 생성하지 못했습니다.");
+                await JSRuntime.AlertAsync("인쇄할 내용을 생성하지 못했습니다.");
                 return;
             }
 
@@ -1356,7 +1178,7 @@
         }
         catch (Exception ex)
         {
-            await ShowAlertAsync($"인쇄 실행 중 오류가 발생했습니다.\n{ex.Message}");
+            await JSRuntime.AlertAsync($"인쇄 실행 중 오류가 발생했습니다.\n{ex.Message}");
         }
     }
 
@@ -1367,55 +1189,29 @@
         sb.AppendLine("<title>인쇄 미리보기</title>");
         sb.AppendLine("<script>var base = document.createElement('base'); base.href = window.opener ? window.opener.location.origin + '/' : '/'; document.head.appendChild(base);</script>");
         sb.AppendLine("<style>");
-        sb.AppendLine("* { box-sizing: border-box !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }");
-        sb.AppendLine("html, body { height: 100%; margin: 0 !important; padding: 0 !important; overflow: visible !important; }");
-        sb.AppendLine("@page { size: A4 portrait; margin: 25mm 10mm 5mm 10mm; } ");
-        sb.AppendLine("body { font-family: 'Malgun Gothic', sans-serif; background-color: white !important; }");
-
-        sb.AppendLine(".page-break-before { page-break-before: always !important; break-before: page !important; }");
-        sb.AppendLine(".print-only-title { text-align:center; font-size:18pt; font-weight:bold; margin-bottom:15px; color: black; }");
-
-        sb.AppendLine(".ledger-table-print { width: 100%; border-collapse: collapse; font-size: 10pt; color: black; table-layout: auto; }");
-        sb.AppendLine(".ledger-table-print th, .ledger-table-print td { border: 1px solid #444; padding: 4px; text-align: center; word-break: keep-all; vertical-align: middle; }");
-        sb.AppendLine(".ledger-table-print th { background-color: #e9ecef !important; font-weight: bold; }");
-        sb.AppendLine(".money-cell-print { text-align: right !important; white-space: nowrap !important; }");
-
-        sb.AppendLine(".receipt-grid-1, .receipt-grid-2, .receipt-grid-4 { display: flex !important; flex-wrap: wrap !important; justify-content: space-between !important; align-content: flex-start; gap: 0; }");
-        sb.AppendLine(".receipt-box { page-break-inside: avoid; display: flex; flex-direction: column; color: black; margin: 0; padding: 0; }");
-        sb.AppendLine(".receipt-grid-1 .receipt-box { height: 266mm; width: 100%; }");
-        sb.AppendLine(".receipt-grid-2 .receipt-box { height: 266mm; width: 48.5%; }");
-        sb.AppendLine(".receipt-grid-4 { row-gap: 4mm !important; column-gap: 3% !important; }");
-        sb.AppendLine(".receipt-grid-4 .receipt-box { height: 131mm; width: 48.5%; }");
-
-        sb.AppendLine(".receipt-img-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; border: 1px dashed #eee; overflow: hidden; background-color: white; }");
-        sb.AppendLine(".receipt-img-wrapper img { max-width: 100%; max-height: 100%; object-fit: contain; }");
-        sb.AppendLine(".receipt-empty { flex: 1; border: 1px dashed #eee; display: flex; align-items: center; justify-content: center; }");
+        // 인쇄 CSS는 Services/LedgerPrintCss.cs 한 곳에 있다. 모바일 인쇄 화면도 같은 값을 쓴다.
+        sb.AppendLine(LedgerPrintCss.All);
         sb.AppendLine("</style></head><body>");
 
         if (_printMode == "Ledger")
-            sb.AppendLine(await GenerateLedgerPrintHtmlAsync());
+            sb.AppendLine(await ReadPrintAreaAsync("인쇄할 장부"));
         else
-            sb.AppendLine(await GenerateReceiptPrintHtmlAsync());
+            sb.AppendLine(await ReadPrintAreaAsync("인쇄할 영수증"));
 
         sb.AppendLine("</body></html>");
         return sb.ToString();
     }
 
-    private async Task<string> GenerateLedgerPrintHtmlAsync()
-    {
-        return await JSRuntime.InvokeAsync<string>("eval", "var el = document.querySelector('.print-only'); el ? el.innerHTML : '<div style=\"color:red; text-align:center; padding:30px; font-weight:bold;\">인쇄할 장부 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>'; ");
-    }
-
-    private async Task<string> GenerateReceiptPrintHtmlAsync()
-    {
-        return await JSRuntime.InvokeAsync<string>("eval", "var el = document.querySelector('.print-only'); el ? el.innerHTML : '<div style=\"color:red; text-align:center; padding:30px; font-weight:bold;\">인쇄할 영수증 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>'; ");
-    }
+    // 화면에 숨겨둔 .print-only 블록의 내용을 읽어온다.
+    // 장부·영수증이 같은 코드였는데 오류 문구만 달라 두 벌로 나뉘어 있었다.
+    private async Task<string> ReadPrintAreaAsync(string label)
+        => await JSRuntime.InvokeAsync<string>("readPrintArea", label);
 
     private async Task SaveNewEntry()
     {
         using var context = DbContextFactory.CreateDbContext();
-        if (string.IsNullOrWhiteSpace(_newItem.Description)) { await ShowAlertAsync("내역을 입력해주세요."); return; }
-        if (CurrentUser?.CanViewAll == true && _newItem.DepartmentId == 0) { await ShowAlertAsync("부서를 선택해주세요."); return; }
+        if (string.IsNullOrWhiteSpace(_newItem.Description)) { await JSRuntime.AlertAsync("내역을 입력해주세요."); return; }
+        if (CurrentUser?.CanViewAll == true && _newItem.DepartmentId == 0) { await JSRuntime.AlertAsync("부서를 선택해주세요."); return; }
         if (string.IsNullOrWhiteSpace(_newItem.Category)) _newItem.Category = "미분류";
         _newItem.SubCategory = string.IsNullOrWhiteSpace(_newSubCategory) ? null : _newSubCategory.Trim();
 
@@ -1454,7 +1250,7 @@
     {
         using var context = DbContextFactory.CreateDbContext();
         if (_editBuffer == null) return;
-        if (string.IsNullOrWhiteSpace(_editBuffer.Description)) { await ShowAlertAsync("내역을 입력해주세요."); return; }
+        if (string.IsNullOrWhiteSpace(_editBuffer.Description)) { await JSRuntime.AlertAsync("내역을 입력해주세요."); return; }
 
         var ex = await context.Transactions.FindAsync(_editBuffer.Id);
         if (ex != null)
@@ -1489,7 +1285,7 @@
     private async Task DeleteSingle(int id)
     {
         using var context = DbContextFactory.CreateDbContext();
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "이 항목을 삭제하시겠습니까?"))
+        if (await JSRuntime.ConfirmAsync("이 항목을 삭제하시겠습니까?"))
         {
             var t = await context.Transactions.FindAsync(id);
             if (t != null) { context.Transactions.Remove(t); await context.SaveChangesAsync(); await LoadData(); }
@@ -1499,7 +1295,7 @@
     private async Task DeleteSelected()
     {
         using var context = DbContextFactory.CreateDbContext();
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"선택한 {_editSelectedIds.Count}항목을 삭제하시겠습니까?"))
+        if (await JSRuntime.ConfirmAsync($"선택한 {_editSelectedIds.Count}항목을 삭제하시겠습니까?"))
         {
             var ts = await context.Transactions.Where(t => _editSelectedIds.Contains(t.Id)).ToListAsync();
             context.Transactions.RemoveRange(ts); await context.SaveChangesAsync(); await LoadData();
@@ -1526,7 +1322,7 @@
 
     private async Task RemoveReceiptOnly(int entryId)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", "해당 영수증을 장부에서 분리하시겠습니까?"))
+        if (await JSRuntime.ConfirmAsync("해당 영수증을 장부에서 분리하시겠습니까?"))
         {
             // 경로 정리(ReceiptPath·ReceiptUrl)와 파일 처리는 모두 RemoveReceiptAsync가
             // 단일 컨텍스트에서 담당한다. 여기서 다시 손대면 컨텍스트가 갈려 일관성이 깨진다.
@@ -1542,8 +1338,8 @@
         var file = e.File;
         if (file == null || _targetUploadEntryId == 0) return;
         string result = await Accounting.UploadReceiptAsync(file, _targetUploadEntryId);
-        if (result == "OK") { await ShowAlertAsync("영수증 업로드 완료!"); await LoadData(); }
-        else { await ShowAlertAsync(result); }
+        if (result == "OK") { await JSRuntime.AlertAsync("영수증 업로드 완료!"); await LoadData(); }
+        else { await JSRuntime.AlertAsync(result); }
         _targetUploadEntryId = 0;
     }
 
@@ -1612,15 +1408,12 @@
                 ws.Column(6).Width = 15; ws.Column(7).Width = 12; ws.Column(8).Width = 12;
                 ws.Column(9).Width = 12;
             }
-            using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
             string deptName = _selectedDepartmentId == 0 ? "전체부서" : _departments.FirstOrDefault(d => d.Id == _selectedDepartmentId)?.Name ?? "장부";
-            await JSRuntime.InvokeVoidAsync("downloadExcelFile", $"{deptName}-{_currentYear}년-회계장부-{DateTime.Now:yyyyMMdd}.xlsx", Convert.ToBase64String(stream.ToArray()));
+            await JSRuntime.DownloadExcelAsync(workbook, $"{deptName}-{_currentYear}년-회계장부-{DateTime.Now:yyyyMMdd}.xlsx");
         }
-        catch (Exception ex) { await ShowAlertAsync($"엑셀 다운로드 오류: {ex.Message}"); }
+        catch (Exception ex) { await JSRuntime.AlertAsync($"엑셀 다운로드 오류: {ex.Message}"); }
     }
 
     // 반복되던 단순 알림(alert) 호출을 한 곳으로 모은 내부 헬퍼
-    private async Task ShowAlertAsync(string message) => await JSRuntime.InvokeVoidAsync("alert", message);
 
 }

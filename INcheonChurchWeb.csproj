@@ -40,4 +40,12 @@
     </Content>
   </ItemGroup>
 
+  <!-- 테스트 프로젝트는 별도 어셈블리다. 루트 글로빙에 딸려오지 않게 제외한다. -->
+  <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <Content Remove="Tests/**" />
+    <None Remove="Tests/**" />
+    <EmbeddedResource Remove="Tests/**" />
+  </ItemGroup>
+
 </Project>
