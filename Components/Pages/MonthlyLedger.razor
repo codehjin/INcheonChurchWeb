@@ -1331,23 +1331,18 @@
         sb.AppendLine("</style></head><body>");
 
         if (_printMode == "Ledger")
-            sb.AppendLine(await GenerateLedgerPrintHtmlAsync());
+            sb.AppendLine(await ReadPrintAreaAsync("인쇄할 장부"));
         else
-            sb.AppendLine(await GenerateReceiptPrintHtmlAsync());
+            sb.AppendLine(await ReadPrintAreaAsync("인쇄할 영수증"));
 
         sb.AppendLine("</body></html>");
         return sb.ToString();
     }
 
-    private async Task<string> GenerateLedgerPrintHtmlAsync()
-    {
-        return await JSRuntime.InvokeAsync<string>("eval", "var el = document.querySelector('.print-only'); el ? el.innerHTML : '<div style=\"color:red; text-align:center; padding:30px; font-weight:bold;\">인쇄할 장부 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>'; ");
-    }
-
-    private async Task<string> GenerateReceiptPrintHtmlAsync()
-    {
-        return await JSRuntime.InvokeAsync<string>("eval", "var el = document.querySelector('.print-only'); el ? el.innerHTML : '<div style=\"color:red; text-align:center; padding:30px; font-weight:bold;\">인쇄할 영수증 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>'; ");
-    }
+    // 화면에 숨겨둔 .print-only 블록의 내용을 읽어온다.
+    // 장부·영수증이 같은 코드였는데 오류 문구만 달라 두 벌로 나뉘어 있었다.
+    private async Task<string> ReadPrintAreaAsync(string label)
+        => await JSRuntime.InvokeAsync<string>("readPrintArea", label);
 
     private async Task SaveNewEntry()
     {

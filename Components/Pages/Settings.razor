@@ -1679,7 +1679,7 @@
         catch (Exception ex) { await JSRuntime.AlertAsync($"백업 중 오류 발생: {ex.Message}"); }
     }
 
-    private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('systemRestoreInput').click()"); }
+    private async Task TriggerSystemRestore() { await JSRuntime.InvokeVoidAsync("clickElement", "systemRestoreInput"); }
     
     private async Task HandleSystemRestore(InputFileChangeEventArgs e)
     {
@@ -1818,7 +1818,7 @@
     {
         if (_isSettingsImporting) return;
         bool confirmed = await JSRuntime.ConfirmAsync("다운로드한 '환경설정 엑셀'(예산항목·자동분류 시트)을 업로드하여 현재 설정에 병합합니다.\n계속하시겠습니까?");
-        if (confirmed) { await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('settingsImportInput').click()"); }
+        if (confirmed) { await JSRuntime.InvokeVoidAsync("clickElement", "settingsImportInput"); }
     }
 
     // 🚀 환경설정 엑셀 일괄 업로드(복원)

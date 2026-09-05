@@ -1,4 +1,44 @@
-﻿if (typeof window.downloadJsonFile !== 'function') {
+﻿// 🖨️ 현재 페이지에서 .print-only 영역만 남기고 인쇄한다. (지출결의서 등)
+//    인쇄용 스타일을 잠깐 붙였다가 뗀다.
+window.printMaskedArea = function () {
+    var style = document.createElement('style');
+    style.id = '__printHide';
+    style.textContent =
+        '@media print {' +
+        '  body * { visibility: hidden !important; }' +
+        '  .print-only, .print-only * { visibility: visible !important; }' +
+        '  .print-only { position: absolute !important; left: 0; top: 0; width: 100%;' +
+        '                display: flex; justify-content: center; }' +
+        '}';
+    document.head.appendChild(style);
+
+    window.print();
+
+    setTimeout(function () {
+        var s = document.getElementById('__printHide');
+        if (s) s.remove();
+    }, 2000);
+};
+
+// 숨겨둔 <input type="file">을 코드에서 열 때 쓴다.
+window.clickElement = function (id) {
+    var el = document.getElementById(id);
+    if (el) el.click();
+};
+
+// 🖨️ 화면에 숨겨둔 인쇄 영역(.print-only)의 내용을 읽어온다.
+//    예전에는 razor에서 eval로 같은 문자열을 두 번 넘겼다. eval은 CSP를 막을 때 걸리고
+//    문자열 안에 HTML이 섞여 있어 따옴표 escape 실수가 나기 쉬웠다.
+window.readPrintArea = function (label) {
+    var el = document.querySelector('.print-only');
+    if (el) return el.innerHTML;
+
+    var what = label || '인쇄';
+    return '<div style="color:red; text-align:center; padding:30px; font-weight:bold;">'
+         + what + ' 영역(.print-only)을 화면에서 찾을 수 없습니다.</div>';
+};
+
+if (typeof window.downloadJsonFile !== 'function') {
     window.downloadJsonFile = (fileName, jsonContent) => {
         const blob = new Blob([jsonContent], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
