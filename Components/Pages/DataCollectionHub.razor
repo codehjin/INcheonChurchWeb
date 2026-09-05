@@ -1004,7 +1004,7 @@ private async Task DownloadLedgerTemplate()
             .ToListAsync();
 
         _unmatchedEntries = await context.Transactions.AsNoTracking()
-            .Where(t => t.DepartmentId == deptId && (t.ReceiptUrl == null || t.ReceiptUrl == ""))
+            .Where(t => t.DepartmentId == deptId && (t.ReceiptPath == null || t.ReceiptPath == ""))
             .OrderByDescending(t => t.Date).ToListAsync();
 
         _selectedMatchDict.Clear();
@@ -1095,18 +1095,18 @@ private async Task DownloadLedgerTemplate()
             try
             {
                 FileService.TryMoveByRelativePath(oldRelativePath, newFileName, out var newRelativePath);
-                entry.ReceiptUrl = newRelativePath;
+                entry.ReceiptPath = newRelativePath;
                 receipt.ImagePath = newRelativePath;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"파일명 변경 실패: {ex.Message}");
-                entry.ReceiptUrl = oldRelativePath;
+                entry.ReceiptPath = oldRelativePath;
             }
         }
         else
         {
-            entry.ReceiptUrl = oldRelativePath;
+            entry.ReceiptPath = oldRelativePath;
         }
 
         receipt.IsMatched = true;
@@ -1148,7 +1148,7 @@ private async Task DownloadLedgerTemplate()
                 var dbEntry = await context.Transactions.FindAsync(target.Id);
                 if (dbReceipt != null && dbEntry != null)
                 {
-                    dbEntry.ReceiptUrl = r.ImagePath;
+                    dbEntry.ReceiptPath = r.ImagePath;
                     dbReceipt.IsMatched = true;
                     await context.SaveChangesAsync();
                     count++;
@@ -1197,7 +1197,7 @@ private async Task SearchData()
         query = query.Where(t => (t.Description != null && t.Description.Contains(_searchKeyword)) || (!string.IsNullOrEmpty(t.Note) && t.Note.Contains(_searchKeyword)));
     }
 
-    query = query.Where(t => t.ReceiptUrl == null || t.ReceiptUrl == "");
+    query = query.Where(t => t.ReceiptPath == null || t.ReceiptPath == "");
     _unmatchedEntries = await query.OrderByDescending(t => t.Date).Take(100).ToListAsync();
 }
 

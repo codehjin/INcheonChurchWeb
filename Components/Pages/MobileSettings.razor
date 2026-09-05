@@ -397,7 +397,7 @@ else
                     _ledgerCount = await db.Transactions.AsNoTracking()
                         .CountAsync(t => t.DepartmentId == deptId && t.FiscalYear == _year);
                     _receiptCount = await db.Transactions.AsNoTracking()
-                        .CountAsync(t => t.DepartmentId == deptId && t.ReceiptUrl != null && t.ReceiptUrl != "");
+                        .CountAsync(t => t.DepartmentId == deptId && t.ReceiptPath != null && t.ReceiptPath != "");
                 }
                 var backups = await Accounting.GetBackupsAsync(deptId);
                 _lastBackup = backups.FirstOrDefault()?.BackupDate;

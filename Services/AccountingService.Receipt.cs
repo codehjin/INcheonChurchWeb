@@ -135,7 +135,9 @@ namespace INcheonChurchWeb.Services
 
                 string newFileName = $"{entry.Date:yyyy-MM-dd}_{deptName}_{entry.Category}_{safeDesc}_{amountText}_{stamp}{extension}";
 
-                string uploadFolder = Path.Combine(_env.WebRootPath, "uploads");
+                // 영수증은 매칭 탭 업로드와 같은 폴더에 모은다.
+                // 과거 파일은 /uploads/ 에 남아 있지만 DB에 전체 경로가 있어 그대로 열린다.
+                string uploadFolder = Path.Combine(_env.WebRootPath, "uploads", "receipts");
                 if (!Directory.Exists(uploadFolder)) Directory.CreateDirectory(uploadFolder);
                 string filePath = Path.Combine(uploadFolder, newFileName);
 
@@ -151,7 +153,7 @@ namespace INcheonChurchWeb.Services
                         }
                     }
                 }
-                entry.ReceiptPath = $"/uploads/{newFileName}";
+                entry.ReceiptPath = $"/uploads/receipts/{newFileName}";
                 await db.SaveChangesAsync();
                 return "OK";
             }
@@ -159,9 +161,7 @@ namespace INcheonChurchWeb.Services
         }
 
         // 🚀 장부에서 영수증을 분리한다.
-        //    경로가 ReceiptPath(장부 직접 업로드) / ReceiptUrl(매칭 탭 연결) 두 곳에 나뉘어 있어
-        //    양쪽을 모두 정리한다. 예전에는 ReceiptPath 만 봐서, 매칭으로 붙인 파일이
-        //    디스크에 그대로 남고 UploadedReceipts 행도 IsMatched=true 인 채 고아가 됐다.
+        //    영수증 경로는 ReceiptPath 하나로 관리한다(예전 ReceiptUrl 은 이관 후 폐기).
         //
         //    파일 처리 정책(하이브리드):
         //      - 짝이 되는 UploadedReceipts 행이 있으면 → 파일을 남기고 IsMatched=false 로 되돌린다.
@@ -177,57 +177,45 @@ namespace INcheonChurchWeb.Services
             var entry = await db.Transactions.FindAsync(id);
             if (entry == null) return;
 
-            // 이 거래가 물고 있던 경로들 (중복 제거)
-            var paths = new[] { entry.ReceiptPath, entry.ReceiptUrl }
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .Select(p => p!)
-                .Distinct()
-                .ToList();
+            string path = entry.ReceiptPath;
+            if (string.IsNullOrWhiteSpace(path)) return;
 
             // 매칭으로 연결됐던 영수증은 미연결 목록으로 되돌리고, 그 파일은 보존한다.
-            var keepFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (paths.Count > 0)
-            {
-                var linkedReceipts = await db.UploadedReceipts
-                    .Where(r => paths.Contains(r.ImagePath))
-                    .ToListAsync();
+            bool keepFile = false;
+            var linkedReceipts = await db.UploadedReceipts
+                .Where(r => r.ImagePath == path)
+                .ToListAsync();
 
-                foreach (var r in linkedReceipts)
-                {
-                    r.IsMatched = false;
-                    keepFiles.Add(r.ImagePath);
-                }
+            foreach (var r in linkedReceipts)
+            {
+                r.IsMatched = false;
+                keepFile = true;
             }
 
             entry.ReceiptPath = "";
-            entry.ReceiptUrl = "";
 
             // 🚀 DB를 먼저 확정한 뒤 파일을 지운다.
             //    반대 순서면 저장이 실패했을 때 경로만 남아 깨진 이미지가 된다.
             await db.SaveChangesAsync();
 
-            foreach (var path in paths)
+            if (keepFile) return;
+
+            // 다른 거래가 아직 같은 파일을 참조 중이면 남긴다.
+            //    (예전 파일명 규칙은 유일하지 않아 과거 데이터에 경로 공유가 존재한다.)
+            if (await db.Transactions.AnyAsync(t => t.Id != id && t.ReceiptPath == path)) return;
+
+            // 다른 영수증 행이 같은 파일을 참조 중이어도 남긴다.
+            if (await db.UploadedReceipts.AnyAsync(r => r.ImagePath == path)) return;
+
+            // 파일 삭제는 실패해도 DB 정리를 되돌리지 않는다 (경로는 이미 비워졌다).
+            try
             {
-                if (keepFiles.Contains(path)) continue;
-
-                // 다른 거래가 아직 같은 파일을 참조 중이면 남긴다.
-                bool stillReferenced = await db.Transactions
-                    .AnyAsync(t => t.Id != id && (t.ReceiptPath == path || t.ReceiptUrl == path));
-                if (stillReferenced) continue;
-
-                // 다른 영수증 행이 같은 파일을 참조 중이어도 남긴다.
-                if (await db.UploadedReceipts.AnyAsync(r => r.ImagePath == path)) continue;
-
-                // 파일 삭제는 실패해도 DB 정리를 되돌리지 않는다 (경로는 이미 비워졌다).
-                try
-                {
-                    var fullPath = Path.Combine(_env.WebRootPath, path.TrimStart('/'));
-                    if (File.Exists(fullPath)) File.Delete(fullPath);
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"영수증 파일 삭제 실패({path}): {ex.Message}");
-                }
+                var fullPath = Path.Combine(_env.WebRootPath, path.TrimStart('/'));
+                if (File.Exists(fullPath)) File.Delete(fullPath);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"영수증 파일 삭제 실패({path}): {ex.Message}");
             }
         }
 
@@ -244,7 +232,7 @@ namespace INcheonChurchWeb.Services
                 .ToListAsync();
 
             var unmatched = await db.Transactions.AsNoTracking()
-                .Where(t => t.DepartmentId == deptId && (t.ReceiptUrl == null || t.ReceiptUrl == ""))
+                .Where(t => t.DepartmentId == deptId && (t.ReceiptPath == null || t.ReceiptPath == ""))
                 .OrderByDescending(t => t.Date)
                 .ToListAsync();
 
@@ -271,18 +259,18 @@ namespace INcheonChurchWeb.Services
                 try
                 {
                     files.TryMoveByRelativePath(oldPath, newName, out var newPath);
-                    entry.ReceiptUrl = newPath;
+                    entry.ReceiptPath = newPath;
                     receipt.ImagePath = newPath;
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"파일명 변경 실패: {ex.Message}");
-                    entry.ReceiptUrl = oldPath;
+                    entry.ReceiptPath = oldPath;
                 }
             }
             else
             {
-                entry.ReceiptUrl = oldPath;
+                entry.ReceiptPath = oldPath;
             }
 
             receipt.IsMatched = true;
@@ -317,7 +305,7 @@ namespace INcheonChurchWeb.Services
                 var dbEntry = await db.Transactions.FindAsync(target.Id);
                 if (dbReceipt == null || dbEntry == null) continue;
 
-                dbEntry.ReceiptUrl = r.ImagePath;
+                dbEntry.ReceiptPath = r.ImagePath;
                 dbReceipt.IsMatched = true;
                 await db.SaveChangesAsync();
 

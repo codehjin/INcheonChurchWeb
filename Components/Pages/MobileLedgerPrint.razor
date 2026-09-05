@@ -178,10 +178,6 @@ else
 
     private void GoBack() => Nav.NavigateTo("/ledger");
 
-    private static string? ReceiptOf(LedgerEntry t)
-    {
-        if (!string.IsNullOrEmpty(t.ReceiptPath)) return t.ReceiptPath;
-        if (!string.IsNullOrEmpty(t.ReceiptUrl)) return t.ReceiptUrl;
-        return null;
-    }
+    private static string? ReceiptOf(LedgerEntry t) =>
+        string.IsNullOrEmpty(t.ReceiptPath) ? null : t.ReceiptPath;
 }

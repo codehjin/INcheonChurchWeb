@@ -753,9 +753,9 @@
                                         }
                                         <td>
                                             <div class="d-flex justify-content-center gap-1">
-                                                @if (!string.IsNullOrEmpty(t.ReceiptUrl) || !string.IsNullOrEmpty(t.ReceiptPath))
+                                                @if (!string.IsNullOrEmpty(t.ReceiptPath))
                                                 {
-                                                    <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(!string.IsNullOrEmpty(t.ReceiptPath) ? t.ReceiptPath! : t.ReceiptUrl!)"><i class="bi bi-receipt-cutoff"></i></button>
+                                                    <button class="icon-btn receipt" title="영수증 확인" @onclick="() => ShowReceiptModal(t.ReceiptPath)"><i class="bi bi-receipt-cutoff"></i></button>
                                                     @if (CurrentUser?.CanEditLedger == true)
                                                     {
                                                         <button class="icon-btn delete" style="width:24px; height:24px; font-size:0.75rem;" title="영수증 분리" @onclick="() => RemoveReceiptOnly(t.Id)"><i class="bi bi-x-circle-fill"></i></button>
@@ -1333,7 +1333,7 @@
     {
         if (await JSRuntime.ConfirmAsync("해당 영수증을 장부에서 분리하시겠습니까?"))
         {
-            // 경로 정리(ReceiptPath·ReceiptUrl)와 파일 처리는 모두 RemoveReceiptAsync가
+            // 경로 정리와 파일 처리는 모두 RemoveReceiptAsync가
             // 단일 컨텍스트에서 담당한다. 여기서 다시 손대면 컨텍스트가 갈려 일관성이 깨진다.
             await Accounting.RemoveReceiptAsync(entryId);
             await LoadData();
