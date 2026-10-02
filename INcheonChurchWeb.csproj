@@ -48,4 +48,16 @@
     <EmbeddedResource Remove="Tests/**" />
   </ItemGroup>
 
+  <!-- 학부모 포털 스키마(home.db)도 별도 어셈블리다. 소스는 제외하고 프로젝트로 참조한다. -->
+  <ItemGroup>
+    <Compile Remove="Church.Home.Data/**" />
+    <Content Remove="Church.Home.Data/**" />
+    <None Remove="Church.Home.Data/**" />
+    <EmbeddedResource Remove="Church.Home.Data/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="Church.Home.Data\Church.Home.Data.csproj" />
+  </ItemGroup>
+
 </Project>

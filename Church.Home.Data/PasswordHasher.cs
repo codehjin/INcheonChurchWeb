@@ -1,7 +1,7 @@
 using System;
 using System.Security.Cryptography;
 
-namespace INcheonChurchWeb.Services
+namespace Church.Home.Data
 {
     /// <summary>
     /// 🔐 비밀번호 해시 유틸리티 (PBKDF2 / HMAC-SHA256)
@@ -10,9 +10,11 @@ namespace INcheonChurchWeb.Services
     /// 예)        pbkdf2$100000$8Kk2...$Yq9v...
     ///
     /// 외부 패키지 없이 .NET 내장 암호화를 쓴다(ASP.NET Core Identity와 같은 방식).
+    /// 재정앱(스태프 계정)과 학부모앱(학부모 계정)이 같은 형식을 써야 하므로 공유 라이브러리에 둔다.
     ///
-    /// ⚠️ 기존 데이터는 평문으로 저장되어 있다. Verify()가 평문도 함께 처리하며,
+    /// ⚠️ 재정앱의 기존 데이터는 평문으로 저장되어 있다. Verify()가 평문도 함께 처리하며,
     ///    로그인 성공 시 호출부에서 해시로 다시 저장(자동 이행)한다.
+    ///    학부모 계정은 처음부터 해시로만 만든다 → 학부모앱은 VerifyHashed()를 쓴다.
     /// </summary>
     public static class PasswordHasher
     {
@@ -36,6 +38,13 @@ namespace INcheonChurchWeb.Services
         /// <summary>저장된 값이 이미 해시 형식인지 판별한다.</summary>
         public static bool IsHashed(string? stored)
             => !string.IsNullOrEmpty(stored) && stored.StartsWith(Prefix + "$", StringComparison.Ordinal);
+
+        /// <summary>
+        /// 해시로 저장된 경우에만 검증한다. 저장값이 평문이면 무조건 실패.
+        /// 학부모앱 전용 — 평문 레거시가 없고, 읽기 전용이라 자동 이행도 할 수 없다.
+        /// </summary>
+        public static bool VerifyHashed(string? password, string? stored)
+            => IsHashed(stored) && Verify(password, stored);
 
         /// <summary>
         /// 입력한 비밀번호가 맞는지 확인한다.

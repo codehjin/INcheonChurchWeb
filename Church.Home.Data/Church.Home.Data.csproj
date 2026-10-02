@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    학부모 포털(home.db) 스키마. 재정앱과 학부모앱이 함께 참조한다.
+    🔒 재정 쪽 모델·DbContext 는 한 줄도 넣지 않는다. 이 어셈블리는 INcheonChurchWeb 를 참조하지 않는다.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

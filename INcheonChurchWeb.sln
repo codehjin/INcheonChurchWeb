@@ -9,6 +9,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "INcheonChurchWeb.Tests", "Tests\INcheonChurchWeb.Tests\INcheonChurchWeb.Tests.csproj", "{C6D1D44B-8B8B-4EB1-BE64-E2A34A4559BD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Church.Home.Data", "Church.Home.Data\Church.Home.Data.csproj", "{81C8F742-9CEB-45D5-A533-9C137E33A44C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -43,6 +45,18 @@ Global
 		{C6D1D44B-8B8B-4EB1-BE64-E2A34A4559BD}.Release|x64.Build.0 = Release|Any CPU
 		{C6D1D44B-8B8B-4EB1-BE64-E2A34A4559BD}.Release|x86.ActiveCfg = Release|Any CPU
 		{C6D1D44B-8B8B-4EB1-BE64-E2A34A4559BD}.Release|x86.Build.0 = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|x64.Build.0 = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Debug|x86.Build.0 = Debug|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|x64.ActiveCfg = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|x64.Build.0 = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|x86.ActiveCfg = Release|Any CPU
+		{81C8F742-9CEB-45D5-A533-9C137E33A44C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

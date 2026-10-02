@@ -1,5 +1,6 @@
 ﻿using INcheonChurchWeb.Data;
 using INcheonChurchWeb.Models;
+using PasswordHasher = Church.Home.Data.PasswordHasher;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
 using System.Text.RegularExpressions;
