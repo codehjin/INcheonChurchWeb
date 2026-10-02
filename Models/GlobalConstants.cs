@@ -16,6 +16,10 @@ namespace INcheonChurchWeb.Models
         public const string TransactionTypeExpense = "지출";
         public const string CategoryUnclassified = "미분류";
 
+        // 교회가 부서에 내려주는 보조금. 지출결의서의 신청 한도이자
+        // 대시보드 '수입 예산 달성률'의 기준 항목이라 한 곳에서 관리한다.
+        public const string CategoryChurchSubsidy = "교회보조금";
+
         // 화면에 보여질 부서 목록 (순서 고정)
         public static readonly List<string> Departments = new List<string>
         {

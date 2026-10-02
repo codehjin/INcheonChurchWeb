@@ -76,7 +76,7 @@ namespace INcheonChurchWeb.Services
             var budgetList = await budgetQuery.ToListAsync();
 
             view.TotalBudget = budgetList.Where(b => IsExpenseType(b.Type)).Sum(b => b.Amount);
-            view.SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && b.Category == "교회보조금").Sum(b => b.Amount);
+            view.SubsidyBudget = budgetList.Where(b => IsIncomeType(b.Type) && (b.Category ?? "").Trim() == GlobalConstants.CategoryChurchSubsidy).Sum(b => b.Amount);
 
             int queryDeptId = deptId == 0 ? userDeptId : deptId;
             var q1 = await GetQuarterDateRangeAsync(queryDeptId, year, 1);

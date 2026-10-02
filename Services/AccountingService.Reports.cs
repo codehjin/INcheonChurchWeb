@@ -50,13 +50,19 @@ namespace INcheonChurchWeb.Services
         {
             using var db = _dbFactory.CreateDbContext();
 
-            // 1. 총 예산(수령액): 해당 연도 수입 예산 총합 (SQLite decimal Sum 오류 방지를 위해 메모리에서 합산)
+            // 1. 총 예산(보조금): 수입 예산 중 '교회보조금' 항목만 더한다.
+            //    지출결의서는 교회에 보조금을 신청하는 문서이므로, 한도는 보조금 예산이지
+            //    주일헌금·회비 같은 다른 수입까지 포함한 수입 총액이 아니다.
+            //    대시보드의 '수입 예산 달성률(교회보조금)' · 환경설정의 수입예산 항목과
+            //    같은 수치가 나와야 한다.
+            //    (SQLite decimal Sum 오류 방지를 위해 메모리에서 합산)
             var budgetList = await db.BudgetPlans.AsNoTracking()
-                .Where(b => b.DepartmentId == deptId && b.Year == year && (b.Type == "Income" || b.Type == "수입"))
-                .Select(b => b.Amount)
+                .Where(b => b.DepartmentId == deptId && b.Year == year)
                 .ToListAsync();
 
-            decimal totalBudget = budgetList.Sum();
+            decimal totalBudget = budgetList
+                .Where(b => IsIncomeType(b.Type) && (b.Category ?? "").Trim() == GlobalConstants.CategoryChurchSubsidy)
+                .Sum(b => b.Amount);
 
             // 2. 기 신청액: 해당 연도에 이미 작성된 지출결의서들의 총합
             var usedList = await db.ExpenseReports.AsNoTracking()
