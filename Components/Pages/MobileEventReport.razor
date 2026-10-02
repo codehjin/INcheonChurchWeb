@@ -238,9 +238,11 @@ else
                         .ToList();
 
             var reports = await Accounting.GetEventReportsAsync(deptId, _year);
+            // 한 행사에 회차가 여럿일 수 있다(반데이트·달란트 등).
+            // 모바일은 1차를 보여 준다. 회차 추가·전환은 웹 보고서 화면에서 한다.
             _reportByName = reports
                 .GroupBy(r => r.EventName.Trim())
-                .ToDictionary(g => g.Key, g => g.First());
+                .ToDictionary(g => g.Key, g => g.OrderBy(r => r.Round).First());
         }
         finally { _isLoading = false; }
     }
@@ -262,6 +264,8 @@ else
                 DepartmentId = existing.DepartmentId,
                 FiscalYear = existing.FiscalYear,
                 EventName = existing.EventName,
+                Round = existing.Round,
+                RoundTitle = existing.RoundTitle,
                 AnnualPlanId = existing.AnnualPlanId,
                 Location = existing.Location,
                 Organizer = existing.Organizer,
@@ -279,7 +283,8 @@ else
             {
                 DepartmentId = CurrentUser!.DepartmentId,
                 FiscalYear = _year,
-                EventName = key
+                EventName = key,
+                Round = 1
             };
             _startDate = null;
             _endDate = null;

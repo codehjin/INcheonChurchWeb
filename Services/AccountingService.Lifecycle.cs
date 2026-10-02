@@ -238,14 +238,37 @@ namespace INcheonChurchWeb.Services
             return await db.EventReports.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id);
         }
 
-        /// <summary>행사명으로 보고서 조회 (미작성이면 null).</summary>
-        public async Task<EventReport?> GetEventReportByNameAsync(int deptId, int fiscalYear, string eventName)
+        /// <summary>행사명·회차로 보고서 조회 (미작성이면 null).</summary>
+        public async Task<EventReport?> GetEventReportByNameAsync(int deptId, int fiscalYear, string eventName, int round = 1)
         {
             using var db = _dbFactory.CreateDbContext();
             var n = (eventName ?? "").Trim();
             return await db.EventReports.AsNoTracking()
                 .FirstOrDefaultAsync(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear
-                                          && r.EventName == n);
+                                          && r.EventName == n && r.Round == round);
+        }
+
+        /// <summary>한 행사의 회차 목록 (1차부터 순서대로). 미작성이면 빈 목록.</summary>
+        public async Task<List<EventReport>> GetEventReportRoundsAsync(int deptId, int fiscalYear, string eventName)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var n = (eventName ?? "").Trim();
+            return await db.EventReports.AsNoTracking()
+                .Where(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear && r.EventName == n)
+                .OrderBy(r => r.Round)
+                .ToListAsync();
+        }
+
+        /// <summary>이 행사에서 다음에 쓸 회차 번호. 보고서가 없으면 1.</summary>
+        public async Task<int> GetNextEventReportRoundAsync(int deptId, int fiscalYear, string eventName)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            var n = (eventName ?? "").Trim();
+            var rounds = await db.EventReports.AsNoTracking()
+                .Where(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear && r.EventName == n)
+                .Select(r => r.Round)
+                .ToListAsync();
+            return rounds.Count == 0 ? 1 : rounds.Max() + 1;
         }
 
         /// <summary>보고서 저장 (Id==0 신규 / 그 외 수정). 저장된 Id를 반환.</summary>
@@ -263,6 +286,8 @@ namespace INcheonChurchWeb.Services
             var ex = await db.EventReports.FirstOrDefaultAsync(r => r.Id == report.Id);
             if (ex == null) return 0;
             ex.EventName = report.EventName;
+            ex.Round = report.Round;
+            ex.RoundTitle = report.RoundTitle;
             ex.AnnualPlanId = report.AnnualPlanId;
             ex.StartDate = report.StartDate;
             ex.EndDate = report.EndDate;

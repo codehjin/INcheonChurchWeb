@@ -85,13 +85,25 @@
         textarea.ee-input { white-space: pre-wrap; overflow: visible; }
         body { background: #fff !important; }
     }
+    /* 회차 탭 — 반데이트·달란트처럼 한 해에 여러 번 하는 행사를 나눠 적는다 */
+    .ee-rounds { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; margin-bottom: 1rem; }
+
+    .ee-round {
+        border: 1px solid var(--outline-variant); background: var(--surface);
+        color: var(--on-surface-muted); border-radius: 999px;
+        padding: 0.35rem 0.85rem; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    }
+
+    .ee-round.on { background: #5a4000; border-color: #5a4000; color: #fff; }
+    .ee-round.todo { border-style: dashed; }
+    .ee-round-add { border: 1px dashed var(--outline-variant); background: transparent; color: #5a4000; }
 </style>
 
 <div class="ee-wrap">
 
     <div class="ee-head ee-no-print">
         <button class="ee-back" @onclick="GoBack" title="목록으로"><i class="bi bi-arrow-left"></i></button>
-        <div class="ee-title">@_eventName 보고서</div>
+        <div class="ee-title">@_eventName 보고서@(_rounds.Count > 1 ? $" · {RoundLabel(_report)}" : "")</div>
         <div style="margin-left:auto; display:flex; gap:0.4rem;">
             <button class="ee-ghost-btn" @onclick="PrintReport"><i class="bi bi-printer me-1"></i>인쇄</button>
             <button class="ee-gold-btn" @onclick="Save">저장</button>
@@ -100,7 +112,7 @@
 
     @* 인쇄 시에만 보이는 제목 *@
     <div class="ee-print-only" style="margin-bottom:1rem;">
-        <div style="font-size:1.3rem; font-weight:800;">@_eventName 행사 보고서</div>
+        <div style="font-size:1.3rem; font-weight:800;">@_eventName 행사 보고서@(_rounds.Count > 1 ? $" ({RoundLabel(_report)})" : "")</div>
         <div style="font-size:0.85rem; color:#666;">@_targetYear 회계연도 · @_deptName</div>
     </div>
 
@@ -110,6 +122,29 @@
     }
     else
     {
+        @* 회차 탭 — 연 2회 이상 하는 행사(반데이트·달란트 등)를 회차로 나눠 적는다 *@
+        <div class="ee-rounds ee-no-print">
+            @foreach (var r in _rounds)
+            {
+                <button type="button"
+                        class="ee-round @(r.Round == _report.Round ? "on" : "")"
+                        @onclick="() => SwitchRound(r.Round)">
+                    @RoundLabel(r)
+                </button>
+            }
+
+            @if (_report.Id == 0 && !_rounds.Any(r => r.Round == _report.Round))
+            {
+                <button type="button" class="ee-round on">@RoundLabel(_report)</button>
+            }
+
+            <button type="button" class="ee-round ee-round-add" @onclick="AddRound" title="이 행사를 한 번 더 했다면 회차를 추가하세요">
+                <i class="bi bi-plus-lg"></i> 회차 추가
+            </button>
+
+            <input class="ee-input" style="width:auto; min-width:8rem; margin-left:0.4rem; padding:0.3rem 0.6rem; font-size:0.85rem;"
+                   placeholder="회차 이름(선택)" @bind="_report.RoundTitle" @bind:event="oninput" />
+        </div>
         <div class="ee-notice ee-no-print">
             <i class="bi bi-lock me-1"></i>
             아래 재정 요약은 장부에서 자동 계산됩니다 (직접 수정 불가)
@@ -241,6 +276,7 @@
     [SupplyParameterFromQuery(Name = "event")] public string? QEvent { get; set; }
     [SupplyParameterFromQuery(Name = "year")] public int? QYear { get; set; }
     [SupplyParameterFromQuery(Name = "dept")] public int? QDept { get; set; }
+    [SupplyParameterFromQuery(Name = "round")] public int? QRound { get; set; }
 
     private string _eventName = "";
     private int _targetYear;
@@ -250,6 +286,9 @@
 
     private EventReport _report = new();
     private AccountingService.EventFinance _fin = new();
+
+    // 이 행사에 작성된 회차들. 반데이트·달란트처럼 한 해에 두 번 하는 행사는 2차까지 생긴다.
+    private List<EventReport> _rounds = new();
 
     // nullable 바인딩용 중간 변수
     private DateTime? _startDate;
@@ -280,13 +319,19 @@
         _fin = all.FirstOrDefault(f => f.EventName.Trim() == _eventName.Trim())
                ?? new AccountingService.EventFinance { EventName = _eventName };
 
-        // 기존 보고서 (없으면 새로 만들 준비)
-        var existing = await Accounting.GetEventReportByNameAsync(_deptId, _targetYear, _eventName);
+        // 이 행사에 작성된 회차 목록
+        _rounds = await Accounting.GetEventReportRoundsAsync(_deptId, _targetYear, _eventName);
+
+        // 보여 줄 회차 — 지정이 없으면 첫 회차, 아무것도 없으면 1차를 새로 쓸 준비
+        int round = QRound ?? _rounds.FirstOrDefault()?.Round ?? 1;
+
+        var existing = _rounds.FirstOrDefault(r => r.Round == round);
         _report = existing ?? new EventReport
         {
             DepartmentId = _deptId,
             FiscalYear = _targetYear,
-            EventName = _eventName
+            EventName = _eventName,
+            Round = round
         };
 
         _startDate = _report.StartDate;
@@ -294,6 +339,48 @@
         _attendees = _report.Attendees;
 
         _isLoading = false;
+    }
+
+    /// <summary>탭에 보일 회차 이름. 직접 적은 제목이 있으면 그것을, 없으면 "1차".</summary>
+    private static string RoundLabel(EventReport r)
+        => string.IsNullOrWhiteSpace(r.RoundTitle) ? $"{r.Round}차" : r.RoundTitle!.Trim();
+
+    /// <summary>다른 회차로 넘어간다. 적던 내용이 날아가지 않도록 저장 여부를 먼저 묻는다.</summary>
+    private async Task SwitchRound(int round)
+    {
+        if (round == _report.Round) return;
+
+        var target = _rounds.FirstOrDefault(r => r.Round == round);
+        if (target == null) return;
+
+        _report = target;
+        _startDate = _report.StartDate;
+        _endDate = _report.EndDate;
+        _attendees = _report.Attendees;
+        _message = "";
+        _isError = false;
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>회차를 하나 더 만든다. 저장하기 전까지는 탭에만 잡혀 있다.</summary>
+    private async Task AddRound()
+    {
+        int next = await Accounting.GetNextEventReportRoundAsync(_deptId, _targetYear, _eventName);
+
+        _report = new EventReport
+        {
+            DepartmentId = _deptId,
+            FiscalYear = _targetYear,
+            EventName = _eventName,
+            Round = next
+        };
+
+        _startDate = null;
+        _endDate = null;
+        _attendees = null;
+        _message = $"{next}차 보고서를 새로 씁니다. 저장해야 목록에 남습니다.";
+        _isError = false;
     }
 
     private async Task Save()
@@ -312,6 +399,11 @@
 
         var id = await Accounting.SaveEventReportAsync(_report, CurrentUser?.Username);
         if (id > 0) _report.Id = id;
+
+        // 새 회차를 저장했으면 탭 목록에 반영한다.
+        _rounds = await Accounting.GetEventReportRoundsAsync(_deptId, _targetYear, _eventName);
+        var saved = _rounds.FirstOrDefault(r => r.Round == _report.Round);
+        if (saved != null) _report = saved;
 
         _message = "저장되었습니다.";
         _isError = false;

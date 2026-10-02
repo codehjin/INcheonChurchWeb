@@ -30,6 +30,19 @@ namespace INcheonChurchWeb.Models
         /// </summary>
         public string EventName { get; set; } = "";
 
+        /// <summary>
+        /// 🚀 회차. 반데이트·달란트처럼 한 해에 여러 번 하는 행사를 구분한다.
+        /// (부서 · 회계연도 · 행사명 · 회차)가 보고서 한 건을 가리킨다.
+        /// 기존 보고서는 모두 1차로 본다.
+        /// </summary>
+        public int Round { get; set; } = 1;
+
+        /// <summary>
+        /// 회차에 붙일 이름. 비워 두면 화면이 "1차"처럼 번호로 보여 준다.
+        /// (예: "상반기", "하반기")
+        /// </summary>
+        public string? RoundTitle { get; set; }
+
         /// <summary>연간계획에서 시작한 경우 연결. 장부 분류에서 시작하면 null.</summary>
         public int? AnnualPlanId { get; set; }
 

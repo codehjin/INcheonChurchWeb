@@ -27,37 +27,33 @@
     .er-sum-label { font-size: 0.72rem; font-weight: 700; color: var(--primary-gold); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.35rem; }
     .er-sum-value { font-size: 1.4rem; font-weight: 900; color: var(--on-surface); font-variant-numeric: tabular-nums; }
 
-    .er-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 0.75rem; }
+    /* 행사 목록 — 날짜·금액·작성 상태를 열로 맞춰 한눈에 비교한다 */
+    .er-table { width: 100%; border-collapse: collapse; background: var(--surface-lowest); border-radius: 0.7rem; overflow: hidden; box-shadow: var(--shadow-ambient); }
+    .er-table th, .er-table td { padding: 0.65rem 0.8rem; text-align: left; border-bottom: 1px solid var(--outline-variant); }
+    .er-table th { font-size: 0.72rem; font-weight: 700; color: var(--primary-gold); text-transform: uppercase; letter-spacing: 0.04em; background: var(--surface); white-space: nowrap; }
+    .er-table tbody tr:last-child td { border-bottom: none; }
+    .er-table tbody tr.clickable { cursor: pointer; }
+    .er-table tbody tr.clickable:hover { background: var(--surface); }
+    .er-num { text-align: right !important; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .er-num.over { color: var(--error); font-weight: 700; }
 
-    .er-card {
-        background: var(--surface-lowest); border-radius: 0.7rem; padding: 0.95rem 1.1rem;
-        box-shadow: var(--shadow-ambient); border-left: 4px solid var(--primary-gold);
-        cursor: pointer; transition: transform 0.12s, box-shadow 0.12s;
-    }
-    .er-card:hover { transform: translateY(-2px); box-shadow: var(--elevation-shadow); }
-    .er-card.todo { background: var(--surface); border: 1.5px dashed var(--outline-variant); border-left: 1.5px dashed var(--outline-variant); }
+    .er-ev { font-weight: 800; color: var(--on-surface); }
+    .er-ev-sub { font-size: 0.72rem; color: var(--on-surface-muted); font-weight: 500; }
+    .er-round-row td:first-child { padding-left: 2rem; }
+    .er-round-row .er-ev { font-weight: 600; font-size: 0.88rem; color: var(--on-surface-muted); }
 
-    .er-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem; }
-    .er-card-title { font-size: 0.98rem; font-weight: 800; color: var(--on-surface); }
-    .er-card.todo .er-card-title { color: var(--on-surface-muted); }
     .er-badge { border-radius: 9999px; padding: 0.12rem 0.55rem; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
     .er-badge.done { background: #dceafe; color: #1a4a7a; }
     .er-badge.todo { background: var(--surface-high); color: var(--on-surface-muted); }
 
-    .er-card-meta { font-size: 0.73rem; color: var(--on-surface-muted); margin-bottom: 0.6rem; }
-
-    .er-figs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.4rem; font-size: 0.72rem; }
-    .er-figs .lbl { color: var(--on-surface-muted); }
-    .er-figs .val { color: var(--on-surface); font-weight: 700; font-variant-numeric: tabular-nums; }
-    .er-figs .val.over { color: var(--error); }
-
-    .er-foot {
-        margin-top: 0.55rem; padding-top: 0.55rem; border-top: 1px solid var(--outline-variant);
-        font-size: 0.72rem;
+    .er-add-round {
+        border: 1px dashed var(--outline-variant); background: transparent; color: #5a4000;
+        border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.72rem; font-weight: 700; cursor: pointer;
     }
-    .er-foot.over { color: var(--error); }
-    .er-foot.ok { color: #4a7a4a; }
-    .er-foot.todo { color: var(--primary-gold); }
+
+    /* 좁은 화면에서는 가로 스크롤로 열을 지킨다 */
+    .er-table-wrap { overflow-x: auto; }
+    .er-table { min-width: 680px; }
 
     .er-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
 </style>
@@ -119,51 +115,76 @@
             </div>
         </div>
 
-        <div class="er-grid">
-            @foreach (var f in _finances)
-            {
-                var rep = FindReport(f.EventName);
-                <div class="er-card @(rep == null ? "todo" : "")" @onclick="() => OpenReport(f.EventName)">
-                    <div class="er-card-top">
-                        <div class="er-card-title">@f.EventName</div>
-                        <span class="er-badge @(rep == null ? "todo" : "done")">@(rep == null ? "미작성" : "작성완료")</span>
-                    </div>
+        <div class="er-table-wrap">
+            <table class="er-table">
+                <thead>
+                    <tr>
+                        <th>행사</th>
+                        <th>날짜</th>
+                        <th class="er-num">예산</th>
+                        <th class="er-num">지출</th>
+                        <th class="er-num">수입</th>
+                        <th>보고서</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in _finances)
+                    {
+                        var rounds = RoundsOf(f.EventName);
 
-                    <div class="er-card-meta">@MetaLine(f, rep)</div>
+                        @* 행사 1줄. 회차가 하나뿐이면 그 회차가 이 줄이고, 여럿이면 아래에 회차 줄이 붙는다. *@
+                        <tr class="clickable" @onclick="() => OpenReport(f.EventName, rounds.FirstOrDefault()?.Round)">
+                            <td>
+                                <div class="er-ev">@f.EventName</div>
+                                @if (f.TxCount > 0)
+                                {
+                                    <div class="er-ev-sub">거래 @(f.TxCount)건</div>
+                                }
+                            </td>
+                            <td>@DateLabel(rounds.FirstOrDefault())</td>
+                            <td class="er-num">@f.Budget.ToString("N0")</td>
+                            <td class="er-num @(f.IsOver ? "over" : "")">@f.Spent.ToString("N0")</td>
+                            <td class="er-num">@(f.Income > 0 ? f.Income.ToString("N0") : "—")</td>
+                            <td @onclick:stopPropagation="true">
+                                @if (rounds.Count == 0)
+                                {
+                                    <span class="er-badge todo" role="button" @onclick="() => OpenReport(f.EventName, null)">미작성</span>
+                                }
+                                else
+                                {
+                                    <span class="er-badge done" role="button" @onclick="() => OpenReport(f.EventName, rounds[0].Round)">
+                                        @(rounds.Count > 1 ? $"작성완료 {rounds.Count}회차" : "작성완료")
+                                    </span>
+                                }
+                                <button type="button" class="er-add-round ms-1"
+                                        title="이 행사를 한 번 더 했다면 회차를 추가하세요"
+                                        @onclick="() => AddRound(f.EventName)">+ 회차</button>
+                            </td>
+                        </tr>
 
-                    <div class="er-figs">
-                        <div>
-                            <div class="lbl">예산</div>
-                            <div class="val">@f.Budget.ToString("N0")</div>
-                        </div>
-                        <div>
-                            <div class="lbl">지출</div>
-                            <div class="val @(f.IsOver ? "over" : "")">@f.Spent.ToString("N0")</div>
-                        </div>
-                        <div>
-                            <div class="lbl">수입</div>
-                            <div class="val">@(f.Income > 0 ? f.Income.ToString("N0") : "—")</div>
-                        </div>
-                    </div>
+                        @* 2차 이상은 회차별로 한 줄씩 — 반데이트·달란트처럼 연 2회 하는 행사 *@
+                        @if (rounds.Count > 1)
+                        {
+                            @foreach (var r in rounds.Skip(1))
+                            {
+                                <tr class="clickable er-round-row" @onclick="() => OpenReport(f.EventName, r.Round)">
+                                    <td><div class="er-ev">└ @RoundLabel(r)</div></td>
+                                    <td>@DateLabel(r)</td>
+                                    <td class="er-num">—</td>
+                                    <td class="er-num">—</td>
+                                    <td class="er-num">—</td>
+                                    <td><span class="er-badge done">작성완료</span></td>
+                                </tr>
+                            }
+                        }
+                    }
 
-                    <div class="er-foot @FootClass(f, rep)">
-                        @if (rep == null)
-                        {
-                            <i class="bi bi-pencil me-1"></i><text>보고서 작성하기</text>
-                        }
-                        else if (f.IsOver)
-                        {
-                            <i class="bi bi-exclamation-triangle me-1"></i>
-                            <text>예산 초과 @((f.Spent - f.Budget).ToString("N0"))</text>
-                        }
-                        else
-                        {
-                            <i class="bi bi-check-circle me-1"></i>
-                            <text>예산 내 집행 (잔여 @f.Diff.ToString("N0"))</text>
-                        }
-                    </div>
-                </div>
-            }
+                    @if (!_finances.Any())
+                    {
+                        <tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--on-surface-muted);">집행 내역이나 예산이 있는 행사가 없습니다.</td></tr>
+                    }
+                </tbody>
+            </table>
         </div>
     }
 
@@ -202,13 +223,33 @@
         _finances = _finances.Where(f => f.Spent > 0 || f.Budget > 0).ToList();
 
         _reports = await Accounting.GetEventReportsAsync(_viewDeptId, _targetYear);
-        _writtenCount = _finances.Count(f => FindReport(f.EventName) != null);
+        _writtenCount = _finances.Count(f => RoundsOf(f.EventName).Any());
 
         _isLoading = false;
     }
 
-    private EventReport? FindReport(string name)
-        => _reports.FirstOrDefault(r => r.EventName.Trim() == name.Trim());
+
+    /// <summary>한 행사에 작성된 회차들. 1차부터 순서대로.</summary>
+    private List<EventReport> RoundsOf(string name)
+        => _reports.Where(r => r.EventName.Trim() == name.Trim())
+                   .OrderBy(r => r.Round)
+                   .ToList();
+
+    /// <summary>회차 이름. 직접 적은 제목이 있으면 그것을, 없으면 "2차".</summary>
+    private static string RoundLabel(EventReport r)
+        => string.IsNullOrWhiteSpace(r.RoundTitle) ? $"{r.Round}차" : r.RoundTitle!.Trim();
+
+    /// <summary>목록의 날짜 칸. 보고서가 없거나 날짜를 안 적었으면 — 로 둔다.</summary>
+    private static string DateLabel(EventReport? r)
+    {
+        if (r?.StartDate == null) return "—";
+
+        var s = r.StartDate.Value;
+        if (r.EndDate.HasValue && r.EndDate.Value.Date > s.Date)
+            return $"{s:M/d}~{r.EndDate.Value:M/d}";
+
+        return $"{s:M/d}";
+    }
 
     private async Task OnYearChanged(ChangeEventArgs e)
     {
@@ -220,28 +261,18 @@
         if (int.TryParse(e.Value?.ToString(), out var id)) { _viewDeptId = id; await LoadAll(); }
     }
 
-    private void OpenReport(string eventName)
-        => Nav.NavigateTo($"/event-report/edit?event={Uri.EscapeDataString(eventName)}&year={_targetYear}&dept={_viewDeptId}");
-
-    // 카드 부제: 작성된 보고서가 있으면 기간·장소·인원, 없으면 거래 건수
-    private string MetaLine(AccountingService.EventFinance f, EventReport? rep)
+    private void OpenReport(string eventName, int? round)
     {
-        if (rep == null)
-            return f.TxCount > 0 ? $"거래 {f.TxCount}건 · 집행 내역 있음" : "집행 내역 없음";
-
-        var parts = new List<string>();
-        if (rep.StartDate.HasValue)
-        {
-            var s = rep.StartDate.Value;
-            parts.Add(rep.EndDate.HasValue && rep.EndDate.Value.Date > s.Date
-                ? $"{s.Month}/{s.Day}~{rep.EndDate.Value.Month}/{rep.EndDate.Value.Day}"
-                : $"{s.Month}/{s.Day}");
-        }
-        if (!string.IsNullOrWhiteSpace(rep.Location)) parts.Add(rep.Location!);
-        if (rep.Attendees.HasValue) parts.Add($"{rep.Attendees.Value}명");
-        return parts.Any() ? string.Join(" · ", parts) : "기록 작성됨";
+        var url = $"/event-report/edit?event={Uri.EscapeDataString(eventName)}&year={_targetYear}&dept={_viewDeptId}";
+        if (round.HasValue) url += $"&round={round.Value}";
+        Nav.NavigateTo(url);
     }
 
-    private string FootClass(AccountingService.EventFinance f, EventReport? rep)
-        => rep == null ? "todo" : (f.IsOver ? "over" : "ok");
+    /// <summary>이 행사를 한 번 더 했을 때. 다음 회차 번호로 편집 화면을 연다.</summary>
+    private async Task AddRound(string eventName)
+    {
+        int next = await Accounting.GetNextEventReportRoundAsync(_viewDeptId, _targetYear, eventName);
+        OpenReport(eventName, next);
+    }
+
 }
