@@ -4,7 +4,7 @@
     <i class="bi bi-info-circle" style="color: #785600; font-size: 1.25rem;"></i>
     <div>
         <div class="fw-bold mb-1" style="color: #1b1c15; font-size: 1rem;">사용법 안내</div>
-        <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.6;">왼쪽 리스트에서 미연결된 영수증을 선택하고, 오른쪽 리스트에서 매칭할 장부 데이터를 선택한 뒤 하단의 '건별매치' 버튼을 누르세요. 날짜와 금액이 일치하는 항목들은 '자동매치' 기능을 통해 한 번에 정리할 수 있습니다.</p>
+        <p class="mb-0" style="color: #4e4637; font-size: 1rem; line-height: 1.6;">왼쪽에서 영수증을 고르고, 오른쪽에서 연결할 장부 데이터를 고른 뒤 하단의 '건별매치'를 누르세요. <b>영수증은 체크박스로 여러 장을 한 번에 고를 수 있습니다</b> — 카드 결제는 3만원 한 건인데 영수증이 1만원짜리 3장으로 나온 경우 세 장을 모두 골라 장부 한 건에 연결하면 됩니다. 날짜와 금액이 일치하는 항목은 '자동매치'로 한 번에 정리할 수 있습니다.</p>
     </div>
 </div>
 
@@ -121,8 +121,14 @@
 <div class="hub-bottom-bar">
     <div class="d-flex align-items-center gap-3">
         <span style="font-size: 0.6875rem; font-weight: 700; color: #4e4637; text-transform: uppercase; letter-spacing: 0.08em;">선택된 항목</span>
+        @if (SelectedMatchingReceiptIds.Count > 1)
+        {
+            <span class="hub-tabular" style="font-size: 0.75rem; font-weight: 700; color: #5a4000;">
+                합계 @SelectedReceiptTotal.ToString("N0")원
+            </span>
+        }
         <span class="px-2 py-1 rounded hub-tabular" style="background-color: #5a4000; color: #ffffff; font-size: 0.625rem; font-weight: 800;">
-            @SelectedMatchingReceiptIds.Count 영수증 / @(SelectedMatchingEntryId > 0 ? "1" : "0") 장부
+            영수증 @(SelectedMatchingReceiptIds.Count)장 / 장부 @(SelectedMatchingEntryId > 0 ? "1" : "0")건
         </span>
     </div>
     <div class="d-flex align-items-center gap-3">
@@ -202,14 +208,16 @@
     private Task SetMatchingFilterMonth(int value) => MatchingFilterMonthChanged.InvokeAsync(value);
     private Task SetSearchKeyword(string value) => SearchKeywordChanged.InvokeAsync(value);
 
+    private decimal SelectedReceiptTotal =>
+        PendingReceipts.Where(r => SelectedMatchingReceiptIds.Contains(r.Id)).Sum(r => r.Amount);
+
+    // 행을 누르면 그 영수증을 선택에 더하거나 뺀다.
+    // 여러 장을 한 장부 건에 걸 수 있어야 하므로 기존 선택을 지우지 않는다.
     private async Task SelectMatchingReceipt(UploadedReceipt receipt)
     {
         await SelectedMatchingReceiptChanged.InvokeAsync(receipt);
-        if (!SelectedMatchingReceiptIds.Contains(receipt.Id))
-        {
-            SelectedMatchingReceiptIds.Clear();
+        if (!SelectedMatchingReceiptIds.Remove(receipt.Id))
             SelectedMatchingReceiptIds.Add(receipt.Id);
-        }
     }
 
     private void ToggleMatchingReceiptSelection(int id, ChangeEventArgs e)

@@ -88,6 +88,7 @@ else
                       CarryOver="_view.CarryOver"
                       DeptName="@_deptLabel"
                       ReceiptTargets="_receiptTargets"
+                      ReceiptImages="_receiptImages"
                       ReceiptsPerSheet="Per"
                       IncludeReceiptImage="WithImage" />
 }
@@ -108,6 +109,9 @@ else
 
     private AccountingService.LedgerView _view = new();
     private List<LedgerEntry> _receiptTargets = new();
+
+    // 장부 Id → 붙어 있는 영수증 경로들. 한 거래에 여러 장이면 장수만큼 인쇄된다.
+    private Dictionary<int, List<string>> _receiptImages = new();
     private string _deptLabel = "";
     private bool _isLoading = true;
     private bool _printed;
@@ -145,6 +149,10 @@ else
             _receiptTargets = _view.Entries
                 .Where(t => t.Type == GlobalConstants.TransactionTypeExpense || t.Type == "Expense")
                 .OrderBy(t => t.Date).ToList();
+
+            var byEntry = await Accounting.GetReceiptsByEntryAsync(_receiptTargets.Select(t => t.Id));
+            _receiptImages = byEntry.ToDictionary(
+                kv => kv.Key, kv => kv.Value.Select(r => r.ImagePath).ToList());
         }
         finally { _isLoading = false; }
     }

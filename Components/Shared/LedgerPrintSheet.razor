@@ -108,33 +108,46 @@ else if (Mode == "Receipt")
                 {
                     string fontSize = ReceiptsPerSheet == 1 ? "13pt" : (ReceiptsPerSheet == 2 ? "11pt" : "9.5pt");
 
-                    <div class="receipt-box">
-                        <div style="display: flex; flex-wrap: nowrap; align-items: center; border-bottom: 1.5pt solid #444; padding: 4px 2px; margin-bottom: 6px; font-weight: bold; font-size: @fontSize; width: 100%; overflow: hidden;">
-                            <div style="flex: 0 0 10%; text-align: left;">
-                                <span style="border: 1.0pt solid #444; display: inline-block; width: 28px; height: 28px; line-height: 24px; text-align: center; border-radius: 2px;">
-                                    @monthlySeq
-                                </span>
-                            </div>
-                            <div style="flex: 0 0 20%; text-align: left; white-space: nowrap;">@t.Date.ToString("M월 d일")</div>
-                            <div style="flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; margin-right: 5px;">
-                                @t.Description
-                            </div>
-                            <div style="flex: 0 0 25%; text-align: right; color: #ba1a1a; white-space: nowrap;">
-                                @t.Expense.ToString("N0")
-                            </div>
-                        </div>
+                    // 한 거래에 영수증이 여러 장일 수 있다(카드 3만원 1건 ↔ 1만원 영수증 3장).
+                    // 장수만큼 칸을 찍고 제목에 3/1 · 3/2 · 3/3 을 붙인다.
+                    var images = ImagesFor(t);
 
-                        @if (IncludeReceiptImage && !string.IsNullOrEmpty(t.ReceiptPath))
-                        {
-                            <div class="receipt-img-wrapper">
-                                <img src="@t.ReceiptPath" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                    @foreach (var (image, index) in images.Select((img, i) => (img, i)))
+                    {
+                        <div class="receipt-box">
+                            <div style="display: flex; flex-wrap: nowrap; align-items: center; border-bottom: 1.5pt solid #444; padding: 4px 2px; margin-bottom: 6px; font-weight: bold; font-size: @fontSize; width: 100%; overflow: hidden;">
+                                <div style="flex: 0 0 10%; text-align: left;">
+                                    <span style="border: 1.0pt solid #444; display: inline-block; width: 28px; height: 28px; line-height: 24px; text-align: center; border-radius: 2px;">
+                                        @monthlySeq
+                                    </span>
+                                </div>
+                                <div style="flex: 0 0 20%; text-align: left; white-space: nowrap;">@t.Date.ToString("M월 d일")</div>
+                                <div style="flex: 1 1 auto; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; margin-right: 5px;">
+                                    @t.Description
+                                </div>
+                                @if (images.Count > 1)
+                                {
+                                    <div style="flex: 0 0 12%; text-align: center; white-space: nowrap;">
+                                        @(images.Count)/@(index + 1)
+                                    </div>
+                                }
+                                <div style="flex: 0 0 25%; text-align: right; color: #ba1a1a; white-space: nowrap;">
+                                    @t.Expense.ToString("N0")
+                                </div>
                             </div>
-                        }
-                        else
-                        {
-                            <div class="receipt-empty"></div>
-                        }
-                    </div>
+
+                            @if (IncludeReceiptImage && !string.IsNullOrEmpty(image))
+                            {
+                                <div class="receipt-img-wrapper">
+                                    <img src="@image" style="max-width: 100%; max-height: 100%; object-fit: contain;" />
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="receipt-empty"></div>
+                            }
+                        </div>
+                    }
                     monthlySeq++;
                 }
             </div>
@@ -166,4 +179,19 @@ else if (Mode == "Receipt")
 
     /// <summary>증빙 이미지를 함께 인쇄할지.</summary>
     [Parameter] public bool IncludeReceiptImage { get; set; } = true;
+
+    /// <summary>
+    /// 장부 Id → 붙어 있는 영수증 경로 목록. 한 거래에 여러 장이 붙은 경우를 위해 받는다.
+    /// 넘기지 않으면 LedgerEntry.ReceiptPath 한 장만 쓴다(과거 동작).
+    /// </summary>
+    [Parameter] public Dictionary<int, List<string>> ReceiptImages { get; set; } = new();
+
+    /// <summary>해당 거래에 찍을 영수증 칸 목록. 증빙이 없으면 빈 칸 하나를 찍는다.</summary>
+    private List<string> ImagesFor(LedgerEntry t)
+    {
+        if (ReceiptImages.TryGetValue(t.Id, out var paths) && paths.Count > 0)
+            return paths;
+
+        return new List<string> { t.ReceiptPath ?? "" };
+    }
 }

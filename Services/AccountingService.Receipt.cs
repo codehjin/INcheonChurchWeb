@@ -178,19 +178,31 @@ namespace INcheonChurchWeb.Services
             if (entry == null) return;
 
             string path = entry.ReceiptPath;
-            if (string.IsNullOrWhiteSpace(path)) return;
 
-            // 매칭으로 연결됐던 영수증은 미연결 목록으로 되돌리고, 그 파일은 보존한다.
-            bool keepFile = false;
+            // 매칭으로 연결됐던 영수증은 전부 미연결 목록으로 되돌리고, 그 파일은 보존한다.
+            // (한 거래에 여러 장이 붙어 있을 수 있다.)
             var linkedReceipts = await db.UploadedReceipts
-                .Where(r => r.ImagePath == path)
+                .Where(r => r.LedgerEntryId == id || (path != "" && r.ImagePath == path))
                 .ToListAsync();
+
+            var keepFiles = new HashSet<string>(
+                linkedReceipts.Select(r => r.ImagePath), StringComparer.OrdinalIgnoreCase);
 
             foreach (var r in linkedReceipts)
             {
+                r.LedgerEntryId = null;
                 r.IsMatched = false;
-                keepFile = true;
+                r.SortOrder = 0;
             }
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                // 붙은 파일은 없지만 연결만 남아 있던 경우 — 연결 해제만 저장하고 끝낸다.
+                if (linkedReceipts.Count > 0) await db.SaveChangesAsync();
+                return;
+            }
+
+            bool keepFile = keepFiles.Contains(path);
 
             entry.ReceiptPath = "";
 
@@ -226,8 +238,10 @@ namespace INcheonChurchWeb.Services
         {
             using var db = _dbFactory.CreateDbContext();
 
+            // 연결 여부는 FK 가 기준이다. 예전 삭제 로직이 남긴 고아 영수증
+            // (IsMatched=true 인데 물고 있는 장부가 없는 행)도 여기서 자연히 목록에 복귀한다.
             var receipts = await db.UploadedReceipts.AsNoTracking()
-                .Where(r => r.DepartmentId == deptId && !r.IsMatched)
+                .Where(r => r.DepartmentId == deptId && r.LedgerEntryId == null)
                 .OrderByDescending(r => r.ReceiptDate)
                 .ToListAsync();
 
@@ -239,43 +253,100 @@ namespace INcheonChurchWeb.Services
             return (receipts, unmatched);
         }
 
-        // 영수증 한 건을 장부 한 건에 연결한다. 파일명을 장부 내용으로 바꿔 나중에 알아보기 쉽게 한다.
-        public async Task<bool> MatchReceiptAsync(FileService files, int receiptId, int entryId, string deptName)
+        /// <summary>영수증 연결 결과. 금액이 어긋나면 화면이 경고를 띄우도록 수치를 함께 돌려준다.</summary>
+        public sealed record MatchResult(bool Ok, int Linked, decimal ReceiptTotal, decimal EntryAmount, string? Error = null)
         {
+            /// <summary>영수증 합계와 장부 금액이 다른가. 막지는 않고 알리기만 한다.</summary>
+            public bool AmountDiffers => Ok && ReceiptTotal != EntryAmount;
+        }
+
+        // 영수증 한 건을 장부 한 건에 연결한다.
+        public Task<MatchResult> MatchReceiptAsync(FileService files, int receiptId, int entryId, string deptName)
+            => MatchReceiptsAsync(files, new[] { receiptId }, entryId, deptName);
+
+        // 🚀 영수증 여러 장을 장부 한 건에 연결한다.
+        //    카드 결제는 3만원 한 건인데 영수증은 1만원짜리 3장으로 나오는 경우가 있다.
+        //    파일명은 장부 내용으로 바꿔 나중에 알아보기 쉽게 하고, 여러 장이면 순번을 붙인다.
+        //    금액이 맞지 않아도 막지 않는다 — 부분 영수증·할인으로 딱 떨어지지 않는 경우가 있다.
+        public async Task<MatchResult> MatchReceiptsAsync(FileService files, IEnumerable<int> receiptIds, int entryId, string deptName)
+        {
+            var idList = receiptIds?.Distinct().ToList() ?? new List<int>();
+            if (idList.Count == 0) return new MatchResult(false, 0, 0, 0, "연결할 영수증을 선택해 주세요.");
+
             using var db = _dbFactory.CreateDbContext();
 
-            var receipt = await db.UploadedReceipts.FindAsync(receiptId);
             var entry = await db.Transactions.FindAsync(entryId);
-            if (receipt == null || entry == null) return false;
+            if (entry == null) return new MatchResult(false, 0, 0, 0, "해당 장부 내역을 찾을 수 없습니다.");
 
-            string oldPath = receipt.ImagePath;
+            var receipts = await db.UploadedReceipts
+                .Where(r => idList.Contains(r.Id))
+                .OrderBy(r => r.ReceiptDate).ThenBy(r => r.Id)
+                .ToListAsync();
+            if (receipts.Count == 0) return new MatchResult(false, 0, 0, 0, "영수증을 찾을 수 없습니다.");
 
-            if (File.Exists(files.GetPhysicalPathFromRelative(oldPath)))
+            // 이 거래에 이미 붙어 있는 장수 뒤에 이어 붙인다.
+            int nextOrder = await db.UploadedReceipts
+                .Where(r => r.LedgerEntryId == entryId)
+                .CountAsync();
+
+            decimal entryAmount = entry.Expense > 0 ? entry.Expense : entry.Income;
+            string safeDesc = string.Concat((entry.Description ?? "내역없음").Split(Path.GetInvalidFileNameChars())).Replace(" ", "");
+
+            foreach (var receipt in receipts)
             {
-                string safeDesc = string.Concat((entry.Description ?? "내역없음").Split(Path.GetInvalidFileNameChars())).Replace(" ", "");
-                decimal amount = entry.Expense > 0 ? entry.Expense : entry.Income;
-                string newName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{amount}원_{safeDesc}_{receipt.Id}{Path.GetExtension(oldPath)}";
+                string oldPath = receipt.ImagePath;
 
-                try
+                if (File.Exists(files.GetPhysicalPathFromRelative(oldPath)))
                 {
-                    files.TryMoveByRelativePath(oldPath, newName, out var newPath);
-                    entry.ReceiptPath = newPath;
-                    receipt.ImagePath = newPath;
+                    string newName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{entryAmount}원_{safeDesc}_{receipt.Id}{Path.GetExtension(oldPath)}";
+                    try
+                    {
+                        files.TryMoveByRelativePath(oldPath, newName, out var newPath);
+                        receipt.ImagePath = newPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"파일명 변경 실패: {ex.Message}");
+                    }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"파일명 변경 실패: {ex.Message}");
-                    entry.ReceiptPath = oldPath;
-                }
-            }
-            else
-            {
-                entry.ReceiptPath = oldPath;
+
+                receipt.LedgerEntryId = entry.Id;
+                receipt.IsMatched = true;
+                receipt.SortOrder = nextOrder++;
             }
 
-            receipt.IsMatched = true;
+            // 장부의 ReceiptPath 는 '대표 1장'이다. 증빙 아이콘·모달이 쓰는 값이라
+            // 비워 두지 않는다. 전체 목록은 LedgerEntryId 로 조회한다.
+            if (string.IsNullOrWhiteSpace(entry.ReceiptPath))
+                entry.ReceiptPath = receipts[0].ImagePath;
+
             await db.SaveChangesAsync();
-            return true;
+
+            // SQLite 는 decimal 합산을 서버에서 못 하므로 메모리에서 더한다.
+            var linkedAmounts = await db.UploadedReceipts
+                .Where(r => r.LedgerEntryId == entry.Id)
+                .Select(r => r.Amount)
+                .ToListAsync();
+            decimal receiptTotal = linkedAmounts.Sum();
+
+            return new MatchResult(true, receipts.Count, receiptTotal, entryAmount);
+        }
+
+        /// <summary>장부 여러 건에 붙은 영수증을 한 번에 읽는다. 인쇄에서 쓴다.</summary>
+        public async Task<Dictionary<int, List<UploadedReceipt>>> GetReceiptsByEntryAsync(IEnumerable<int> entryIds)
+        {
+            var idList = entryIds?.Distinct().ToList() ?? new List<int>();
+            if (idList.Count == 0) return new Dictionary<int, List<UploadedReceipt>>();
+
+            using var db = _dbFactory.CreateDbContext();
+
+            var rows = await db.UploadedReceipts.AsNoTracking()
+                .Where(r => r.LedgerEntryId != null && idList.Contains(r.LedgerEntryId.Value))
+                .OrderBy(r => r.SortOrder).ThenBy(r => r.Id)
+                .ToListAsync();
+
+            return rows.GroupBy(r => r.LedgerEntryId!.Value)
+                       .ToDictionary(g => g.Key, g => g.ToList());
         }
 
         // 날짜·금액이 일치하는 건을 한꺼번에 연결한다. 후보가 여럿이면 내역 문구로 좁힌다.
@@ -306,7 +377,9 @@ namespace INcheonChurchWeb.Services
                 if (dbReceipt == null || dbEntry == null) continue;
 
                 dbEntry.ReceiptPath = r.ImagePath;
+                dbReceipt.LedgerEntryId = dbEntry.Id;
                 dbReceipt.IsMatched = true;
+                dbReceipt.SortOrder = 0;
                 await db.SaveChangesAsync();
 
                 pool.Remove(target);

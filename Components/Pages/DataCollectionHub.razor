@@ -999,7 +999,7 @@ private async Task DownloadLedgerTemplate()
         using var context = DbContextFactory.CreateDbContext();
 
         _pendingReceipts = await context.UploadedReceipts
-            .Where(r => r.DepartmentId == deptId && r.IsMatched == false)
+            .Where(r => r.DepartmentId == deptId && r.LedgerEntryId == null)
             .OrderByDescending(r => r.ReceiptDate)
             .ToListAsync();
 
@@ -1061,61 +1061,41 @@ private async Task DownloadLedgerTemplate()
         else _selectedMatchingReceiptIds.Remove(id);
     }
 
+    private decimal SelectedReceiptTotal =>
+        _pendingReceipts.Where(r => _selectedMatchingReceiptIds.Contains(r.Id)).Sum(r => r.Amount);
+
+    // 선택한 영수증을 장부 한 건에 연결한다. 여러 장을 한 건에 걸 수 있다
+    // (카드 결제는 3만원 한 건인데 영수증은 1만원짜리 3장으로 나오는 경우).
+    // 연결·파일명 변경·금액 대조는 모두 AccountingService 가 담당한다.
     private async Task ManualMatchSingle()
     {
-        if (_selectedMatchingReceipt == null || _selectedMatchingEntryId == 0)
+        var ids = _selectedMatchingReceiptIds.Count > 0
+            ? _selectedMatchingReceiptIds.ToList()
+            : (_selectedMatchingReceipt != null ? new List<int> { _selectedMatchingReceipt.Id } : new List<int>());
+
+        if (ids.Count == 0 || _selectedMatchingEntryId == 0)
         {
             await JSRuntime.AlertAsync("영수증과 장부 내역을 모두 선택해주세요.");
             return;
         }
 
-        using var context = DbContextFactory.CreateDbContext();
+        var entry = _unmatchedEntries.FirstOrDefault(e => e.Id == _selectedMatchingEntryId);
+        string deptName = _allDepts.FirstOrDefault(d => d.Id == (entry?.DepartmentId ?? 0))?.Name ?? "알수없음";
 
-        var receipt = await context.UploadedReceipts.FindAsync(_selectedMatchingReceipt.Id);
-        if (receipt == null) return;
+        var result = await Accounting.MatchReceiptsAsync(FileService, ids, _selectedMatchingEntryId, deptName);
 
-        var entry = await context.Transactions.FindAsync(_selectedMatchingEntryId);
-        if (entry == null)
+        if (!result.Ok)
         {
-            await JSRuntime.AlertAsync("해당 장부 내역을 찾을 수 없습니다. 삭제되었을 수 있습니다.");
+            await JSRuntime.AlertAsync(result.Error ?? "연결하지 못했습니다.");
             return;
         }
 
-        string oldRelativePath = receipt.ImagePath;
+        // 부분 영수증·할인으로 딱 떨어지지 않는 경우가 있어 막지 않고 알리기만 한다.
+        string msg = $"영수증 {result.Linked}장을 장부 내역과 연결했습니다.";
+        if (result.AmountDiffers)
+            msg += $"\n\n⚠️ 영수증 합계 {result.ReceiptTotal:N0}원 ≠ 장부 금액 {result.EntryAmount:N0}원\n금액이 맞는지 확인해 주세요.";
 
-        if (File.Exists(FileService.GetPhysicalPathFromRelative(oldRelativePath)))
-        {
-            string deptName = _allDepts.FirstOrDefault(d => d.Id == entry.DepartmentId)?.Name ?? "알수없음";
-            string safeDescription = string.Concat((entry.Description ?? "내역없음").Split(Path.GetInvalidFileNameChars()));
-            safeDescription = safeDescription.Replace(" ", "");
-
-            decimal targetAmount = entry.Expense > 0 ? entry.Expense : entry.Income;
-            string newFileName = $"{entry.Date:yyyyMMdd}_{deptName}_{entry.Category}_{targetAmount}원_{safeDescription}_{receipt.Id}{Path.GetExtension(oldRelativePath)}";
-
-            try
-            {
-                FileService.TryMoveByRelativePath(oldRelativePath, newFileName, out var newRelativePath);
-                entry.ReceiptPath = newRelativePath;
-                receipt.ImagePath = newRelativePath;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"파일명 변경 실패: {ex.Message}");
-                entry.ReceiptPath = oldRelativePath;
-            }
-        }
-        else
-        {
-            entry.ReceiptPath = oldRelativePath;
-        }
-
-        receipt.IsMatched = true;
-
-        context.Transactions.Update(entry);
-        context.UploadedReceipts.Update(receipt);
-        await context.SaveChangesAsync();
-
-        await JSRuntime.AlertAsync("영수증이 장부 내역과 성공적으로 연결되었습니다!");
+        await JSRuntime.AlertAsync(msg);
 
         _selectedMatchingEntryId = 0;
         _selectedMatchingReceipt = null;
@@ -1149,7 +1129,9 @@ private async Task DownloadLedgerTemplate()
                 if (dbReceipt != null && dbEntry != null)
                 {
                     dbEntry.ReceiptPath = r.ImagePath;
+                    dbReceipt.LedgerEntryId = dbEntry.Id;
                     dbReceipt.IsMatched = true;
+                    dbReceipt.SortOrder = 0;
                     await context.SaveChangesAsync();
                     count++;
                     entries.Remove(target);

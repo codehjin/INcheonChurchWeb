@@ -87,6 +87,17 @@ namespace INcheonChurchWeb.Data
                 .HasForeignKey(t => t.AnnualPlanId)
                 .OnDelete(DeleteBehavior.SetNull);
 
+            // 🚀 장부 1건 : 영수증 N장.
+            //    장부 행이 지워져도 영수증 파일과 기록은 남기고 미연결로 되돌린다.
+            builder.Entity<UploadedReceipt>()
+                .HasOne(r => r.LedgerEntry)
+                .WithMany()
+                .HasForeignKey(r => r.LedgerEntryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            builder.Entity<UploadedReceipt>()
+                .HasIndex(r => r.LedgerEntryId);
+
             builder.Entity<Receipt>()
                 .HasOne(r => r.ExpenseResolution)
                 .WithMany(e => e.Receipts)

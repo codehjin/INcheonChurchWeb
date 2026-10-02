@@ -103,9 +103,9 @@ public class ReceiptPathUnificationTests : IDisposable
         int entryId = 거래(14_700, "네이버파이낸셜");
         int receiptId = 미연결영수증(14_700, "네이버파이낸셜");
 
-        bool ok = await _svc.MatchReceiptAsync(_files, receiptId, entryId, "유년부");
+        var result = await _svc.MatchReceiptAsync(_files, receiptId, entryId, "유년부");
 
-        Assert.True(ok);
+        Assert.True(result.Ok);
         Assert.False(string.IsNullOrEmpty(경로of(entryId)));
 
         using var db = _db.CreateDbContext();

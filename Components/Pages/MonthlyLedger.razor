@@ -950,6 +950,7 @@
                       CarryOver="_carryOverAmount"
                       DeptName="@PrintDeptName"
                       ReceiptTargets="_printTargets"
+                      ReceiptImages="_printReceiptImages"
                       ReceiptsPerSheet="_receiptsPerSheet"
                       IncludeReceiptImage="_includeReceiptImage" />
 </div>
@@ -1021,6 +1022,9 @@
     private int _receiptsPerSheet = 2;
     private bool _includeReceiptImage = true;
     private List<LedgerEntry> _printTargets = new();
+
+    // 장부 Id → 붙어 있는 영수증 경로들. 한 거래에 여러 장이면 장수만큼 인쇄된다.
+    private Dictionary<int, List<string>> _printReceiptImages = new();
 
     private int _targetUploadEntryId = 0;
 
@@ -1160,6 +1164,10 @@
                     await JSRuntime.AlertAsync("인쇄할 지출 내역(영수증)이 현재 화면에 없습니다.");
                     return;
                 }
+
+                var byEntry = await Accounting.GetReceiptsByEntryAsync(_printTargets.Select(t => t.Id));
+                _printReceiptImages = byEntry.ToDictionary(
+                    kv => kv.Key, kv => kv.Value.Select(r => r.ImagePath).ToList());
             }
 
             // 상태 변경 반영을 위해 미세한 대기 시간 부여
