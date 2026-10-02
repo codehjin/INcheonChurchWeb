@@ -35,6 +35,9 @@ namespace INcheonChurchWeb.Data
         // 🚀 행사 사후 보고서 (기존 ExpenseReport와는 별개)
         public DbSet<EventReport> EventReports { get; set; }
 
+        // 🚀 행사 목록에서 분류를 어떻게 다룰지 (대분류 묶기 / 행사 아님 제외)
+        public DbSet<EventCategorySetting> EventCategorySettings { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -142,6 +145,11 @@ namespace INcheonChurchWeb.Data
             //  유니크 인덱스[HasFilter("\"IsDeleted\" = 0")]로 보장하는 것이 안전하다.)
             builder.Entity<ExpenseResolution>()
                 .HasIndex(r => r.ResolutionNo);
+
+            // 부서 안에서 분류명은 설정 한 줄씩만 갖는다.
+            builder.Entity<EventCategorySetting>()
+                .HasIndex(s => new { s.DepartmentId, s.Name })
+                .IsUnique();
         }
 
         // ───────────────────────────────────────────────

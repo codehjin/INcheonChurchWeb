@@ -43,6 +43,13 @@ namespace INcheonChurchWeb.Models
         /// </summary>
         public string? RoundTitle { get; set; }
 
+        /// <summary>
+        /// 회차 편성예산. 비우면 그 분류의 연간 예산(BudgetPlan)을 그대로 쓴다.
+        /// 회차를 더하면 앞 회차 금액이 복사되어 들어온다.
+        /// </summary>
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? Budget { get; set; }
+
         /// <summary>연간계획에서 시작한 경우 연결. 장부 분류에서 시작하면 null.</summary>
         public int? AnnualPlanId { get; set; }
 

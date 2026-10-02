@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @inject AccountingService Accounting
 @inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
 @rendermode InteractiveServer
 
 <PageTitle>행사 보고서 · 인천중앙교회 재정 시스템</PageTitle>
@@ -45,6 +46,18 @@
     .er-badge { border-radius: 9999px; padding: 0.12rem 0.55rem; font-size: 0.7rem; font-weight: 700; white-space: nowrap; }
     .er-badge.done { background: #dceafe; color: #1a4a7a; }
     .er-badge.todo { background: var(--surface-high); color: var(--on-surface-muted); }
+
+    .er-group-row td { background: var(--surface); font-weight: 800; color: var(--primary-gold); font-size: 0.78rem; letter-spacing: 0.04em; }
+    .er-row-actions { display: flex; gap: 0.3rem; align-items: center; }
+
+    .er-icon-btn {
+        border: 1px solid var(--outline-variant); background: var(--surface-lowest);
+        color: var(--on-surface-muted); border-radius: 0.4rem;
+        width: 26px; height: 26px; font-size: 0.75rem; cursor: pointer; line-height: 1;
+    }
+    .er-icon-btn:hover { color: var(--error); border-color: var(--error); }
+
+    .er-muted { color: var(--on-surface-muted); }
 
     .er-add-round {
         border: 1px dashed var(--outline-variant); background: transparent; color: #5a4000;
@@ -128,50 +141,66 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var f in _finances)
+                    @foreach (var group in GroupedFinances())
                     {
-                        var rounds = RoundsOf(f.EventName);
-
-                        @* 행사 1줄. 회차가 하나뿐이면 그 회차가 이 줄이고, 여럿이면 아래에 회차 줄이 붙는다. *@
-                        <tr class="clickable" @onclick="() => OpenReport(f.EventName, rounds.FirstOrDefault()?.Round)">
-                            <td>
-                                <div class="er-ev">@f.EventName</div>
-                                @if (f.TxCount > 0)
-                                {
-                                    <div class="er-ev-sub">거래 @(f.TxCount)건</div>
-                                }
-                            </td>
-                            <td>@DateLabel(rounds.FirstOrDefault())</td>
-                            <td class="er-num">@f.Budget.ToString("N0")</td>
-                            <td class="er-num @(f.IsOver ? "over" : "")">@f.Spent.ToString("N0")</td>
-                            <td class="er-num">@(f.Income > 0 ? f.Income.ToString("N0") : "—")</td>
-                            <td @onclick:stopPropagation="true">
-                                @if (rounds.Count == 0)
-                                {
-                                    <span class="er-badge todo" role="button" @onclick="() => OpenReport(f.EventName, null)">미작성</span>
-                                }
-                                else
-                                {
-                                    <span class="er-badge done" role="button" @onclick="() => OpenReport(f.EventName, rounds[0].Round)">
-                                        @(rounds.Count > 1 ? $"작성완료 {rounds.Count}회차" : "작성완료")
-                                    </span>
-                                }
-                                <button type="button" class="er-add-round ms-1"
-                                        title="이 행사를 한 번 더 했다면 회차를 추가하세요"
-                                        @onclick="() => AddRound(f.EventName)">+ 회차</button>
-                            </td>
-                        </tr>
-
-                        @* 2차 이상은 회차별로 한 줄씩 — 반데이트·달란트처럼 연 2회 하는 행사 *@
-                        @if (rounds.Count > 1)
+                        @* 대분류 머리줄 — 여름성경학교·겨울성경학교를 "성경학교"로 묶는 식 *@
+                        @if (group.Key != null)
                         {
+                            <tr class="er-group-row">
+                                <td colspan="6">@group.Key</td>
+                            </tr>
+                        }
+
+                        @foreach (var f in group)
+                        {
+                            var rounds = f.Rounds;
+                            var first = rounds.FirstOrDefault();
+
+                            <tr class="clickable" @onclick="() => OpenReport(f.EventName, first?.Round)">
+                                <td>
+                                    <div class="er-ev">@f.EventName</div>
+                                    @if (f.TxCount > 0)
+                                    {
+                                        <div class="er-ev-sub">거래 @(f.TxCount)건</div>
+                                    }
+                                </td>
+                                <td>@DateLabel(first)</td>
+                                <td class="er-num">@RoundBudget(f, first).ToString("N0")</td>
+                                <td class="er-num @(IsOver(f, first) ? "over" : "")">@SpentLabel(f, first)</td>
+                                <td class="er-num">@(f.Income > 0 ? f.Income.ToString("N0") : "—")</td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="er-row-actions">
+                                        @if (rounds.Count == 0)
+                                        {
+                                            <span class="er-badge todo" role="button" @onclick="() => OpenReport(f.EventName, null)">미작성</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="er-badge done" role="button" @onclick="() => OpenReport(f.EventName, rounds[0].Round)">
+                                                @(rounds.Count > 1 ? $"작성완료 {rounds.Count}회차" : "작성완료")
+                                            </span>
+                                        }
+                                        <button type="button" class="er-add-round"
+                                                title="이 행사를 한 번 더 했다면 회차를 추가하세요"
+                                                @onclick="() => AddRound(f.EventName)">+ 회차</button>
+                                        <button type="button" class="er-icon-btn"
+                                                title="행사가 아닙니다 — 목록에서 빼기"
+                                                @onclick="() => ExcludeEvent(f.EventName)"><i class="bi bi-x-lg"></i></button>
+                                        <button type="button" class="er-icon-btn"
+                                                title="대분류로 묶기"
+                                                @onclick="() => OpenGroupEditor(f)"><i class="bi bi-folder"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            @* 2차 이상은 회차마다 한 줄 — 지출은 그 회차 기간으로 갈라 집계한다 *@
                             @foreach (var r in rounds.Skip(1))
                             {
                                 <tr class="clickable er-round-row" @onclick="() => OpenReport(f.EventName, r.Round)">
                                     <td><div class="er-ev">└ @RoundLabel(r)</div></td>
                                     <td>@DateLabel(r)</td>
-                                    <td class="er-num">—</td>
-                                    <td class="er-num">—</td>
+                                    <td class="er-num">@r.Budget.ToString("N0")</td>
+                                    <td class="er-num @(r.IsOver ? "over" : "")">@SpentText(r)</td>
                                     <td class="er-num">—</td>
                                     <td><span class="er-badge done">작성완료</span></td>
                                 </tr>
@@ -185,6 +214,59 @@
                     }
                 </tbody>
             </table>
+        </div>
+
+        @* 뺀 분류 — 되돌릴 수 있게 남겨 둔다 *@
+        @if (_settings.Any(x => x.IsExcluded))
+        {
+            <div style="margin-top:1rem; font-size:0.8rem;">
+                <span class="er-muted">행사에서 뺀 분류:</span>
+                @foreach (var ex in _settings.Where(x => x.IsExcluded).OrderBy(x => x.Name))
+                {
+                    <button type="button" class="er-add-round ms-1"
+                            title="목록으로 되돌리기"
+                            @onclick="() => RestoreEvent(ex.Name)">@ex.Name <i class="bi bi-arrow-counterclockwise"></i></button>
+                }
+            </div>
+        }
+    }
+
+    @* 대분류 묶기 *@
+    @if (_groupTarget != null)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.5);" @onclick="CloseGroupEditor">
+            <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+                <div class="modal-content" style="border-radius:0.8rem;">
+                    <div class="modal-header">
+                        <h5 class="fw-bold mb-0" style="font-size:1rem;">'@_groupTarget' 대분류</h5>
+                        <button type="button" class="btn-close" @onclick="CloseGroupEditor"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p style="font-size:0.82rem; color:var(--on-surface-muted);">
+                            같은 이름을 적은 행사끼리 한 묶음으로 보입니다.
+                            예를 들어 여름성경학교·겨울성경학교에 <b>성경학교</b>라고 적으면 둘이 함께 묶입니다.
+                            비워 두면 묶임이 풀립니다.
+                        </p>
+
+                        <input class="er-select w-100" placeholder="대분류 이름 (비우면 묶지 않음)" @bind="_groupInput" />
+
+                        @if (ExistingGroups().Any())
+                        {
+                            <div style="margin-top:0.6rem;">
+                                <span class="er-muted" style="font-size:0.75rem;">이미 쓰는 대분류:</span>
+                                @foreach (var g in ExistingGroups())
+                                {
+                                    <button type="button" class="er-add-round ms-1" @onclick="() => _groupInput = g">@g</button>
+                                }
+                            </div>
+                        }
+                    </div>
+                    <div class="modal-footer">
+                        <button class="er-select" @onclick="CloseGroupEditor">취소</button>
+                        <button class="er-select" style="background:#5a4000; color:#fff; border-color:#5a4000;" @onclick="SaveGroup">저장</button>
+                    </div>
+                </div>
+            </div>
         </div>
     }
 
@@ -203,6 +285,7 @@
     private List<Department> _departments = new();
     private List<AccountingService.EventFinance> _finances = new();
     private List<EventReport> _reports = new();
+    private List<EventCategorySetting> _settings = new();
     private int _writtenCount;
 
     protected override async Task OnInitializedAsync()
@@ -223,6 +306,7 @@
         _finances = _finances.Where(f => f.Spent > 0 || f.Budget > 0).ToList();
 
         _reports = await Accounting.GetEventReportsAsync(_viewDeptId, _targetYear);
+        _settings = await Accounting.GetEventCategorySettingsAsync(_viewDeptId);
         _writtenCount = _finances.Count(f => RoundsOf(f.EventName).Any());
 
         _isLoading = false;
@@ -235,12 +319,18 @@
                    .OrderBy(r => r.Round)
                    .ToList();
 
+    /// <summary>대분류로 묶은 행사 목록. 묶이지 않은 행사가 위, 대분류가 아래로 온다.</summary>
+    private IEnumerable<IGrouping<string?, AccountingService.EventFinance>> GroupedFinances()
+        => _finances.GroupBy(f => f.GroupName)
+                    .OrderBy(g => g.Key == null ? 0 : 1)
+                    .ThenBy(g => g.Key);
+
     /// <summary>회차 이름. 직접 적은 제목이 있으면 그것을, 없으면 "2차".</summary>
-    private static string RoundLabel(EventReport r)
+    private static string RoundLabel(AccountingService.EventRoundFinance r)
         => string.IsNullOrWhiteSpace(r.RoundTitle) ? $"{r.Round}차" : r.RoundTitle!.Trim();
 
     /// <summary>목록의 날짜 칸. 보고서가 없거나 날짜를 안 적었으면 — 로 둔다.</summary>
-    private static string DateLabel(EventReport? r)
+    private static string DateLabel(AccountingService.EventRoundFinance? r)
     {
         if (r?.StartDate == null) return "—";
 
@@ -251,6 +341,24 @@
         return $"{s:M/d}";
     }
 
+    /// <summary>첫 줄의 예산. 보고서가 없으면 분류의 연간 예산.</summary>
+    private static decimal RoundBudget(AccountingService.EventFinance f, AccountingService.EventRoundFinance? r)
+        => r?.Budget ?? f.Budget;
+
+    /// <summary>
+    /// 첫 줄의 지출. 회차가 여럿이면 그 회차 기간의 지출만,
+    /// 기간을 안 정했으면 집계하지 않고 "기간 미설정"으로 둔다.
+    /// 보고서가 아예 없으면 연간 합계를 그대로 보여 준다.
+    /// </summary>
+    private static string SpentLabel(AccountingService.EventFinance f, AccountingService.EventRoundFinance? r)
+        => r == null ? f.Spent.ToString("N0") : SpentText(r);
+
+    private static string SpentText(AccountingService.EventRoundFinance r)
+        => r.Spent.HasValue ? r.Spent.Value.ToString("N0") : "기간 미설정";
+
+    private static bool IsOver(AccountingService.EventFinance f, AccountingService.EventRoundFinance? r)
+        => r == null ? f.IsOver : r.IsOver;
+
     private async Task OnYearChanged(ChangeEventArgs e)
     {
         if (int.TryParse(e.Value?.ToString(), out var y)) { _targetYear = y; await LoadAll(); }
@@ -260,6 +368,55 @@
     {
         if (int.TryParse(e.Value?.ToString(), out var id)) { _viewDeptId = id; await LoadAll(); }
     }
+
+    // ── 분류 설정 (행사 아님 제외 / 대분류 묶기) ──────────────────
+
+    private string? _groupTarget;       // 대분류를 편집 중인 행사명
+    private string _groupInput = "";
+
+    /// <summary>운영비·환수금처럼 행사가 아닌 분류를 목록에서 뺀다.</summary>
+    private async Task ExcludeEvent(string eventName)
+    {
+        if (!await JSRuntime.ConfirmAsync($"'{eventName}'을(를) 행사 목록에서 뺄까요?\n\n장부·예산 데이터는 그대로 남고 이 목록에서만 사라집니다. 아래 '제외한 분류'에서 되돌릴 수 있습니다."))
+            return;
+
+        await Accounting.SaveEventCategorySettingAsync(_viewDeptId, eventName, GroupOf(eventName), isExcluded: true);
+        await LoadAll();
+    }
+
+    /// <summary>뺐던 분류를 목록으로 되돌린다.</summary>
+    private async Task RestoreEvent(string eventName)
+    {
+        await Accounting.SaveEventCategorySettingAsync(_viewDeptId, eventName, GroupOf(eventName), isExcluded: false);
+        await LoadAll();
+    }
+
+    private string? GroupOf(string eventName)
+        => _settings.FirstOrDefault(s => s.Name.Trim() == eventName.Trim())?.GroupName;
+
+    private void OpenGroupEditor(AccountingService.EventFinance f)
+    {
+        _groupTarget = f.EventName;
+        _groupInput = f.GroupName ?? "";
+    }
+
+    private void CloseGroupEditor() => _groupTarget = null;
+
+    /// <summary>대분류를 저장한다. 비우면 묶임이 풀린다.</summary>
+    private async Task SaveGroup()
+    {
+        if (_groupTarget == null) return;
+
+        await Accounting.SaveEventCategorySettingAsync(_viewDeptId, _groupTarget, _groupInput, isExcluded: false);
+        _groupTarget = null;
+        await LoadAll();
+    }
+
+    /// <summary>이미 쓰고 있는 대분류 이름들 — 고르기 쉽도록 후보로 보여 준다.</summary>
+    private List<string> ExistingGroups()
+        => _settings.Where(s => !string.IsNullOrWhiteSpace(s.GroupName))
+                    .Select(s => s.GroupName!.Trim())
+                    .Distinct().OrderBy(g => g).ToList();
 
     private void OpenReport(string eventName, int? round)
     {

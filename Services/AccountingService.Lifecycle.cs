@@ -174,13 +174,46 @@ namespace INcheonChurchWeb.Services
             public int TxCount { get; set; }           // 관련 거래 건수
             /// <summary>세부(SubCategory)별 지출 내역</summary>
             public List<(string Sub, decimal Amount)> SpentBySub { get; set; } = new();
+
+            /// <summary>대분류. 비어 있으면 묶이지 않은 행사.</summary>
+            public string? GroupName { get; set; }
+
+            /// <summary>
+            /// 회차별 재정. 보고서가 없으면 빈 목록이고, 그때는 위의 연간 합계를 쓴다.
+            /// 회차가 있으면 지출은 각 회차의 기간으로 갈라 집계한다.
+            /// </summary>
+            public List<EventRoundFinance> Rounds { get; set; } = new();
+        }
+
+        /// <summary>한 회차의 재정. 기간이 정해지기 전에는 지출을 집계하지 않는다.</summary>
+        public class EventRoundFinance
+        {
+            public int ReportId { get; set; }
+            public int Round { get; set; }
+            public string? RoundTitle { get; set; }
+            public DateTime? StartDate { get; set; }
+            public DateTime? EndDate { get; set; }
+
+            /// <summary>회차 편성예산. 보고서에 적힌 값이 없으면 분류의 연간 예산.</summary>
+            public decimal Budget { get; set; }
+
+            /// <summary>
+            /// 기간 안의 실제 지출. 기간을 정하기 전에는 null —
+            /// 어느 회차 몫인지 가를 수 없으므로 집계하지 않는다.
+            /// </summary>
+            public decimal? Spent { get; set; }
+
+            public int TxCount { get; set; }
+
+            public bool HasPeriod => StartDate.HasValue;
+            public bool IsOver => Spent.HasValue && Spent.Value > Budget;
         }
 
         /// <summary>
         /// 부서·회계연도의 행사별 재정을 한 번에 집계한다.
         /// 지출: Transactions.Category = 행사명 / 수입: Transactions.SubCategory = 행사명
         /// </summary>
-        public async Task<List<EventFinance>> GetEventFinancesAsync(int deptId, int fiscalYear)
+        public async Task<List<EventFinance>> GetEventFinancesAsync(int deptId, int fiscalYear, bool includeExcluded = false)
         {
             using var db = _dbFactory.CreateDbContext();
 
@@ -193,6 +226,15 @@ namespace INcheonChurchWeb.Services
                 .Where(t => t.DepartmentId == deptId && t.FiscalYear == fiscalYear)
                 .ToListAsync();
 
+            var settings = await db.EventCategorySettings.AsNoTracking()
+                .Where(s => s.DepartmentId == deptId)
+                .ToListAsync();
+            var settingByName = settings.ToDictionary(s => s.Name.Trim(), s => s);
+
+            var reports = await db.EventReports.AsNoTracking()
+                .Where(r => r.DepartmentId == deptId && r.FiscalYear == fiscalYear)
+                .ToListAsync();
+
             // 행사 후보 = 예산 카테고리 ∪ 지출이 잡힌 카테고리
             var names = budgets.Select(b => b.Category)
                 .Concat(txs.Where(t => t.Expense > 0).Select(t => t.Category))
@@ -202,13 +244,20 @@ namespace INcheonChurchWeb.Services
             var result = new List<EventFinance>();
             foreach (var name in names)
             {
+                settingByName.TryGetValue(name, out var setting);
+
+                // 운영비·환수금처럼 행사가 아니라고 표시해 둔 분류는 뺀다.
+                if (setting?.IsExcluded == true && !includeExcluded) continue;
+
                 var exp = txs.Where(t => t.Expense > 0 && (t.Category ?? "").Trim() == name).ToList();
                 var inc = txs.Where(t => t.Income > 0 && (t.SubCategory ?? "").Trim() == name).ToList();
+                decimal categoryBudget = budgets.Where(b => (b.Category ?? "").Trim() == name).Sum(b => b.Amount);
 
-                result.Add(new EventFinance
+                var fin = new EventFinance
                 {
                     EventName = name,
-                    Budget = budgets.Where(b => (b.Category ?? "").Trim() == name).Sum(b => b.Amount),
+                    GroupName = string.IsNullOrWhiteSpace(setting?.GroupName) ? null : setting!.GroupName!.Trim(),
+                    Budget = categoryBudget,
                     Spent = exp.Sum(t => t.Expense),
                     Income = inc.Sum(t => t.Income),
                     TxCount = exp.Count + inc.Count,
@@ -216,10 +265,94 @@ namespace INcheonChurchWeb.Services
                                     .GroupBy(t => t.SubCategory!.Trim())
                                     .Select(g => (g.Key, g.Sum(x => x.Expense)))
                                     .OrderByDescending(x => x.Item2).ToList()
-                });
+                };
+
+                // 회차별 재정 — 지출은 각 회차의 기간으로 갈라 집계한다.
+                fin.Rounds = reports
+                    .Where(r => r.EventName.Trim() == name)
+                    .OrderBy(r => r.Round)
+                    .Select(r => BuildRoundFinance(r, exp, categoryBudget))
+                    .ToList();
+
+                result.Add(fin);
             }
 
             return result.OrderByDescending(r => r.Spent).ToList();
+        }
+
+        /// <summary>
+        /// 한 회차의 재정을 만든다.
+        /// 기간을 정하기 전에는 어느 회차 몫인지 가를 수 없으므로 지출을 집계하지 않는다(null).
+        /// </summary>
+        private static EventRoundFinance BuildRoundFinance(EventReport r, List<LedgerEntry> expenses, decimal categoryBudget)
+        {
+            var rf = new EventRoundFinance
+            {
+                ReportId = r.Id,
+                Round = r.Round,
+                RoundTitle = r.RoundTitle,
+                StartDate = r.StartDate,
+                EndDate = r.EndDate,
+                Budget = r.Budget ?? categoryBudget
+            };
+
+            if (!r.StartDate.HasValue) return rf;
+
+            DateTime from = r.StartDate.Value.Date;
+            DateTime to = (r.EndDate ?? r.StartDate.Value).Date;
+            if (to < from) to = from;
+
+            var inPeriod = expenses.Where(t => t.Date.Date >= from && t.Date.Date <= to).ToList();
+
+            rf.Spent = inPeriod.Sum(t => t.Expense);
+            rf.TxCount = inPeriod.Count;
+            return rf;
+        }
+
+        // ── 행사 분류 설정 (대분류 묶기 / 행사 아님 제외) ──────────────
+
+        public async Task<List<EventCategorySetting>> GetEventCategorySettingsAsync(int deptId)
+        {
+            using var db = _dbFactory.CreateDbContext();
+            return await db.EventCategorySettings.AsNoTracking()
+                .Where(s => s.DepartmentId == deptId)
+                .OrderBy(s => s.Name)
+                .ToListAsync();
+        }
+
+        /// <summary>분류 설정을 저장한다(없으면 만든다). 대분류를 비우면 묶임이 풀린다.</summary>
+        public async Task SaveEventCategorySettingAsync(int deptId, string name, string? groupName, bool isExcluded)
+        {
+            var n = (name ?? "").Trim();
+            if (n.Length == 0) return;
+
+            using var db = _dbFactory.CreateDbContext();
+
+            var row = await db.EventCategorySettings
+                .FirstOrDefaultAsync(s => s.DepartmentId == deptId && s.Name == n);
+
+            string? g = string.IsNullOrWhiteSpace(groupName) ? null : groupName!.Trim();
+
+            if (row == null)
+            {
+                // 아무 설정도 아닌 상태면 굳이 행을 만들지 않는다.
+                if (g == null && !isExcluded) return;
+
+                db.EventCategorySettings.Add(new EventCategorySetting
+                {
+                    DepartmentId = deptId, Name = n, GroupName = g, IsExcluded = isExcluded
+                });
+            }
+            else
+            {
+                row.GroupName = g;
+                row.IsExcluded = isExcluded;
+
+                // 기본값으로 돌아왔으면 행을 남기지 않는다.
+                if (g == null && !isExcluded) db.EventCategorySettings.Remove(row);
+            }
+
+            await db.SaveChangesAsync();
         }
 
         /// <summary>부서·회계연도의 보고서 목록.</summary>
@@ -259,6 +392,41 @@ namespace INcheonChurchWeb.Services
                 .ToListAsync();
         }
 
+        /// <summary>
+        /// 다음 회차 보고서의 초안을 만든다(저장하지는 않는다).
+        /// 편성예산은 앞 회차 값을 그대로 복사하고, 앞 회차가 없으면 분류의 연간 예산을 쓴다.
+        /// 기간은 비워 둔다 — 회차마다 다르고, 정하기 전에는 지출을 집계하지 않는다.
+        /// </summary>
+        public async Task<EventReport> CreateNextRoundDraftAsync(int deptId, int fiscalYear, string eventName)
+        {
+            var n = (eventName ?? "").Trim();
+
+            var rounds = await GetEventReportRoundsAsync(deptId, fiscalYear, n);
+            var last = rounds.OrderBy(r => r.Round).LastOrDefault();
+
+            decimal? budget = last?.Budget;
+            if (budget == null)
+            {
+                using var db = _dbFactory.CreateDbContext();
+                var amounts = await db.BudgetPlans.AsNoTracking()
+                    .Where(b => b.DepartmentId == deptId && b.Year == fiscalYear
+                                && (b.Type == "Expense" || b.Type == "지출")
+                                && b.Category == n)
+                    .Select(b => b.Amount)
+                    .ToListAsync();
+                if (amounts.Count > 0) budget = amounts.Sum();
+            }
+
+            return new EventReport
+            {
+                DepartmentId = deptId,
+                FiscalYear = fiscalYear,
+                EventName = n,
+                Round = rounds.Count == 0 ? 1 : rounds.Max(r => r.Round) + 1,
+                Budget = budget
+            };
+        }
+
         /// <summary>이 행사에서 다음에 쓸 회차 번호. 보고서가 없으면 1.</summary>
         public async Task<int> GetNextEventReportRoundAsync(int deptId, int fiscalYear, string eventName)
         {
@@ -288,6 +456,7 @@ namespace INcheonChurchWeb.Services
             ex.EventName = report.EventName;
             ex.Round = report.Round;
             ex.RoundTitle = report.RoundTitle;
+            ex.Budget = report.Budget;
             ex.AnnualPlanId = report.AnnualPlanId;
             ex.StartDate = report.StartDate;
             ex.EndDate = report.EndDate;
