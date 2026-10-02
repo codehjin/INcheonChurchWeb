@@ -233,20 +233,21 @@ else
                 <div class="mp-calc">@_planCalcLabel</div>
             }
 
-            <div class="ma-field ma-two">
-                <div>
-                    <div class="ma-label">목표 수입</div>
-                    <div class="ma-box">
-                        <input type="text" inputmode="numeric" class="amount income" placeholder="0" @bind="PlanIncomeText" @bind:event="onchange" />
-                        <span class="ma-unit">원</span>
-                    </div>
+            @* 금액은 폰 가로폭에서 두 칸으로 나누면 숫자가 밀려 가로 스크롤이 생긴다.
+               한 줄에 하나씩 쌓아 둔다. *@
+            <div class="ma-field">
+                <div class="ma-label">목표 수입</div>
+                <div class="ma-box">
+                    <input type="text" inputmode="numeric" class="amount income" placeholder="0" @bind="PlanIncomeText" @bind:event="onchange" />
+                    <span class="ma-unit">원</span>
                 </div>
-                <div>
-                    <div class="ma-label">편성 지출</div>
-                    <div class="ma-box">
-                        <input type="text" inputmode="numeric" class="amount" placeholder="0" @bind="PlanExpenseText" @bind:event="onchange" />
-                        <span class="ma-unit">원</span>
-                    </div>
+            </div>
+
+            <div class="ma-field">
+                <div class="ma-label">편성 지출</div>
+                <div class="ma-box">
+                    <input type="text" inputmode="numeric" class="amount" placeholder="0" @bind="PlanExpenseText" @bind:event="onchange" />
+                    <span class="ma-unit">원</span>
                 </div>
             </div>
 

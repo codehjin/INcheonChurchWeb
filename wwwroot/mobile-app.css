@@ -135,6 +135,9 @@
 /* ── 입력 ── */
 .ma-field { margin-bottom: 16px; }
 .ma-two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+/* 그리드 칸은 기본이 min-width:auto 라 안쪽 입력(특히 type=date)이 줄어들지 못하고
+   가로로 밀린다. 시트에 가로 스크롤이 생기던 원인이라 칸이 줄어들 수 있게 열어 둔다. */
+.ma-two > * { min-width: 0; }
 .ma-label { font-size: 14px; color: var(--ma-text-sub); margin-bottom: 6px; }
 .ma-box {
     position: relative; display: flex; align-items: center; gap: 8px;
@@ -206,6 +209,8 @@
 }
 .ma-sheet {
     width: 100%; max-width: 430px; max-height: 85vh; overflow-y: auto;
+    /* 세로로만 스크롤한다. 안쪽 요소가 넘쳐도 시트가 가로로 밀리지 않게. */
+    overflow-x: hidden;
     background: var(--ma-bg); border-radius: 20px 20px 0 0;
     padding: 0 20px calc(20px + env(safe-area-inset-bottom));
     box-shadow: var(--ma-shadow-float);
