@@ -1,0 +1,79 @@
+@page "/"
+@inject HomeReader Reader
+@inject NavigationManager Nav
+
+<PageTitle>가정통신문</PageTitle>
+
+@if (_view != null)
+{
+    <section class="hp-hero">
+        <p class="hp-hero-dept">@DeptTitle</p>
+        <h1 class="hp-hero-title">가정통신문</h1>
+    </section>
+
+    <PortalLinks Profile="_view.Profile" ShowAlbum="true" />
+
+    <h2 class="hp-list-label">최근 가정통신문</h2>
+
+    @if (_view.Notices.Count == 0)
+    {
+        <div class="hp-empty">
+            <i class="bi bi-envelope-open"></i>
+            <p>아직 올라온 가정통신문이 없습니다.</p>
+        </div>
+    }
+    else
+    {
+        <ul class="hp-notice-list">
+            @foreach (var n in _view.Notices)
+            {
+                <li>
+                    <a class="hp-notice-card" href="@($"notice/{n.Id}")">
+                        <span class="hp-notice-month"><b>@n.Month</b>월</span>
+                        <span class="hp-notice-body">
+                            <span class="hp-notice-title">@(n.Month)월 가정통신문</span>
+                            @if (!string.IsNullOrEmpty(NoticeText.Preview(n.Greeting)))
+                            {
+                                <span class="hp-notice-preview"><HighlightedText Text="@NoticeText.Preview(n.Greeting)" /></span>
+                            }
+                            <span class="hp-notice-meta">@(n.Year)년 · @n.PublishedAt.ToString("M월 d일") 올림</span>
+                        </span>
+                        <i class="bi bi-chevron-right hp-notice-go"></i>
+                    </a>
+                </li>
+            }
+        </ul>
+        <p class="hp-hint">최근 가정통신문 @(HomeReader.VisibleNotices)개까지 볼 수 있습니다.</p>
+    }
+
+    <PortalFooter Profile="_view.Profile" />
+}
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    private HomeView? _view;
+
+    private string DeptTitle => _view?.Profile?.DisplayName ?? _view?.DeptName ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = ParentClaims.FromPrincipal(HttpContext.User);
+        if (session == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            _view = await Reader.GetHomeAsync(session);
+        }
+        catch (ParentSessionEndedException)
+        {
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+
+        if (_view == null) Nav.NavigateTo("/login");
+    }
+}

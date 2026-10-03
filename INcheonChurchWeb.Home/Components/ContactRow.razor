@@ -1,0 +1,15 @@
+@* 연락처 한 줄 — 번호를 누르면 바로 전화 *@
+<li class="hp-contact">
+    <span class="hp-contact-role">@Role</span>
+    <span class="hp-contact-name">@Name</span>
+    @if (NoticeText.TelHref(Phone) is { } tel)
+    {
+        <a class="hp-contact-phone" href="@tel"><i class="bi bi-telephone-fill"></i> @Phone</a>
+    }
+</li>
+
+@code {
+    [Parameter] public string? Role { get; set; }
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Phone { get; set; }
+}

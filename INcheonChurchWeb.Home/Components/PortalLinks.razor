@@ -1,0 +1,45 @@
+@* 종이 통신문의 QR 자리 — 폰에서는 누르는 버튼으로. 주소는 http(s) 만 그린다 (SafeUrl). *@
+
+@if (Chat != null || YouTube != null || (ShowAlbum && Album != null))
+{
+    <nav class="hp-links" aria-label="바로가기">
+        @if (Chat != null)
+        {
+            <a class="hp-link chat" href="@Chat" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-chat-heart-fill"></i>
+                <span class="hp-link-text">
+                    <span>부서 오픈채팅방</span>
+                    @if (!string.IsNullOrWhiteSpace(Profile?.OpenChatCode))
+                    {
+                        <small>참여코드 <b>@Profile.OpenChatCode</b></small>
+                    }
+                </span>
+            </a>
+        }
+        @if (YouTube != null)
+        {
+            <a class="hp-link youtube" href="@YouTube" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-youtube"></i>
+                <span class="hp-link-text"><span>부서 유튜브</span></span>
+            </a>
+        }
+        @if (ShowAlbum && Album != null)
+        {
+            <a class="hp-link album" href="@Album" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-images"></i>
+                <span class="hp-link-text"><span>부서 사진첩</span></span>
+            </a>
+        }
+    </nav>
+}
+
+@code {
+    [Parameter] public PortalProfile? Profile { get; set; }
+
+    /// <summary>사진첩 버튼도 보일지 (목록 화면). 통신문 화면에서는 '사진' 꼭지에 따로 둔다.</summary>
+    [Parameter] public bool ShowAlbum { get; set; }
+
+    private string? Chat => SafeUrl.OrNull(Profile?.OpenChatUrl);
+    private string? YouTube => SafeUrl.OrNull(Profile?.YouTubeUrl);
+    private string? Album => SafeUrl.OrNull(Profile?.PhotoAlbumUrl);
+}

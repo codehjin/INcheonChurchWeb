@@ -1,0 +1,19 @@
+@* 종이 통신문 맨 아래의 표어와 말씀 *@
+
+@if (!string.IsNullOrWhiteSpace(Profile?.Motto) || !string.IsNullOrWhiteSpace(Profile?.MottoVerse))
+{
+    <footer class="hp-motto">
+        @if (!string.IsNullOrWhiteSpace(Profile?.Motto))
+        {
+            <p class="hp-motto-text">@Profile.Motto</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(Profile?.MottoVerse))
+        {
+            <p class="hp-motto-verse">@Profile.MottoVerse</p>
+        }
+    </footer>
+}
+
+@code {
+    [Parameter] public PortalProfile? Profile { get; set; }
+}

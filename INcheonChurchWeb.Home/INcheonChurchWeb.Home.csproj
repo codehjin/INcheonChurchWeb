@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    학부모 포털 (ijch-school.kro.kr).
+    🔒 Church.Home.Data 만 참조한다. 재정앱(INcheonChurchWeb) 프로젝트는 참조하지 않는다 —
+       장부·예산 모델이 이 앱에 컴파일되어 들어올 길 자체가 없다.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>INcheonChurchWeb.Home</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Church.Home.Data\Church.Home.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="INcheonChurchWeb.Home.Tests" />
+  </ItemGroup>
+
+</Project>

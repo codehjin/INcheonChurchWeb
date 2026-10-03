@@ -1,0 +1,223 @@
+@page "/notice/{Id:int}"
+@inject HomeReader Reader
+@inject NavigationManager Nav
+
+<PageTitle>@(_view == null ? "가정통신문" : $"{_view.Notice.Month}월 가정통신문")</PageTitle>
+
+<a class="hp-back" href="/"><i class="bi bi-arrow-left"></i> 목록</a>
+
+@if (_notFound)
+{
+    <div class="hp-empty">
+        <i class="bi bi-envelope-x"></i>
+        <p>볼 수 없는 가정통신문입니다.</p>
+        <p class="hp-hint">최근 가정통신문 @(HomeReader.VisibleNotices)개까지 볼 수 있습니다.</p>
+    </div>
+}
+else if (_view != null)
+{
+    var n = _view.Notice;
+    var profile = _view.Profile;
+    var cols = NoticeText.ColumnsOf(n.Weeks);
+    int no = 0;
+
+    <article class="hp-paper">
+        <header class="hp-paper-head">
+            <p class="hp-hero-dept">@(profile?.DisplayName ?? _view.DeptName)</p>
+            <h1 class="hp-paper-title"><span class="hp-paper-month">@(n.Month)월</span> 가정통신문</h1>
+            <p class="hp-paper-date">@(n.Year)년 @(n.Month)월</p>
+        </header>
+
+        <PortalLinks Profile="profile" />
+
+        @if (!string.IsNullOrWhiteSpace(n.Greeting))
+        {
+            <section class="hp-card hp-greeting">
+                <HighlightedText Text="@n.Greeting" />
+            </section>
+        }
+
+        @* ── 일정표 ── *@
+        @if (n.Weeks.Count > 0)
+        {
+            no++;
+            <section class="hp-card">
+                <h2 class="hp-sec-title"><span class="hp-num">@no</span>일정표</h2>
+
+                @* 넓은 화면: 종이 통신문과 같은 표 *@
+                <table class="hp-table">
+                    <thead>
+                        <tr>
+                            <th>주차</th>
+                            <th>날짜</th>
+                            @if (cols.Scripture) { <th>말씀</th> }
+                            @if (cols.SermonTitle) { <th>제목</th> }
+                            @if (cols.Activity) { <th>활동</th> }
+                            @if (cols.Offering) { <th>봉헌</th> }
+                            @if (cols.Prayer) { <th>대표기도</th> }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var (w, i) in n.Weeks.Select((w, i) => (w, i)))
+                        {
+                            <tr>
+                                <td class="c">@(i + 1)</td>
+                                <td class="c">@NoticeText.Md(w.Date)</td>
+                                @if (cols.Scripture) { <td>@w.Scripture</td> }
+                                @if (cols.SermonTitle) { <td>@w.SermonTitle</td> }
+                                @if (cols.Activity) { <td class="c">@w.Activity</td> }
+                                @if (cols.Offering) { <td class="c">@w.Offering</td> }
+                                @if (cols.Prayer) { <td class="c">@w.Prayer</td> }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                @* 좁은 화면: 한 주에 카드 하나 *@
+                <ol class="hp-weeks">
+                    @foreach (var (w, i) in n.Weeks.Select((w, i) => (w, i)))
+                    {
+                        <li class="hp-week">
+                            <div class="hp-week-head">
+                                <span class="hp-week-no">@(i + 1)주</span>
+                                <span class="hp-week-date">@(w.Date.Month)월 @(w.Date.Day)일</span>
+                                @if (!string.IsNullOrWhiteSpace(w.Activity))
+                                {
+                                    <span class="hp-chip">@w.Activity</span>
+                                }
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(w.Scripture))
+                            {
+                                <div class="hp-week-word"><i class="bi bi-book"></i> @w.Scripture</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(w.SermonTitle))
+                            {
+                                <div class="hp-week-title">@w.SermonTitle</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(w.Offering) || !string.IsNullOrWhiteSpace(w.Prayer))
+                            {
+                                <div class="hp-week-people">
+                                    @if (!string.IsNullOrWhiteSpace(w.Offering)) { <span>봉헌 <b>@w.Offering</b></span> }
+                                    @if (!string.IsNullOrWhiteSpace(w.Prayer)) { <span>대표기도 <b>@w.Prayer</b></span> }
+                                </div>
+                            }
+                        </li>
+                    }
+                </ol>
+
+                @if (!string.IsNullOrWhiteSpace(n.ScheduleNote))
+                {
+                    <p class="hp-note">@n.ScheduleNote</p>
+                }
+            </section>
+        }
+
+        @* ── 안내 꼭지 ── *@
+        @foreach (var s in n.Sections)
+        {
+            no++;
+            <section class="hp-card">
+                <h2 class="hp-sec-title"><span class="hp-num">@no</span>@s.Title</h2>
+                @if (!string.IsNullOrWhiteSpace(s.Body))
+                {
+                    <div class="hp-body"><HighlightedText Text="@s.Body" /></div>
+                }
+            </section>
+        }
+
+        @* ── 사진 ── *@
+        @if (PhotoLinks.Count > 0 || Album != null)
+        {
+            no++;
+            <section class="hp-card">
+                <h2 class="hp-sec-title"><span class="hp-num">@no</span>사진</h2>
+                <div class="hp-photos">
+                    @foreach (var l in PhotoLinks)
+                    {
+                        <a class="hp-photo" href="@l.Url" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-images"></i><span>@l.Title</span><i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    }
+                    @if (Album != null)
+                    {
+                        <a class="hp-photo all" href="@Album" target="_blank" rel="noopener noreferrer">
+                            <i class="bi bi-collection"></i><span>부서 사진첩 전체 보기</span><i class="bi bi-box-arrow-up-right"></i>
+                        </a>
+                    }
+                </div>
+            </section>
+        }
+
+        @* ── 연락처: 전도사 · 부장 두 분만 ── *@
+        @if (HasContact(profile?.MinisterName, profile?.MinisterPhone) || HasContact(profile?.HeadName, profile?.HeadPhone))
+        {
+            no++;
+            <section class="hp-card">
+                <h2 class="hp-sec-title"><span class="hp-num">@no</span>선생님 연락처</h2>
+                <ul class="hp-contacts">
+                    @if (HasContact(profile?.MinisterName, profile?.MinisterPhone))
+                    {
+                        <ContactRow Role="@(profile!.MinisterTitle)" Name="@profile.MinisterName" Phone="@profile.MinisterPhone" />
+                    }
+                    @if (HasContact(profile?.HeadName, profile?.HeadPhone))
+                    {
+                        <ContactRow Role="부장" Name="@profile!.HeadName" Phone="@profile.HeadPhone" />
+                    }
+                </ul>
+            </section>
+        }
+
+        <PortalFooter Profile="profile" />
+    </article>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    private NoticeView? _view;
+    private bool _notFound;
+
+    /// <summary>그릴 때도 http(s) 주소만 (저장할 때 이미 걸렀지만 한 번 더)</summary>
+    private List<NoticeLink> PhotoLinks => _view?.Notice.Links.Where(l => SafeUrl.IsHttp(l.Url)).ToList() ?? new();
+
+    private string? Album => SafeUrl.OrNull(_view?.Profile?.PhotoAlbumUrl);
+
+    private static bool HasContact(string? name, string? phone)
+        => !string.IsNullOrWhiteSpace(name) || !string.IsNullOrWhiteSpace(phone);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = ParentClaims.FromPrincipal(HttpContext.User);
+        if (session == null)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        bool ended = false;
+        try
+        {
+            _view = await Reader.GetNoticeAsync(session, Id);
+        }
+        catch (ParentSessionEndedException)
+        {
+            ended = true;
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        }
+
+        if (ended)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        if (_view == null)
+        {
+            // 다른 부서 것이든, 오래된 것이든, 없는 번호든 같은 답 — 무엇이 있는지 알려 주지 않는다
+            _notFound = true;
+            HttpContext.Response.StatusCode = StatusCodes.Status404NotFound;
+        }
+    }
+}

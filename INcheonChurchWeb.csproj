@@ -60,4 +60,15 @@
     <ProjectReference Include="Church.Home.Data\Church.Home.Data.csproj" />
   </ItemGroup>
 
+  <!-- 학부모앱은 별도 웹 프로젝트다 (재정앱과 서로 참조하지 않는다). 루트 글로빙에서 뺀다. -->
+  <ItemGroup>
+    <Compile Remove="INcheonChurchWeb.Home/**" />
+    <Content Remove="INcheonChurchWeb.Home/**" />
+    <None Remove="INcheonChurchWeb.Home/**" />
+    <EmbeddedResource Remove="INcheonChurchWeb.Home/**" />
+    <Compile Remove="deploy/**" />
+    <Content Remove="deploy/**" />
+    <None Remove="deploy/**" />
+  </ItemGroup>
+
 </Project>

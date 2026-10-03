@@ -1,0 +1,16 @@
+@* 「」로 감싼 말만 강조색으로. 조각을 글자로 찍으므로 본문에 태그가 섞여도 글자로 보인다. *@
+@foreach (var s in NoticeText.Highlight(Text))
+{
+    if (s.Highlight)
+    {
+        <mark class="hp-em">@s.Text</mark>
+    }
+    else
+    {
+        @s.Text
+    }
+}
+
+@code {
+    [Parameter] public string? Text { get; set; }
+}

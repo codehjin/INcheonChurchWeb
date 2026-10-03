@@ -1,0 +1,25 @@
+@inherits LayoutComponentBase
+
+<div class="hp-shell">
+    <header class="hp-topbar">
+        <a class="hp-topbar-brand" href="/">
+            <i class="bi bi-envelope-paper-heart"></i>
+            <span>인천중앙교회 교회학교</span>
+        </a>
+        @if (HttpContext?.User.Identity?.IsAuthenticated == true)
+        {
+            <form method="post" action="/logout" class="hp-topbar-form">
+                <AntiforgeryToken />
+                <button type="submit" class="hp-topbar-out">로그아웃</button>
+            </form>
+        }
+    </header>
+
+    <main class="hp-main">
+        @Body
+    </main>
+</div>
+
+@code {
+    [CascadingParameter] public HttpContext? HttpContext { get; set; }
+}

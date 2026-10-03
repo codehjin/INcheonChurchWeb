@@ -37,6 +37,10 @@ jobs:
       - name: Publish project
         run: dotnet publish INcheonChurchWeb.csproj -c Release -o ./publish --no-restore
 
+      # Step 4-2: 학부모 포털 퍼블리시 (church.db 를 모르는 별도 앱)
+      - name: Publish parent portal
+        run: dotnet publish INcheonChurchWeb.Home/INcheonChurchWeb.Home.csproj -c Release -o ./publish-home --no-restore
+
       # Step 5: 리눅스 서버로 파일 전송 (church.db 등 기존 데이터는 publish에 없으므로 보존됨)
       - name: Copy files to server via SCP
         uses: appleboy/scp-action@master
@@ -48,6 +52,29 @@ jobs:
           source: "./publish/*"
           target: "/home/ubuntu/church"
           strip_components: 1
+
+      # Step 5-2: 학부모 포털 파일 전송 — 재정앱 폴더와 따로 (/home/ubuntu/church-home/app)
+      - name: Copy parent portal to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "./publish-home/*"
+          target: "/home/ubuntu/church-home/app"
+          strip_components: 1
+
+      - name: Copy parent portal compose file
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "deploy/church-home/docker-compose.yml"
+          target: "/home/ubuntu/church-home"
+          strip_components: 2
 
       # Step 6: 도커 컨테이너 재빌드 및 실행
       - name: Rebuild and run Docker container via SSH
@@ -64,4 +91,11 @@ jobs:
             # down(끄기) 명령어 삭제됨!
             sudo docker-compose build   # 백그라운드에서 조용히 먼저 빌드
             sudo docker-compose up -d --force-recreate   # 컨테이너 강제 교체(옛 코드 잔류 방지)
+
+            # 학부모 포털 — 재정앱이 기동하며 home.db 를 만들고 다시 채운 뒤에 올린다
+            for i in $(seq 1 30); do [ -f /home/ubuntu/church/homedata/home.db ] && break; sleep 2; done
+            cd /home/ubuntu/church-home
+            sudo mkdir -p keys && sudo chown 1654:1654 keys   # 컨테이너 사용자(app, 1654)가 쓰는 쿠키 키
+            sudo docker-compose up -d --force-recreate
+
             sudo docker image prune -f  # 남은 찌꺼기 청소

@@ -1,0 +1,87 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject HomeReader Reader
+@inject NavigationManager Nav
+
+<PageTitle>로그인 · 가정통신문</PageTitle>
+
+<section class="hp-login">
+    <div class="hp-login-mark"><i class="bi bi-envelope-paper-heart-fill"></i></div>
+    <h1 class="hp-login-title">
+        <span>인천중앙교회 교회학교</span>
+        <strong>가정통신문</strong>
+    </h1>
+    <p class="hp-login-sub">부서 단체방에 안내된 아이디와 비밀번호로 들어오세요.</p>
+
+    <form method="post" @onsubmit="SignIn" @formname="login" class="hp-login-form">
+        <AntiforgeryToken />
+
+        <label class="hp-field">
+            <span>아이디</span>
+            <input name="Input.Username" value="@Input.Username" autocomplete="username"
+                   autocapitalize="none" autocorrect="off" spellcheck="false" required />
+        </label>
+
+        <label class="hp-field">
+            <span>비밀번호</span>
+            <input type="password" name="Input.Password" autocomplete="current-password" required />
+        </label>
+
+        @if (_error != null)
+        {
+            <p class="hp-login-error" role="alert"><i class="bi bi-exclamation-circle"></i> @_error</p>
+        }
+
+        <button type="submit" class="hp-btn-primary">들어가기</button>
+    </form>
+
+    <p class="hp-login-foot">한 번 들어오면 이 폰에서는 60일 동안 다시 묻지 않습니다.</p>
+</section>
+
+@code {
+    [CascadingParameter] private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm] private LoginInput Input { get; set; } = new();
+
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    private string? _error;
+
+    private async Task SignIn()
+    {
+        ParentSession? session;
+        try
+        {
+            session = await Reader.LoginAsync(Input.Username, Input.Password);
+        }
+        catch (Exception)
+        {
+            _error = "지금은 들어갈 수 없습니다. 잠시 후 다시 시도해 주세요.";
+            return;
+        }
+
+        if (session == null)
+        {
+            _error = "아이디 또는 비밀번호가 맞지 않습니다.";
+            return;
+        }
+
+        await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,
+            ParentClaims.ToPrincipal(session),
+            new AuthenticationProperties { IsPersistent = true });
+
+        Nav.NavigateTo(LocalOnly(ReturnUrl));
+    }
+
+    /// <summary>로그인 뒤 돌아갈 곳은 이 사이트 안의 주소만 (다른 사이트로 빼돌리지 못하게).</summary>
+    internal static string LocalOnly(string? url)
+        => !string.IsNullOrEmpty(url) && url.StartsWith('/') && !url.StartsWith("//") && !url.StartsWith("/\\")
+            ? url
+            : "/";
+
+    private sealed class LoginInput
+    {
+        public string? Username { get; set; }
+        public string? Password { get; set; }
+    }
+}

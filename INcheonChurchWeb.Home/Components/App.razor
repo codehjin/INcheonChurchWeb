@@ -1,0 +1,40 @@
+@inject IWebHostEnvironment Env
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#eaf2ff" />
+    <base href="/" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="@V("home.css")" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    @* 실시간 연결(blazor.web.js)을 싣지 않는다 — 서버가 그린 HTML 과 일반 폼 전송만 쓴다 *@
+    <Routes />
+</body>
+
+</html>
+
+@code {
+    // 파일이 바뀌면 주소도 바뀌도록 수정 시각을 붙인다 (폰 브라우저가 옛 css 를 물고 있지 않게)
+    private string V(string relativePath)
+    {
+        try
+        {
+            var full = Path.Combine(Env.WebRootPath, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            return $"/{relativePath}?v={File.GetLastWriteTimeUtc(full).Ticks}";
+        }
+        catch
+        {
+            return "/" + relativePath;
+        }
+    }
+}
