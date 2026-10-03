@@ -44,7 +44,8 @@ else if (_view != null)
             <section class="hp-card">
                 <h2 class="hp-sec-title"><span class="hp-num">@no</span>일정표</h2>
 
-                @* 넓은 화면: 종이 통신문과 같은 표 *@
+                @* PC: 종이 통신문과 같은 표 (폰·폴드는 아래 카드) *@
+                <div class="hp-table-wrap">
                 <table class="hp-table">
                     <thead>
                         <tr>
@@ -72,8 +73,9 @@ else if (_view != null)
                         }
                     </tbody>
                 </table>
+                </div>
 
-                @* 좁은 화면: 한 주에 카드 하나 *@
+                @* 폰: 한 주에 카드 하나 · 폴드 메인 화면: 2열 *@
                 <ol class="hp-weeks">
                     @foreach (var (w, i) in n.Weeks.Select((w, i) => (w, i)))
                     {
