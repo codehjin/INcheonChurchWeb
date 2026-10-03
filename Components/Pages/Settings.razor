@@ -888,7 +888,76 @@
                     {
                         <li class="nav-item"><button class="nav-link @(_securitySubTab == "Users" ? "active" : "")" @onclick='() => _securitySubTab = "Users"'><i class="bi bi-people-fill me-1"></i>사용자 계정 관리</button></li>
                     }
+                    else if (CurrentUser?.CanAddAccounts == true)
+                    {
+                        <li class="nav-item"><button class="nav-link @(_securitySubTab == "DeptUsers" ? "active" : "")" @onclick="OpenDeptAccounts"><i class="bi bi-person-plus-fill me-1"></i>부서 계정 추가</button></li>
+                    }
                 </ul>
+
+                @* ── 부서 계정 추가 (최고관리자가 계정추가를 허락한 부서운영자) ── *@
+                @if (_securitySubTab == "DeptUsers" && CurrentUser?.CanAddAccounts == true && CurrentUser?.IsSystemAdmin != true)
+                {
+                <h4 class="fw-bold mb-2" style="color: #1b1c15;">@(CurrentUser?.Department?.Name) 계정 추가</h4>
+                <p class="mb-4" style="color: #4e4637; font-size: 0.9rem;">
+                    우리 부서에 <b>교사</b> · <b>부서운영자</b> 계정을 만듭니다. 정지 · 삭제 · 비밀번호 초기화는 최고 관리자에게 요청하세요.
+                </p>
+                <div class="settings-card-warm mb-3">
+                    <div class="row g-2 align-items-center">
+                        <div class="col-md-3"><input class="settings-input" @bind="_deptNewUsername" placeholder="새 아이디 (영문·숫자)" autocomplete="off" /></div>
+                        <div class="col-md-2"><input class="settings-input" @bind="_deptNewFullName" placeholder="이름" /></div>
+                        <div class="col-md-2">
+                            <select class="settings-input fw-bold" @bind="_deptNewRole" style="color: #785600;">
+                                <option value="User">교사</option>
+                                <option value="Manager">부서운영자</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="d-flex gap-1">
+                                <input class="settings-input" @bind="_deptNewPassword" placeholder="처음 비밀번호 (6자 이상)" autocomplete="new-password" />
+                                <button type="button" class="settings-secondary-btn px-2" style="white-space: nowrap;" @onclick="() => _deptNewPassword = ParentPortalService.GeneratePassword()">자동</button>
+                            </div>
+                        </div>
+                        <div class="col-md-2"><button class="settings-gold-btn w-100 py-2" @onclick="CreateDeptAccount">계정 만들기</button></div>
+                    </div>
+                    <div class="mt-2" style="font-size: 0.8rem; color: #4e4637;">
+                        <b>교사</b> — 장부 열람 · 영수증 제출 · 연간계획 · 행사보고서 보기 · 주간 회의록 쓰기 (자기 기록은 수정·삭제)<br />
+                        <b>부서운영자</b> — 우리 부서의 모든 기능. 새로 만든 부서운영자의 <b>계정추가</b> 권한은 최고 관리자만 줄 수 있습니다.
+                    </div>
+                </div>
+
+                @if (_deptCreatedNotice != null)
+                {
+                    <div class="mb-3 p-3 rounded" style="background: #fffaf0; border: 2px solid #eec067;">
+                        <div class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-1" style="color: #198754;"></i>계정을 만들었습니다</div>
+                        <div>@_deptCreatedNotice</div>
+                        <div style="font-size: 0.8rem; color: #807666;">비밀번호는 암호화해서 저장하므로 이 화면을 벗어나면 다시 볼 수 없습니다. 본인에게 전하고, 로그인 후 [계정 및 보안]에서 바꾸게 하세요.</div>
+                    </div>
+                }
+                @if (_deptAccountError != null)
+                {
+                    <div class="mb-3" style="color: #ba1a1a; font-size: 0.9rem;"><i class="bi bi-exclamation-circle me-1"></i>@_deptAccountError</div>
+                }
+
+                <div class="settings-table-container">
+                    <table class="settings-table">
+                        <thead><tr><th>아이디</th><th>이름</th><th>권한</th><th>상태</th></tr></thead>
+                        <tbody>
+                            @foreach (var u in _deptUserList)
+                            {
+                                <tr>
+                                    <td class="fw-bold">@u.Username</td>
+                                    <td>@u.FullName</td>
+                                    <td class="fw-bold text-muted">@User.RoleLabel(u.Role)</td>
+                                    <td>
+                                        @if (u.IsActive) { <span class="badge bg-white border" style="color: #198754;">활성</span> }
+                                        else { <span class="badge bg-light text-muted border">정지</span> }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                }
 
                 @if (_securitySubTab == "Users" && CurrentUser?.IsSystemAdmin == true)
                 {
@@ -907,7 +976,7 @@
                             <select class="settings-input" @bind="_newUser.Role">
                                 <option value="Manager">부서운영자 (전도사/부장/회계)</option>
                                 <option value="Auditor">감사/국장 (목사/장로/감사)</option>
-                                <option value="User">일반조회 (교사)</option>
+                                <option value="User">교사 (장부 열람 · 영수증 제출 · 계획/회의록)</option>
                                 <option value="Admin">최고관리자 (시스템 통제)</option>
                             </select>
                         </div>
@@ -917,7 +986,7 @@
 
                 <div class="settings-table-container">
                     <table class="settings-table">
-                        <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>권한</th><th>상태</th><th width="200">관리</th></tr></thead>
+                        <thead><tr><th>아이디</th><th>이름</th><th>부서</th><th>권한</th><th title="부서운영자가 자기 부서에 교사·부서운영자 계정을 추가할 수 있다">계정추가</th><th>상태</th><th width="200">관리</th></tr></thead>
                         <tbody>
                             @foreach (var u in _adminUserList)
                             {
@@ -925,8 +994,14 @@
                                     <td class="fw-bold">@u.Username</td>
                                     <td>@u.FullName</td>
                                     <td class="fw-bold" style="color: #5a4000;">@(_adminDeptList.FirstOrDefault(d => d.Id == u.DepartmentId)?.Name ?? "미정")</td>
-                                    <td class="fw-bold text-muted">
-                                        @(u.Role == "Admin" ? "최고관리자" : u.Role == "Manager" ? "부서운영자" : u.Role == "Auditor" ? "감사/국장" : "일반조회")
+                                    <td class="fw-bold text-muted">@User.RoleLabel(u.Role)</td>
+                                    <td class="text-center">
+                                        @if (u.Role == "Manager")
+                                        {
+                                            <input type="checkbox" class="form-check-input" style="cursor: pointer;" title="자기 부서에 계정 추가 허용"
+                                                   checked="@u.CanManageAccounts" @onchange="e => ToggleCanManage(u, e.Value is true)" />
+                                        }
+                                        else { <span class="text-muted">—</span> }
                                     </td>
                                     <td>
                                         @if (u.IsActive) { <span class="badge bg-white border" style="color: #198754;">활성</span> } 
@@ -1243,7 +1318,17 @@
     private string _budgetSubTab = "Income";      // Income, Expense, Quarter (구 _budgetType 대체)
     private string _mappingSubTab = "Income";     // Income, Expense, Analyze
     private string _backupSubTab = "Ledger";      // Ledger, Settings
-    private string _securitySubTab = "Password";  // Password, Users
+    private string _securitySubTab = "Password";  // Password, Users(최고관리자), DeptUsers(계정추가 권한을 받은 부서운영자)
+
+    // ── 부서 계정 추가 (계정추가 권한을 받은 부서운영자) ──
+    [SupplyParameterFromQuery(Name = "tab")] public string? QTab { get; set; }
+    private List<User> _deptUserList = new();
+    private string _deptNewUsername = "";
+    private string _deptNewFullName = "";
+    private string _deptNewRole = "User";
+    private string _deptNewPassword = "";
+    private string? _deptCreatedNotice;
+    private string? _deptAccountError;
 
     private int _targetYear = DateTime.Now.Year;
     private bool _isImporting = false;
@@ -1461,6 +1546,62 @@
        
         _targetYear = Math.Max(2024, DateTime.Now.Year);
 
+        await LoadData();
+
+        // 폰 더보기의 [부서 계정 추가] 로 들어온 경우
+        if (QTab == "accounts" && CurrentUser?.CanAddAccounts == true && CurrentUser?.IsSystemAdmin != true)
+        {
+            _activeTab = "Security";
+            await OpenDeptAccounts();
+        }
+    }
+
+    private async Task OpenDeptAccounts()
+    {
+        _securitySubTab = "DeptUsers";
+        if (string.IsNullOrEmpty(_deptNewPassword)) _deptNewPassword = ParentPortalService.GeneratePassword();
+        await LoadDeptAccounts();
+    }
+
+    private async Task LoadDeptAccounts()
+    {
+        try
+        {
+            _deptUserList = await AccService.GetDepartmentAccountsAsync(CurrentUser!);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            // 화면을 연 뒤 최고관리자가 권한을 거둔 경우
+            _deptUserList = new();
+            _deptAccountError = ex.Message;
+        }
+    }
+
+    private async Task CreateDeptAccount()
+    {
+        _deptCreatedNotice = null;
+        _deptAccountError = null;
+        try
+        {
+            var password = (_deptNewPassword ?? "").Trim();
+            var id = await AccService.CreateDepartmentAccountAsync(CurrentUser!, _deptNewUsername, _deptNewFullName, _deptNewRole, password);
+            _deptCreatedNotice = $"아이디 {id} ({User.RoleLabel(_deptNewRole)}) · 처음 비밀번호 {password}";
+            _deptNewUsername = "";
+            _deptNewFullName = "";
+            _deptNewPassword = ParentPortalService.GeneratePassword();
+            await LoadDeptAccounts();
+        }
+        catch (Exception ex) when (ex is AccountRuleException or UnauthorizedAccessException)
+        {
+            _deptAccountError = ex.Message;
+        }
+    }
+
+    /// <summary>최고관리자 — 부서운영자에게 계정추가 권한을 주거나 거둔다</summary>
+    private async Task ToggleCanManage(User u, bool allowed)
+    {
+        try { await AccService.SetCanManageAccountsAsync(CurrentUser!, u.Username, allowed); }
+        catch (Exception ex) when (ex is AccountRuleException or UnauthorizedAccessException) { await JSRuntime.AlertAsync(ex.Message); }
         await LoadData();
     }
 

@@ -527,18 +527,30 @@ namespace INcheonChurchWeb.Services
                 .ToListAsync();
         }
 
-        public async Task SaveWeeklyMeetingAsync(WeeklyMeeting meeting, string? actorUsername)
+        // 🚀 회의록 쓰기 권한은 화면이 아니라 여기서 판단한다 (화면이 넘긴 값은 믿지 않는다).
+        //   - 새 기록: 부서운영자 · 최고관리자 · 교사
+        //   - 고치기 · 지우기: 부서운영자 · 최고관리자, 또는 그 기록을 쓴 교사 본인
+        //     (작성자는 화면이 보낸 값이 아니라 DB 에 저장된 값으로 본다)
+        //   - 부서: 전체 조회 권한이 없으면 자기 부서 회의록만
+        public async Task SaveWeeklyMeetingAsync(WeeklyMeeting meeting, User actor)
         {
+            if (!actor.CanAddMeetings)
+                throw new UnauthorizedAccessException("회의록을 쓸 권한이 없습니다.");
+            if (!actor.CanViewAll && meeting.DepartmentId != actor.DepartmentId)
+                throw new UnauthorizedAccessException("다른 부서의 회의록은 쓸 수 없습니다.");
+
             using var db = _dbFactory.CreateDbContext();
             if (meeting.Id == 0)
             {
-                meeting.CreatedBy = actorUsername;
+                meeting.CreatedBy = actor.Username;
                 db.WeeklyMeetings.Add(meeting);
             }
             else
             {
                 var existing = await db.WeeklyMeetings.FirstOrDefaultAsync(m => m.Id == meeting.Id);
                 if (existing == null) return;
+                CheckCanChangeMeeting(actor, existing);
+
                 existing.DepartmentId = meeting.DepartmentId;
                 existing.MeetingDate = meeting.MeetingDate;
                 existing.FreeMemo = meeting.FreeMemo;
@@ -546,19 +558,29 @@ namespace INcheonChurchWeb.Services
                 existing.EventLocation = meeting.EventLocation;
                 existing.ExpectedAttendees = meeting.ExpectedAttendees;
                 existing.AnnualPlanId = meeting.AnnualPlanId;
-                existing.UpdatedBy = actorUsername;
+                existing.UpdatedBy = actor.Username;
             }
             await db.SaveChangesAsync();
         }
 
-        public async Task DeleteWeeklyMeetingAsync(int meetingId, string? actorUsername)
+        public async Task DeleteWeeklyMeetingAsync(int meetingId, User actor)
         {
             using var db = _dbFactory.CreateDbContext();
             var m = await db.WeeklyMeetings.FirstOrDefaultAsync(x => x.Id == meetingId);
             if (m == null) return;
+            CheckCanChangeMeeting(actor, m);
+
             m.IsDeleted = true;
-            m.UpdatedBy = actorUsername;
+            m.UpdatedBy = actor.Username;
             await db.SaveChangesAsync();
+        }
+
+        private static void CheckCanChangeMeeting(User actor, WeeklyMeeting stored)
+        {
+            if (!actor.CanViewAll && stored.DepartmentId != actor.DepartmentId)
+                throw new UnauthorizedAccessException("다른 부서의 회의록은 고칠 수 없습니다.");
+            if (!actor.CanChangeMeeting(stored))
+                throw new UnauthorizedAccessException("자기가 쓴 기록만 고치거나 지울 수 있습니다.");
         }
     }
 }

@@ -214,7 +214,7 @@ else
     private DateTime? _startDate, _endDate;
     private int? _attendees;
 
-    private bool CanView => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+    private bool CanView => CurrentUser?.CanViewPlanning == true;   // 교사도 본다 (작성은 부서운영자)
     private bool CanEdit => CurrentUser?.CanEdit == true;
 
     private int WrittenCount => _finances.Count(f => _reportByName.ContainsKey(f.EventName.Trim()));

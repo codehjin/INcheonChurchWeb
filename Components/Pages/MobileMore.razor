@@ -41,14 +41,17 @@ else
         </div>
     </div>
 
-    @if (CanEdit || CanViewAll)
+    @if (CanEdit || CanViewAll || IsTeacher)
     {
         <div class="ma-card">
-            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/resolution")'>
-                <i class="bi bi-file-earmark-text lead"></i>
-                <span class="mo-menu-label">지출결의서</span>
-                <i class="bi bi-chevron-right ma-chevron"></i>
-            </button>
+            @if (CanEdit || CanViewAll)
+            {
+                <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/resolution")'>
+                    <i class="bi bi-file-earmark-text lead"></i>
+                    <span class="mo-menu-label">지출결의서</span>
+                    <i class="bi bi-chevron-right ma-chevron"></i>
+                </button>
+            }
             <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/event-report-app")'>
                 <i class="bi bi-clipboard-check lead"></i>
                 <span class="mo-menu-label">행사 보고서</span>
@@ -108,6 +111,15 @@ else
             <span class="ma-badge neutral">웹</span>
             <i class="bi bi-chevron-right ma-chevron"></i>
         </button>
+        @if (CurrentUser.CanAddAccounts && !CurrentUser.IsSystemAdmin)
+        {
+            <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/settings?web=1&tab=accounts")'>
+                <i class="bi bi-person-plus lead"></i>
+                <span class="mo-menu-label">부서 계정 추가 (교사 · 부서운영자)</span>
+                <span class="ma-badge neutral">웹</span>
+                <i class="bi bi-chevron-right ma-chevron"></i>
+            </button>
+        }
         @if (CanEdit)
         {
             <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/settings?web=1")'>
@@ -137,6 +149,7 @@ else
     private bool CanEdit => CurrentUser?.CanEdit == true;
     private bool CanViewAll => CurrentUser?.CanViewAll == true;
     private bool CanEditLedger => CurrentUser?.CanEditLedger == true;
+    private bool IsTeacher => CurrentUser?.IsTeacher == true;
     private bool CanAccessDataCollection => CurrentUser?.CanAccessDataCollection == true;
 
     private string DeptName => _deptName;
@@ -148,11 +161,5 @@ else
         _deptName = depts.FirstOrDefault(d => d.Id == CurrentUser.DepartmentId)?.Name ?? "";
     }
 
-    private string RoleLabel => CurrentUser?.Role switch
-    {
-        "Admin" => "최고관리자",
-        "Manager" => "부서운영자",
-        "Auditor" => "감사·국장",
-        _ => "일반조회"
-    };
+    private string RoleLabel => User.RoleLabel(CurrentUser?.Role);
 }

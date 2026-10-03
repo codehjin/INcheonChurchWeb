@@ -180,15 +180,18 @@
                                                 @(rounds.Count > 1 ? $"작성완료 {rounds.Count}회차" : "작성완료")
                                             </span>
                                         }
-                                        <button type="button" class="er-add-round"
-                                                title="이 행사를 한 번 더 했다면 회차를 추가하세요"
-                                                @onclick="() => AddRound(f.EventName)">+ 회차</button>
-                                        <button type="button" class="er-icon-btn"
-                                                title="행사가 아닙니다 — 목록에서 빼기"
-                                                @onclick="() => ExcludeEvent(f.EventName)"><i class="bi bi-x-lg"></i></button>
-                                        <button type="button" class="er-icon-btn"
-                                                title="대분류로 묶기"
-                                                @onclick="() => OpenGroupEditor(f)"><i class="bi bi-folder"></i></button>
+                                        @if (_canEdit)
+                                        {
+                                            <button type="button" class="er-add-round"
+                                                    title="이 행사를 한 번 더 했다면 회차를 추가하세요"
+                                                    @onclick="() => AddRound(f.EventName)">+ 회차</button>
+                                            <button type="button" class="er-icon-btn"
+                                                    title="행사가 아닙니다 — 목록에서 빼기"
+                                                    @onclick="() => ExcludeEvent(f.EventName)"><i class="bi bi-x-lg"></i></button>
+                                            <button type="button" class="er-icon-btn"
+                                                    title="대분류로 묶기"
+                                                    @onclick="() => OpenGroupEditor(f)"><i class="bi bi-folder"></i></button>
+                                        }
                                     </div>
                                 </td>
                             </tr>
@@ -217,7 +220,7 @@
         </div>
 
         @* 뺀 분류 — 되돌릴 수 있게 남겨 둔다 *@
-        @if (_settings.Any(x => x.IsExcluded))
+        @if (_canEdit && _settings.Any(x => x.IsExcluded))
         {
             <div style="margin-top:1rem; font-size:0.8rem;">
                 <span class="er-muted">행사에서 뺀 분류:</span>
@@ -280,6 +283,7 @@
     private int _viewDeptId;
     private string _currentDeptName = "";
     private bool _canPickDept;
+    private bool _canEdit;      // 부서운영자 · 최고관리자. 교사는 보기만 (회차 추가 · 분류 설정 없음)
     private bool _isLoading = true;
 
     private List<Department> _departments = new();
@@ -291,6 +295,7 @@
     protected override async Task OnInitializedAsync()
     {
         _canPickDept = CurrentUser?.CanViewAll == true;
+        _canEdit = CurrentUser?.CanEdit == true;
         _departments = await Accounting.GetDepartmentsAsync();
         _viewDeptId = CurrentUser?.DepartmentId ?? (_departments.FirstOrDefault()?.Id ?? 0);
         await LoadAll();
@@ -377,6 +382,7 @@
     /// <summary>운영비·환수금처럼 행사가 아닌 분류를 목록에서 뺀다.</summary>
     private async Task ExcludeEvent(string eventName)
     {
+        if (!_canEdit) return;
         if (!await JSRuntime.ConfirmAsync($"'{eventName}'을(를) 행사 목록에서 뺄까요?\n\n장부·예산 데이터는 그대로 남고 이 목록에서만 사라집니다. 아래 '제외한 분류'에서 되돌릴 수 있습니다."))
             return;
 
@@ -387,6 +393,7 @@
     /// <summary>뺐던 분류를 목록으로 되돌린다.</summary>
     private async Task RestoreEvent(string eventName)
     {
+        if (!_canEdit) return;
         await Accounting.SaveEventCategorySettingAsync(_viewDeptId, eventName, GroupOf(eventName), isExcluded: false);
         await LoadAll();
     }
@@ -405,7 +412,7 @@
     /// <summary>대분류를 저장한다. 비우면 묶임이 풀린다.</summary>
     private async Task SaveGroup()
     {
-        if (_groupTarget == null) return;
+        if (!_canEdit || _groupTarget == null) return;
 
         await Accounting.SaveEventCategorySettingAsync(_viewDeptId, _groupTarget, _groupInput, isExcluded: false);
         _groupTarget = null;
@@ -428,6 +435,7 @@
     /// <summary>이 행사를 한 번 더 했을 때. 다음 회차 번호로 편집 화면을 연다.</summary>
     private async Task AddRound(string eventName)
     {
+        if (!_canEdit) return;
         int next = await Accounting.GetNextEventReportRoundAsync(_viewDeptId, _targetYear, eventName);
         OpenReport(eventName, next);
     }

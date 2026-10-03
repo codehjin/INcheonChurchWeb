@@ -18,7 +18,8 @@
         <span class="nav-label">대시보드</span>
     </NavLink>
 
-    @if (CurrentUser?.CanEdit == true)
+    @* 연간 계획 · 주간 회의록 · 행사 보고서 — 교사도 본다 (회의록은 교사도 추가) *@
+    @if (CurrentUser?.CanEdit == true || CurrentUser?.IsTeacher == true)
     {
         <NavLink class="stitch-nav-item" href="annual-plan">
             <span class="nav-icon-wrap"><i class="bi bi-calendar-event"></i></span>
@@ -32,6 +33,10 @@
             <span class="nav-icon-wrap"><i class="bi bi-clipboard-data"></i></span>
             <span class="nav-label">행사 보고서</span>
         </NavLink>
+    }
+
+    @if (CurrentUser?.CanEdit == true)
+    {
         <NavLink class="stitch-nav-item" href="notices">
             <span class="nav-icon-wrap"><i class="bi bi-envelope-paper"></i></span>
             <span class="nav-label">가정통신문</span>

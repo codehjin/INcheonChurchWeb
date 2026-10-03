@@ -305,13 +305,15 @@
             <div class="modal-content border-0" style="border-radius: 0.9rem; overflow: hidden;">
                 <div class="modal-header border-0" style="background: var(--surface-low);">
                     <h5 class="modal-title fw-bold" style="color: var(--on-surface);">
-                        <i class="bi @(_editing.Id == 0 ? "bi-plus-circle" : "bi-pencil-square") me-1" style="color: var(--primary-gold);"></i>
-                        @(_editing.Id == 0 ? "계획 추가" : "계획 수정")
+                        <i class="bi @(_editing.Id == 0 ? "bi-plus-circle" : _canEdit ? "bi-pencil-square" : "bi-eye") me-1" style="color: var(--primary-gold);"></i>
+                        @(_editing.Id == 0 ? "계획 추가" : _canEdit ? "계획 수정" : "계획 보기")
                     </h5>
                     <button type="button" class="btn-close" @onclick="CloseModal"></button>
                 </div>
 
                 <div class="ap-modal-body">
+                    @* 교사·감사는 보기만 — 모든 칸을 잠근다 *@
+                    <fieldset style="border:0;margin:0;padding:0;min-width:0;" disabled="@(!_canEdit)">
                     <div class="ap-field">
                         <label>행사명</label>
                         <input class="ap-input" @bind="_editing.Title" @bind:after="LoadHistory" list="event-categories"
@@ -426,6 +428,7 @@
                             <option value="@PlanStatus.Closed">마감</option>
                         </select>
                     </div>
+                    </fieldset>
 
                     @if (!string.IsNullOrEmpty(_modalError))
                     {
@@ -437,14 +440,17 @@
 
                 <div class="modal-footer border-0" style="justify-content: space-between;">
                     <div>
-                        @if (_editing.Id != 0)
+                        @if (_editing.Id != 0 && _canEdit)
                         {
                             <button class="ap-del-btn" @onclick="DeletePlan"><i class="bi bi-trash me-1"></i>삭제</button>
                         }
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
-                        <button class="ap-ghost-btn" @onclick="CloseModal">취소</button>
-                        <button class="ap-gold-btn" @onclick="SavePlan">저장</button>
+                        <button class="ap-ghost-btn" @onclick="CloseModal">@(_canEdit ? "취소" : "닫기")</button>
+                        @if (_canEdit)
+                        {
+                            <button class="ap-gold-btn" @onclick="SavePlan">저장</button>
+                        }
                     </div>
                 </div>
             </div>
@@ -551,7 +557,7 @@
     private PlanStatus? _filterStatus = null; // null=전체
     private int _viewDeptId;                  // 현재 조회 중인 부서
     private string _currentDeptName = "";
-    private bool _canEdit;                    // Manager/Admin
+    private bool _canEdit;                    // Manager/Admin — 교사·감사는 계획 보기 창으로 읽기만
     private bool _canPickDept;               // Admin/Auditor → 부서 선택 가능
     private bool _isLoading = true;
 
@@ -766,6 +772,7 @@
 
     private async Task SavePlan()
     {
+        if (!_canEdit) return;   // 교사·감사는 보기만
         if (string.IsNullOrWhiteSpace(_editing.Title)) { _modalError = "행사명을 입력하세요."; return; }
         if (_editEndDate.HasValue && _editEndDate.Value < _editDate)
         {
@@ -791,7 +798,7 @@
 
     private async Task DeletePlan()
     {
-        if (_editing.Id == 0) return;
+        if (!_canEdit || _editing.Id == 0) return;
         bool ok = await JSRuntime.ConfirmAsync("이 계획을 삭제할까요?");
         if (!ok) return;
         await Accounting.DeleteAnnualPlanAsync(_editing.Id, CurrentUser?.Username);

@@ -61,7 +61,7 @@ else
     <div class="ma-header">
         <h2 class="ma-title">계획</h2>
         <button class="ma-icon-btn ma-push-right" title="검색" @onclick="ToggleSearch"><i class="bi bi-search"></i></button>
-        @if (CanEdit)
+        @if (_tab == "plan" ? CanEdit : CanAddMeetings)
         {
             <button class="ma-icon-btn" title="추가" @onclick="OpenAdd"><i class="bi bi-plus-lg"></i></button>
         }
@@ -156,7 +156,7 @@ else
             <div class="ma-empty">
                 <i class="bi bi-journal-x"></i>
                 <div class="main">작성된 회의록이 없습니다.</div>
-                @if (CanEdit)
+                @if (CanAddMeetings)
                 {
                     <button class="ma-btn secondary" @onclick="OpenAdd">기록 추가</button>
                 }
@@ -191,12 +191,14 @@ else
         <div class="ma-sheet" @onclick:stopPropagation="true">
             <div class="ma-handle"></div>
             <div class="ma-sheet-head">
-                <h3 class="ma-sheet-title">@(_planEdit.Id == 0 ? "계획 추가" : "계획 수정")</h3>
+                <h3 class="ma-sheet-title">@(_planEdit.Id == 0 ? "계획 추가" : CanEdit ? "계획 수정" : "계획 보기")</h3>
                 @if (_planEdit.Id != 0 && CanEdit)
                 {
                     <button class="ma-sheet-danger" @onclick="DeletePlan">삭제</button>
                 }
             </div>
+
+            <fieldset style="border:0;margin:0;padding:0;min-width:0;" disabled="@(!CanEdit)">
 
             <div class="ma-field">
                 <div class="ma-label">행사명</div>
@@ -268,14 +270,19 @@ else
                 </div>
             </div>
 
+            </fieldset>
+
             @if (_sheetError.Length > 0)
             {
                 <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_sheetError</div>
             }
 
             <div class="ma-actions">
-                <button class="ma-btn secondary narrow" @onclick="ClosePlanSheet">취소</button>
-                <button class="ma-btn primary" disabled="@_isSaving" @onclick="SavePlan">저장</button>
+                <button class="ma-btn secondary narrow" @onclick="ClosePlanSheet">@(CanEdit ? "취소" : "닫기")</button>
+                @if (CanEdit)
+                {
+                    <button class="ma-btn primary" disabled="@_isSaving" @onclick="SavePlan">저장</button>
+                }
             </div>
         </div>
     </div>
@@ -288,12 +295,14 @@ else
         <div class="ma-sheet" @onclick:stopPropagation="true">
             <div class="ma-handle"></div>
             <div class="ma-sheet-head">
-                <h3 class="ma-sheet-title">@(_meetingEdit.Id == 0 ? "기록 추가" : "회의록 수정")</h3>
-                @if (_meetingEdit.Id != 0 && CanEdit)
+                <h3 class="ma-sheet-title">@(_meetingEdit.Id == 0 ? "기록 추가" : _meetingCanChange ? "회의록 수정" : "회의록 보기")</h3>
+                @if (_meetingEdit.Id != 0 && _meetingCanChange)
                 {
                     <button class="ma-sheet-danger" @onclick="DeleteMeeting">삭제</button>
                 }
             </div>
+
+            <fieldset style="border:0;margin:0;padding:0;min-width:0;" disabled="@(!_meetingCanChange)">
 
             <div class="ma-field">
                 <div class="ma-label">회의 날짜</div>
@@ -340,14 +349,19 @@ else
                 </div>
             </div>
 
+            </fieldset>
+
             @if (_sheetError.Length > 0)
             {
                 <div class="ma-alert"><i class="bi bi-exclamation-circle"></i>@_sheetError</div>
             }
 
             <div class="ma-actions">
-                <button class="ma-btn secondary narrow" @onclick="CloseMeetingSheet">취소</button>
-                <button class="ma-btn primary" disabled="@_isSaving" @onclick="SaveMeeting">저장</button>
+                <button class="ma-btn secondary narrow" @onclick="CloseMeetingSheet">@(_meetingCanChange ? "취소" : "닫기")</button>
+                @if (_meetingCanChange)
+                {
+                    <button class="ma-btn primary" disabled="@_isSaving" @onclick="SaveMeeting">저장</button>
+                }
             </div>
         </div>
     </div>
@@ -382,8 +396,11 @@ else
     private DateTime? _meetingEventDate;
     private int? _meetingAttendees;
 
-    private bool CanView => CurrentUser?.CanEdit == true || CurrentUser?.CanViewAll == true;
+    // 교사도 연간계획·회의록을 본다. 계획은 부서운영자만 고치고, 회의록은 교사도 더한다 (자기 기록은 수정·삭제)
+    private bool CanView => CurrentUser?.CanViewPlanning == true;
     private bool CanEdit => CurrentUser?.CanEdit == true;
+    private bool CanAddMeetings => CurrentUser?.CanAddMeetings == true;
+    private bool _meetingCanChange;   // 열려 있는 회의록을 고칠 수 있는가
 
     private string PlanIncomeText
     {
@@ -477,7 +494,7 @@ else
 
     private void OpenAdd()
     {
-        if (!CanEdit) return;
+        if (_tab == "plan" ? !CanEdit : !CanAddMeetings) return;
         _sheetError = "";
         if (_tab == "plan")
         {
@@ -495,13 +512,14 @@ else
             _meetingPlanId = 0;
             _meetingEventDate = null;
             _meetingAttendees = null;
+            _meetingCanChange = true;
             _showMeetingSheet = true;
         }
     }
 
     private void OpenPlan(AnnualPlan p)
     {
-        if (!CanEdit) return;
+        // 보는 사람도 연다 — 칸은 잠겨 있다 (시트의 fieldset)
         _sheetError = "";
         _planEdit = new AnnualPlan
         {
@@ -521,7 +539,7 @@ else
 
     private void OpenMeeting(WeeklyMeeting m)
     {
-        if (!CanEdit) return;
+        _meetingCanChange = CurrentUser?.CanChangeMeeting(m) == true;   // 교사는 자기 기록만
         _sheetError = "";
         _meetingEdit = new WeeklyMeeting
         {
@@ -591,7 +609,7 @@ else
 
     private async Task SaveMeeting()
     {
-        if (!CanEdit || CurrentUser == null) return;
+        if (!_meetingCanChange || CurrentUser == null) return;
 
         if (string.IsNullOrWhiteSpace(_meetingEdit.FreeMemo)) { _sheetError = "회의 내용을 입력해주세요."; return; }
 
@@ -605,19 +623,21 @@ else
             _meetingEdit.ExpectedAttendees = _meetingAttendees;
             _meetingEdit.DepartmentId = CurrentUser.DepartmentId;
 
-            await Accounting.SaveWeeklyMeetingAsync(_meetingEdit, CurrentUser.Username);
+            await Accounting.SaveWeeklyMeetingAsync(_meetingEdit, CurrentUser);
             _showMeetingSheet = false;
             await LoadAsync();
         }
+        catch (UnauthorizedAccessException ex) { _sheetError = ex.Message; }
         finally { _isSaving = false; }
     }
 
     private async Task DeleteMeeting()
     {
-        if (!CanEdit || _meetingEdit.Id == 0 || CurrentUser == null) return;
+        if (!_meetingCanChange || _meetingEdit.Id == 0 || CurrentUser == null) return;
         if (!await JSRuntime.ConfirmAsync("이 회의록을 삭제하시겠습니까?")) return;
 
-        await Accounting.DeleteWeeklyMeetingAsync(_meetingEdit.Id, CurrentUser.Username);
+        try { await Accounting.DeleteWeeklyMeetingAsync(_meetingEdit.Id, CurrentUser); }
+        catch (UnauthorizedAccessException ex) { _sheetError = ex.Message; return; }
         _showMeetingSheet = false;
         await LoadAsync();
     }

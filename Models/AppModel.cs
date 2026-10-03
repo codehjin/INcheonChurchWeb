@@ -47,12 +47,48 @@ namespace INcheonChurchWeb.Models
         public bool IsAuditor => Role == "Auditor";
         public bool IsRegularUser => Role == "User";
 
+        /// <summary>
+        /// 교사. 저장값은 예전 '일반조회'와 같은 "User" 다 — 기존 계정이 그대로 교사가 된다 (2026-10-03).
+        /// 장부 열람 · 영수증 수집은 일반조회 시절 그대로, 여기에 연간계획 · 주간 회의록 · 행사보고서 열람과
+        /// 주간 회의록 추가(자기 기록은 수정·삭제)가 더해졌다.
+        /// </summary>
+        public bool IsTeacher => Role == "User";
+
+        /// <summary>
+        /// 🚀 부서운영자가 자기 부서에 계정(부서운영자·교사)을 추가할 수 있는가 — 최고관리자가 체크해 준다.
+        /// 최고관리자는 체크와 상관없이 모든 계정을 관리한다.
+        /// </summary>
+        public bool CanManageAccounts { get; set; } = false;
+
         // ── 기능별 권한 ────────────────────────────────────────
         public bool CanEdit => Role == "Manager" || Role == "Admin";
         public bool CanEditLedger => Role == "Admin" || Role == "Manager";
         public bool CanAccessDataCollection => Role == "Admin" || Role == "Manager" || Role == "User";
         public bool CanAccessExcelTab => Role == "Admin" || Role == "Manager";
         public bool CanViewAll => Role == "Admin" || Role == "Auditor";
+
+        /// <summary>연간계획 · 주간 회의록 · 행사보고서를 볼 수 있다 (교사는 보기 전용, 회의록만 추가 가능)</summary>
+        public bool CanViewPlanning => CanEdit || CanViewAll || IsTeacher;
+
+        /// <summary>주간 회의록에 새 기록을 더할 수 있다</summary>
+        public bool CanAddMeetings => CanEdit || IsTeacher;
+
+        /// <summary>이 회의록을 고치거나 지울 수 있다 — 부서운영자는 모두, 교사는 자기가 쓴 것만</summary>
+        public bool CanChangeMeeting(WeeklyMeeting meeting)
+            => CanEdit || (IsTeacher && !string.IsNullOrEmpty(meeting.CreatedBy) && meeting.CreatedBy == Username);
+
+        /// <summary>자기 부서에 계정을 추가할 수 있다 (최고관리자 또는 '계정추가'를 받은 부서운영자)</summary>
+        public bool CanAddAccounts => IsSystemAdmin || (Role == "Manager" && CanManageAccounts);
+
+        /// <summary>화면에 보일 역할 이름</summary>
+        public static string RoleLabel(string? role) => role switch
+        {
+            "Admin" => "최고관리자",
+            "Manager" => "부서운영자",
+            "Auditor" => "감사·국장",
+            "User" => "교사",
+            _ => "미정"
+        };
     }
 
     // 🚀 3. 회계 장부

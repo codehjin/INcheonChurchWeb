@@ -106,7 +106,10 @@
         <div class="ee-title">@_eventName 보고서@(_rounds.Count > 1 ? $" · {RoundLabel(_report)}" : "")</div>
         <div style="margin-left:auto; display:flex; gap:0.4rem;">
             <button class="ee-ghost-btn" @onclick="PrintReport"><i class="bi bi-printer me-1"></i>인쇄</button>
-            <button class="ee-gold-btn" @onclick="Save">저장</button>
+            @if (_canEdit)
+            {
+                <button class="ee-gold-btn" @onclick="Save">저장</button>
+            }
         </div>
     </div>
 
@@ -138,17 +141,29 @@
                 <button type="button" class="ee-round on">@RoundLabel(_report)</button>
             }
 
-            <button type="button" class="ee-round ee-round-add" @onclick="AddRound" title="이 행사를 한 번 더 했다면 회차를 추가하세요">
-                <i class="bi bi-plus-lg"></i> 회차 추가
-            </button>
+            @if (_canEdit)
+            {
+                <button type="button" class="ee-round ee-round-add" @onclick="AddRound" title="이 행사를 한 번 더 했다면 회차를 추가하세요">
+                    <i class="bi bi-plus-lg"></i> 회차 추가
+                </button>
 
-            <input class="ee-input" style="width:auto; min-width:8rem; margin-left:0.4rem; padding:0.3rem 0.6rem; font-size:0.85rem;"
-                   placeholder="회차 이름(선택)" @bind="_report.RoundTitle" @bind:event="oninput" />
+                <input class="ee-input" style="width:auto; min-width:8rem; margin-left:0.4rem; padding:0.3rem 0.6rem; font-size:0.85rem;"
+                       placeholder="회차 이름(선택)" @bind="_report.RoundTitle" @bind:event="oninput" />
+            }
         </div>
+        @if (!_canEdit)
+        {
+            <div class="ee-notice ee-no-print">
+                <i class="bi bi-eye me-1"></i>보기 전용입니다. 보고서는 부서운영자가 작성합니다.
+            </div>
+        }
         <div class="ee-notice ee-no-print">
             <i class="bi bi-lock me-1"></i>
             지출은 장부에서 자동 계산됩니다. 회차가 여럿이면 <b>행사 기간 안의 지출</b>만 잡히므로, 기간을 먼저 적어 주세요.
         </div>
+
+        @* 교사는 보기만 — 아래 입력 칸을 모두 잠근다 *@
+        <fieldset style="border:0;margin:0;padding:0;min-width:0;" disabled="@(!_canEdit)">
 
         @* ── 재정 요약 ── *@
         <div class="ee-card">
@@ -267,6 +282,8 @@
             </div>
         </div>
 
+        </fieldset>
+
         @if (!string.IsNullOrEmpty(_message))
         {
             <div class="ee-msg @(_isError ? "err" : "ok") ee-no-print">
@@ -276,14 +293,17 @@
 
         <div class="ee-no-print" style="display:flex; justify-content:space-between;">
             <div>
-                @if (_report.Id != 0)
+                @if (_report.Id != 0 && _canEdit)
                 {
                     <button class="ee-del-btn" @onclick="Delete"><i class="bi bi-trash me-1"></i>삭제</button>
                 }
             </div>
             <div style="display:flex; gap:0.4rem;">
                 <button class="ee-ghost-btn" @onclick="GoBack">목록으로</button>
-                <button class="ee-gold-btn" @onclick="Save">저장</button>
+                @if (_canEdit)
+                {
+                    <button class="ee-gold-btn" @onclick="Save">저장</button>
+                }
             </div>
         </div>
     }
@@ -299,6 +319,7 @@
     [SupplyParameterFromQuery(Name = "round")] public int? QRound { get; set; }
 
     private string _eventName = "";
+    private bool _canEdit;      // 부서운영자 · 최고관리자. 교사는 보기만
     private int _targetYear;
     private int _deptId;
     private string _deptName = "";
@@ -320,6 +341,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        _canEdit = CurrentUser?.CanEdit == true;
         _eventName = QEvent ?? "";
         _targetYear = QYear ?? DateTime.Now.Year;
         _deptId = QDept ?? CurrentUser?.DepartmentId ?? 0;
@@ -414,6 +436,7 @@
     /// </summary>
     private async Task AddRound()
     {
+        if (!_canEdit) return;
         _report = await Accounting.CreateNextRoundDraftAsync(_deptId, _targetYear, _eventName);
 
         _startDate = null;
@@ -425,6 +448,7 @@
 
     private async Task Save()
     {
+        if (!_canEdit) return;
         if (_endDate.HasValue && _startDate.HasValue && _endDate.Value < _startDate.Value)
         {
             _message = "종료일이 시작일보다 빠릅니다."; _isError = true; return;
@@ -451,7 +475,7 @@
 
     private async Task Delete()
     {
-        if (_report.Id == 0) return;
+        if (!_canEdit || _report.Id == 0) return;
         bool ok = await JSRuntime.ConfirmAsync("이 보고서를 삭제할까요? (재정 내역은 그대로 남습니다)");
         if (!ok) return;
         await Accounting.DeleteEventReportAsync(_report.Id, CurrentUser?.Username);
