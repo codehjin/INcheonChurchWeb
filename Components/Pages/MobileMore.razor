@@ -54,6 +54,14 @@ else
                 <span class="mo-menu-label">행사 보고서</span>
                 <i class="bi bi-chevron-right ma-chevron"></i>
             </button>
+            @if (CanEdit)
+            {
+                <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/notices")'>
+                    <i class="bi bi-envelope-paper lead"></i>
+                    <span class="mo-menu-label">가정통신문</span>
+                    <i class="bi bi-chevron-right ma-chevron"></i>
+                </button>
+            }
             @if (CanEditLedger)
             {
                 <button type="button" class="ma-row tappable mo-menu" @onclick='() => Nav.NavigateTo("/matching")'>

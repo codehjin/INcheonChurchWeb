@@ -38,6 +38,14 @@ namespace INcheonChurchWeb.Data
         // 🚀 행사 목록에서 분류를 어떻게 다룰지 (대분류 묶기 / 행사 아님 제외)
         public DbSet<EventCategorySetting> EventCategorySettings { get; set; }
 
+        // 🚀 학부모 포털 원본 (공개분만 HomePublisher 가 home.db 로 내보낸다)
+        public DbSet<ParentNotice> ParentNotices { get; set; }
+        public DbSet<ParentNoticeWeek> ParentNoticeWeeks { get; set; }
+        public DbSet<ParentNoticeSection> ParentNoticeSections { get; set; }
+        public DbSet<ParentNoticeLink> ParentNoticeLinks { get; set; }
+        public DbSet<ParentPortalProfile> ParentPortalProfiles { get; set; }
+        public DbSet<ParentPortalAccount> ParentPortalAccounts { get; set; }
+
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -51,6 +59,7 @@ namespace INcheonChurchWeb.Data
             builder.Entity<Receipt>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<LedgerTransaction>().HasQueryFilter(e => !e.IsDeleted);
             builder.Entity<EventReport>().HasQueryFilter(e => !e.IsDeleted);
+            builder.Entity<ParentNotice>().HasQueryFilter(e => !e.IsDeleted);
 
             // ───────────────────────────────────────────────
             // 🚀 ExpenseResolution 1 : 1 LedgerTransaction
@@ -149,6 +158,39 @@ namespace INcheonChurchWeb.Data
             // 부서 안에서 분류명은 설정 한 줄씩만 갖는다.
             builder.Entity<EventCategorySetting>()
                 .HasIndex(s => new { s.DepartmentId, s.Name })
+                .IsUnique();
+
+            // ───────────────────────────────────────────────
+            // 🚀 학부모 포털
+            // ───────────────────────────────────────────────
+
+            // 부서 · 연 · 월에 통신문 한 건. 지운 통신문(소프트 삭제)은 빼고 따진다 —
+            // 지운 달에 새로 쓸 수 있어야 한다.
+            builder.Entity<ParentNotice>()
+                .HasIndex(n => new { n.DepartmentId, n.Year, n.Month })
+                .IsUnique()
+                .HasFilter("\"IsDeleted\" = 0");
+
+            builder.Entity<ParentNotice>()
+                .HasMany(n => n.Weeks).WithOne()
+                .HasForeignKey(w => w.ParentNoticeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ParentNotice>()
+                .HasMany(n => n.Sections).WithOne()
+                .HasForeignKey(s => s.ParentNoticeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ParentNotice>()
+                .HasMany(n => n.Links).WithOne()
+                .HasForeignKey(l => l.ParentNoticeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            builder.Entity<ParentPortalProfile>()
+                .Property(p => p.DepartmentId).ValueGeneratedNever();
+
+            builder.Entity<ParentPortalAccount>()
+                .HasIndex(a => a.Username)
                 .IsUnique();
         }
 

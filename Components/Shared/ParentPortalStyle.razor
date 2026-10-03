@@ -1,0 +1,84 @@
+@* 학부모 포털 작성 화면 4개(/notices · /notices/edit · /notices/profile · /parent-accounts)가 함께 쓰는 스타일.
+   행사 보고서(er-·ee-) 화면과 같은 토큰·모양을 따른다. *@
+<style>
+    .pn-wrap { max-width: 960px; margin: 0 auto; padding: 1.5rem 0.5rem 3rem; }
+
+    .pn-head { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+    .pn-back { background: none; border: none; color: var(--on-surface-muted); font-size: 1.15rem; cursor: pointer; padding: 0.2rem; }
+    .pn-title { font-weight: 700; color: #1b1c15; font-family: 'Manrope', sans-serif; font-size: clamp(1.35rem, 2.5vw, 1.85rem); letter-spacing: -0.02em; margin: 0; }
+    .pn-sub { color: #4e4637; font-size: 0.95rem; margin: 0.2rem 0 0; }
+    .pn-head-actions { margin-left: auto; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+    .pn-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
+    .pn-select, .pn-input {
+        height: 38px; border: 1px solid var(--outline-variant); border-radius: 0.45rem;
+        padding: 0 0.7rem; background: var(--surface-lowest); font-size: 0.9rem; color: var(--on-surface);
+    }
+    .pn-input { width: 100%; }
+    textarea.pn-input { height: auto; padding: 0.55rem 0.7rem; resize: vertical; line-height: 1.6; }
+
+    .pn-notice {
+        background: var(--surface-low); border-radius: 0.5rem; padding: 0.65rem 0.9rem;
+        font-size: 0.8rem; color: var(--on-surface-sub); margin-bottom: 1rem; line-height: 1.55;
+    }
+    .pn-notice.warn { background: #fff4e0; color: #7a4a00; }
+
+    .pn-card { background: var(--surface-lowest); border-radius: 0.7rem; padding: 1rem 1.15rem; box-shadow: var(--shadow-ambient); margin-bottom: 1rem; }
+    .pn-card-label { font-size: 0.8rem; font-weight: 800; color: var(--primary-gold); margin-bottom: 0.7rem; letter-spacing: 0.02em; line-height: 1.5; }
+    .pn-card-label .hint { font-weight: 500; color: var(--on-surface-muted); font-size: 0.72rem; letter-spacing: 0; margin-left: 0.35rem; }
+
+    .pn-field { margin-bottom: 0.8rem; }
+    .pn-field label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--on-surface-sub); margin-bottom: 0.3rem; }
+    .pn-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .pn-row3 { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 0.7rem; }
+
+    .pn-gold-btn { background: var(--gold-gradient); color: #fff; border: none; border-radius: 0.45rem; padding: 0.5rem 1.1rem; font-size: 0.87rem; font-weight: 700; cursor: pointer; }
+    .pn-ghost-btn { background: var(--surface-lowest); color: var(--on-surface-sub); border: 1px solid var(--outline-variant); border-radius: 0.45rem; padding: 0.5rem 1rem; font-size: 0.87rem; font-weight: 700; cursor: pointer; }
+    .pn-del-btn { background: transparent; color: var(--error); border: 1px solid var(--error); border-radius: 0.45rem; padding: 0.5rem 0.9rem; font-size: 0.83rem; font-weight: 700; cursor: pointer; }
+    .pn-add-btn { border: 1px dashed var(--outline-variant); background: transparent; color: #5a4000; border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+    .pn-icon-btn { border: 1px solid var(--outline-variant); background: var(--surface-lowest); color: var(--on-surface-muted); border-radius: 0.4rem; width: 30px; height: 30px; font-size: 0.8rem; cursor: pointer; line-height: 1; flex-shrink: 0; }
+    .pn-icon-btn:hover { color: var(--error); border-color: var(--error); }
+    button:disabled { opacity: 0.5; cursor: default; }
+
+    .pn-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; font-size: 0.72rem; font-weight: 700; white-space: nowrap; display: inline-block; }
+    .pn-badge.none { background: transparent; color: var(--on-surface-muted); border: 1px dashed var(--outline-variant); }
+    .pn-badge.draft { background: var(--surface-high); color: var(--on-surface-sub); }
+    .pn-badge.live { background: #dceafe; color: #1a4a7a; }
+    .pn-badge.warn { background: #ffe1d6; color: #9a2a00; }
+
+    .pn-msg { font-size: 0.82rem; margin-bottom: 0.7rem; white-space: pre-line; }
+    .pn-msg.err { color: var(--error); }
+    .pn-msg.ok { color: #4a7a4a; }
+
+    .pn-table { width: 100%; border-collapse: collapse; background: var(--surface-lowest); border-radius: 0.7rem; overflow: hidden; box-shadow: var(--shadow-ambient); }
+    .pn-table th, .pn-table td { padding: 0.65rem 0.8rem; text-align: left; border-bottom: 1px solid var(--outline-variant); vertical-align: middle; }
+    .pn-table th { font-size: 0.72rem; font-weight: 700; color: var(--primary-gold); background: var(--surface); white-space: nowrap; }
+    .pn-table tbody tr:last-child td { border-bottom: none; }
+    .pn-table tbody tr.clickable { cursor: pointer; }
+    .pn-table tbody tr.clickable:hover { background: var(--surface); }
+    .pn-table tr.now td { background: #fffaf0; }
+    .pn-muted { color: var(--on-surface-muted); font-size: 0.8rem; }
+
+    /* 일정표 — 넓은 화면은 한 줄, 좁은 화면은 칸을 두 줄씩 쌓는다 (가로 스크롤 없음) */
+    .pn-week { display: grid; grid-template-columns: 140px 1.2fr 1.6fr 0.9fr 0.8fr 0.8fr 30px; gap: 0.4rem; align-items: center; margin-bottom: 0.4rem; }
+    .pn-week-head { font-size: 0.7rem; font-weight: 700; color: var(--on-surface-muted); }
+    .pn-week .pn-input { height: 34px; font-size: 0.85rem; padding: 0 0.5rem; }
+
+    .pn-sec { border: 1px solid var(--outline-variant); border-radius: 0.55rem; padding: 0.7rem; margin-bottom: 0.6rem; }
+    .pn-sec-head { display: flex; gap: 0.4rem; margin-bottom: 0.45rem; }
+    .pn-link { display: grid; grid-template-columns: 1fr 2fr 30px; gap: 0.4rem; margin-bottom: 0.4rem; }
+
+    .pn-secret { background: #fffaf0; border: 2px solid var(--primary-dim); border-radius: 0.6rem; padding: 0.9rem 1rem; margin-bottom: 1rem; }
+    .pn-secret code { font-size: 1.1rem; font-weight: 800; color: #5a4000; background: none; }
+
+    .pn-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
+
+    @@media (max-width: 720px) {
+        .pn-week { grid-template-columns: 1fr 1fr; padding: 0.55rem; border: 1px solid var(--outline-variant); border-radius: 0.55rem; margin-bottom: 0.55rem; }
+        .pn-week-head { display: none; }
+        .pn-week .pn-icon-btn { justify-self: end; grid-column: 2; }
+        .pn-row2, .pn-row3 { grid-template-columns: 1fr; gap: 0; }
+        .pn-link { grid-template-columns: 1fr 30px; }
+        .pn-link .pn-link-url { grid-column: 1 / 2; }
+    }
+</style>

@@ -1,0 +1,183 @@
+@page "/notices/profile"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject ParentPortalService Portal
+@inject NavigationManager Nav
+@rendermode InteractiveServer
+
+<PageTitle>부서 소개 · 가정통신문</PageTitle>
+
+<ParentPortalStyle />
+
+<div class="pn-wrap" style="max-width:760px;">
+
+    @if (CurrentUser?.CanEdit != true)
+    {
+        <div class="pn-empty">부서 소개는 부서운영자 이상만 고칠 수 있습니다.</div>
+    }
+    else if (_isLoading)
+    {
+        <div class="pn-empty">불러오는 중…</div>
+    }
+    else
+    {
+        <div class="pn-head">
+            <button class="pn-back" @onclick="GoBack" title="가정통신문 목록으로"><i class="bi bi-arrow-left"></i></button>
+            <div>
+                <h2 class="pn-title">@_deptName 부서 소개</h2>
+                <p class="pn-sub">
+                    모든 가정통신문의 머리말·꼬리말·연락처로 붙습니다. 저장하면 바로 학부모 사이트에 반영됩니다.
+                </p>
+            </div>
+        </div>
+
+        @if (_p.UpdatedAt != null)
+        {
+            <div class="pn-notice @(_p.HomeSynced ? "" : "warn")">
+                마지막 저장 @_p.UpdatedAt.Value.ToString("yyyy-MM-dd HH:mm") · @_p.UpdatedBy ·
+                @(_p.HomeSynced ? "학부모 사이트에 반영됨" : "⚠ 학부모 사이트에 아직 반영되지 않았습니다 — 다시 저장해 주세요")
+            </div>
+        }
+
+        <div class="pn-card">
+            <div class="pn-card-label">머리말 · 꼬리말</div>
+            <div class="pn-field">
+                <label>부서 이름 <span class="pn-muted">(비우면 "@_deptName")</span></label>
+                <input class="pn-input" @bind="_p.DisplayName" placeholder="예: 하나온 유년부" />
+            </div>
+            <div class="pn-field">
+                <label>표어</label>
+                <input class="pn-input" @bind="_p.Motto" placeholder="예: 한마음으로 사랑하고, 한뜻으로 하나되자!" />
+            </div>
+            <div class="pn-field" style="margin-bottom:0;">
+                <label>표어 말씀</label>
+                <textarea class="pn-input" rows="2" @bind="_p.MottoVerse"
+                          placeholder="예: 그렇다면 서로 한 마음으로 사랑을 나누고 한 뜻으로 하나가 되십시오. (빌립보서 2장 2절)"></textarea>
+            </div>
+        </div>
+
+        <div class="pn-card">
+            <div class="pn-card-label">바로가기 <span class="hint">학부모 화면에 버튼으로 나옵니다 (종이 통신문의 QR 자리)</span></div>
+            <div class="pn-row2">
+                <div class="pn-field">
+                    <label>오픈채팅방 주소</label>
+                    <input class="pn-input" @bind="_p.OpenChatUrl" placeholder="https://open.kakao.com/o/..." />
+                </div>
+                <div class="pn-field">
+                    <label>오픈채팅방 참여코드</label>
+                    <input class="pn-input" @bind="_p.OpenChatCode" placeholder="예: 9191" />
+                </div>
+            </div>
+            <div class="pn-field">
+                <label>유튜브 주소</label>
+                <input class="pn-input" @bind="_p.YouTubeUrl" placeholder="https://www.youtube.com/@@..." />
+            </div>
+            <div class="pn-field" style="margin-bottom:0;">
+                <label>부서 사진첩 (구글포토 공유 앨범)</label>
+                <input class="pn-input" @bind="_p.PhotoAlbumUrl" placeholder="https://photos.app.goo.gl/..." />
+                <div class="pn-muted" style="margin-top:0.35rem; line-height:1.5;">
+                    부서 구글 계정의 구글포토 앨범에서 [공유] → [링크 복사]한 주소를 붙여 넣으세요.
+                    주소를 아는 사람은 누구나 볼 수 있으니, 앨범 공유 설정에서 <b>'공동작업'은 꺼 두세요</b>.
+                    계정 비밀번호는 여기에 적지 않습니다.
+                </div>
+            </div>
+        </div>
+
+        <div class="pn-card">
+            <div class="pn-card-label"><i class="bi bi-shield-lock"></i> 연락처 <span class="hint">학부모 화면에는 이 두 분의 연락처만 실립니다 (학년별 선생님 연락처는 싣지 않습니다)</span></div>
+            <div class="pn-row3">
+                <div class="pn-field">
+                    <label>직함</label>
+                    <input class="pn-input" @bind="_p.MinisterTitle" placeholder="전도사" />
+                </div>
+                <div class="pn-field">
+                    <label>이름</label>
+                    <input class="pn-input" @bind="_p.MinisterName" />
+                </div>
+                <div class="pn-field">
+                    <label>연락처</label>
+                    <input class="pn-input" type="tel" @bind="_p.MinisterPhone" placeholder="010-0000-0000" />
+                </div>
+            </div>
+            <div class="pn-row3">
+                <div class="pn-field" style="margin-bottom:0;">
+                    <label>직함</label>
+                    <input class="pn-input" value="부장" disabled />
+                </div>
+                <div class="pn-field" style="margin-bottom:0;">
+                    <label>이름</label>
+                    <input class="pn-input" @bind="_p.HeadName" />
+                </div>
+                <div class="pn-field" style="margin-bottom:0;">
+                    <label>연락처</label>
+                    <input class="pn-input" type="tel" @bind="_p.HeadPhone" placeholder="010-0000-0000" />
+                </div>
+            </div>
+            @if (_p.UpdatedAt == null && (_p.MinisterName != null || _p.HeadName != null))
+            {
+                <div class="pn-muted" style="margin-top:0.5rem;">이름은 환경설정의 임원 명단(교역자 · 부장)에서 가져왔습니다. 연락처는 직접 적어 주세요.</div>
+            }
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="pn-msg @(_isError ? "err" : "ok")">
+                <i class="bi @(_isError ? "bi-exclamation-circle" : "bi-check-circle") me-1"></i>@_message
+            </div>
+        }
+
+        <div style="display:flex; justify-content:flex-end; gap:0.4rem;">
+            <button class="pn-ghost-btn" @onclick="GoBack">목록으로</button>
+            <button class="pn-gold-btn" @onclick="Save" disabled="@_busy">저장</button>
+        </div>
+    }
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    [SupplyParameterFromQuery(Name = "dept")] public int? QDept { get; set; }
+
+    private ParentPortalProfile _p = new();
+    private string _deptName = "";
+    private bool _isLoading = true;
+    private bool _busy;
+    private string _message = "";
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser?.CanEdit != true) return;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _isLoading = true;
+        _p = await Portal.GetProfileAsync(CurrentUser!, QDept ?? CurrentUser!.DepartmentId);
+        var depts = await Portal.GetPortalDepartmentsAsync();
+        _deptName = depts.FirstOrDefault(d => d.Id == _p.DepartmentId)?.Name ?? "";
+        _isLoading = false;
+    }
+
+    private async Task Save()
+    {
+        _busy = true;
+        try
+        {
+            var r = await Portal.SaveProfileAsync(CurrentUser!, _p);
+            await Load();
+            _message = r.Message;
+            _isError = !r.Delivered;
+        }
+        catch (Exception ex) when (ex is PortalValidationException or UnauthorizedAccessException)
+        {
+            _message = ex.Message;
+            _isError = true;
+        }
+        finally { _busy = false; }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/notices");
+}

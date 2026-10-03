@@ -1,4 +1,5 @@
-﻿using INcheonChurchWeb.Components;
+﻿using Church.Home.Data;
+using INcheonChurchWeb.Components;
 using INcheonChurchWeb.Data;
 using INcheonChurchWeb.Services;
 using Microsoft.AspNetCore.DataProtection;
@@ -71,8 +72,16 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
+// 🚀 학부모 포털 DB (home.db). 공개된 가정통신문만 여기로 내보낸다.
+//    학부모앱(ijch-school.kro.kr)은 이 파일만 읽기 전용으로 연다 — church.db 는 볼 수 없다.
+var homeConnectionString = builder.Configuration.GetConnectionString("HomeConnection") ?? "Data Source=homedata/home.db";
+builder.Services.AddDbContextFactory<HomeDbContext>(options =>
+    options.UseSqlite(homeConnectionString));
+
 builder.Services.AddScoped<AccountingService>();
 builder.Services.AddScoped<FileService>();
+builder.Services.AddScoped<HomePublisher>();
+builder.Services.AddScoped<ParentPortalService>();
 
 // 부서별 심야 자동 백업 서비스를 백그라운드 엔진에 등록
 builder.Services.AddHostedService<INcheonChurchWeb.Services.AutoBackupService>();
@@ -107,6 +116,22 @@ using (var scope = app.Services.CreateScope())
     using var db = dbFactory.CreateDbContext();
 
     DbInitializer.Initialize(db);
+
+    // 🚀 학부모 포털 DB 준비 + church.db 공개분으로 다시 채우기.
+    //    실패해도 재정앱은 그대로 뜬다 — 학부모 화면만 멈추고, 목록에 '미전달'이 뜬다.
+    try
+    {
+        var homeFactory = services.GetRequiredService<IDbContextFactory<HomeDbContext>>();
+        using (var home = homeFactory.CreateDbContext())
+            HomeDbInitializer.Initialize(home);
+
+        var resync = services.GetRequiredService<ParentPortalService>().ResyncAllOnStartupAsync().GetAwaiter().GetResult();
+        Console.WriteLine($"{(resync.Delivered ? "✅" : "⚠️")} 학부모 포털 DB: {resync.Message}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"⚠️ 학부모 포털 DB를 준비하지 못했습니다 (재정앱은 계속 동작): {ex.Message}");
+    }
 }
 
 app.Run();

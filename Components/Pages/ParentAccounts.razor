@@ -1,0 +1,188 @@
+@page "/parent-accounts"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject ParentPortalService Portal
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>학부모 계정 · 가정통신문</PageTitle>
+
+<ParentPortalStyle />
+
+<div class="pn-wrap" style="max-width:820px;">
+
+    @if (CurrentUser?.IsSystemAdmin != true)
+    {
+        <div class="pn-empty">학부모 계정은 최고 관리자만 관리할 수 있습니다.</div>
+    }
+    else
+    {
+        <div class="pn-head">
+            <button class="pn-back" @onclick='() => Nav.NavigateTo("/notices")' title="가정통신문 목록으로"><i class="bi bi-arrow-left"></i></button>
+            <div>
+                <h2 class="pn-title">학부모 계정</h2>
+                <p class="pn-sub">부서마다 공용 계정 하나를 단체방에 공지합니다. 이 아이디로는 재정 시스템에 들어올 수 없습니다.</p>
+            </div>
+        </div>
+
+        @if (_shown != null)
+        {
+            <div class="pn-secret">
+                <div style="font-weight:800; margin-bottom:0.4rem;"><i class="bi bi-megaphone me-1"></i>단체방에 공지할 내용</div>
+                <div>주소 <code>@ParentPortalService.ParentSiteUrl</code></div>
+                <div>아이디 <code>@_shown.Value.Username</code> · 비밀번호 <code>@_shown.Value.Password</code></div>
+                <div class="pn-muted" style="margin-top:0.4rem;">비밀번호는 암호화해서 저장하므로 이 화면을 벗어나면 다시 볼 수 없습니다. 지금 옮겨 적으세요.</div>
+            </div>
+        }
+
+        <table class="pn-table" style="margin-bottom:1.2rem;">
+            <thead>
+                <tr><th>부서</th><th>아이디</th><th>상태</th><th>학부모 사이트</th><th></th></tr>
+            </thead>
+            <tbody>
+                @if (!_accounts.Any())
+                {
+                    <tr><td colspan="5" class="pn-muted" style="text-align:center; padding:1.5rem;">아직 만든 계정이 없습니다.</td></tr>
+                }
+                @foreach (var a in _accounts)
+                {
+                    <tr>
+                        <td>@DeptName(a.DepartmentId)</td>
+                        <td style="font-weight:700;">@a.Username</td>
+                        <td>
+                            <span class="pn-badge @(a.IsActive ? "live" : "draft")">@(a.IsActive ? "사용 중" : "정지")</span>
+                        </td>
+                        <td>
+                            <span class="pn-badge @(a.HomeSynced ? "live" : "warn")">@(a.HomeSynced ? "반영됨" : "⚠ 미반영")</span>
+                        </td>
+                        <td style="white-space:nowrap; text-align:right;">
+                            <button class="pn-ghost-btn" style="padding:0.3rem 0.7rem; font-size:0.78rem;" disabled="@_busy" @onclick="() => ResetPassword(a)">비번 재발급</button>
+                            <button class="pn-ghost-btn" style="padding:0.3rem 0.7rem; font-size:0.78rem;" disabled="@_busy" @onclick="() => ToggleActive(a)">
+                                @(a.IsActive ? "정지" : "다시 열기")
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        <div class="pn-card">
+            <div class="pn-card-label">새 계정</div>
+            <div class="pn-row3" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="pn-field">
+                    <label>부서</label>
+                    <select class="pn-select" style="width:100%;" @bind="_newDeptId">
+                        @foreach (var d in _departments)
+                        {
+                            <option value="@d.Id">@d.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="pn-field">
+                    <label>아이디 <span class="pn-muted">(영문 소문자·숫자)</span></label>
+                    <input class="pn-input" @bind="_newUsername" placeholder="예: hanaon" />
+                </div>
+                <div class="pn-field">
+                    <label>비밀번호 <span class="pn-muted">(6자 이상)</span></label>
+                    <div style="display:flex; gap:0.3rem;">
+                        <input class="pn-input" @bind="_newPassword" autocomplete="new-password" />
+                        <button type="button" class="pn-ghost-btn" style="padding:0 0.6rem; white-space:nowrap;" @onclick="() => _newPassword = ParentPortalService.GeneratePassword()">자동</button>
+                    </div>
+                </div>
+            </div>
+            <button class="pn-gold-btn" @onclick="Create" disabled="@_busy">계정 만들기</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="pn-msg @(_isError ? "err" : "ok")">@_message</div>
+        }
+    }
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private List<ParentPortalAccount> _accounts = new();
+    private List<Department> _departments = new();
+
+    private int _newDeptId;
+    private string _newUsername = "";
+    private string _newPassword = "";
+
+    // 방금 만든·바꾼 비밀번호. 저장은 해시로만 하므로 지금 한 번만 보여 준다.
+    private (string Username, string Password)? _shown;
+
+    private bool _busy;
+    private string _message = "";
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser?.IsSystemAdmin != true) return;
+
+        _departments = await Portal.GetPortalDepartmentsAsync();
+        _newDeptId = _departments.FirstOrDefault()?.Id ?? 0;
+        _newPassword = ParentPortalService.GeneratePassword();
+        await Load();
+    }
+
+    private async Task Load() => _accounts = await Portal.GetAccountsAsync(CurrentUser!);
+
+    private string DeptName(int id) => _departments.FirstOrDefault(d => d.Id == id)?.Name ?? $"부서 {id}";
+
+    private async Task Create()
+    {
+        string username = _newUsername.Trim().ToLowerInvariant();
+        string password = _newPassword.Trim();
+
+        if (await Run(() => Portal.CreateAccountAsync(CurrentUser!, _newDeptId, username, password)))
+        {
+            _shown = (username, password);
+            _newUsername = "";
+            _newPassword = ParentPortalService.GeneratePassword();
+        }
+    }
+
+    private async Task ResetPassword(ParentPortalAccount a)
+    {
+        var pw = ParentPortalService.GeneratePassword();
+        if (!await JSRuntime.ConfirmAsync($"'{a.Username}' 비밀번호를 새로 만들까요?\n\n지금 쓰는 비밀번호는 바로 막힙니다. 단체방에 새 비밀번호를 다시 공지해야 합니다."))
+            return;
+
+        if (await Run(() => Portal.ResetAccountPasswordAsync(CurrentUser!, a.Id, pw)))
+            _shown = (a.Username, pw);
+    }
+
+    private async Task ToggleActive(ParentPortalAccount a)
+    {
+        string ask = a.IsActive
+            ? $"'{a.Username}' 계정을 정지할까요?\n\n학부모가 바로 로그인할 수 없게 됩니다 (비밀번호가 밖으로 퍼졌을 때 씁니다)."
+            : $"'{a.Username}' 계정을 다시 열까요?";
+        if (!await JSRuntime.ConfirmAsync(ask)) return;
+
+        await Run(() => Portal.SetAccountActiveAsync(CurrentUser!, a.Id, !a.IsActive));
+    }
+
+    private async Task<bool> Run(Func<Task<PortalOutcome>> action)
+    {
+        _busy = true;
+        try
+        {
+            var r = await action();
+            _message = r.Message;
+            _isError = !r.Delivered;
+            await Load();
+            return r.Saved;
+        }
+        catch (Exception ex) when (ex is PortalValidationException or UnauthorizedAccessException)
+        {
+            _message = ex.Message;
+            _isError = true;
+            return false;
+        }
+        finally { _busy = false; }
+    }
+}

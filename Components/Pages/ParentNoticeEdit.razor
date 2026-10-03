@@ -1,0 +1,311 @@
+@page "/notices/edit"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject ParentPortalService Portal
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>@(_month)월 가정통신문 · 인천중앙교회 재정 시스템</PageTitle>
+
+<ParentPortalStyle />
+
+<div class="pn-wrap">
+
+    @if (CurrentUser?.CanEdit != true)
+    {
+        <div class="pn-empty">가정통신문은 부서운영자 이상만 작성할 수 있습니다.</div>
+    }
+    else if (_isLoading)
+    {
+        <div class="pn-empty">불러오는 중…</div>
+    }
+    else
+    {
+        <div class="pn-head">
+            <button class="pn-back" @onclick="GoBack" title="목록으로"><i class="bi bi-arrow-left"></i></button>
+            <div>
+                <h2 class="pn-title">@_deptName @(_month)월 가정통신문</h2>
+                <p class="pn-sub">@(_year)년 · <span class="pn-badge @StatusCss">@StatusLabel</span></p>
+            </div>
+        </div>
+
+        @if (_n.IsPublished)
+        {
+            <div class="pn-notice">
+                <i class="bi bi-broadcast me-1"></i>
+                학부모에게 <b>공개 중</b>입니다. 고친 내용은 <b>[공개]</b>를 눌러야 저장되고 바로 반영됩니다.
+                학부모 몰래 고쳐 두려면 먼저 <b>[비공개로 전환]</b>하세요.
+            </div>
+        }
+        else
+        {
+            <div class="pn-notice">
+                <i class="bi bi-lock me-1"></i>
+                <b>[임시저장]</b>은 학부모에게 보이지 않습니다. 다 쓰면 <b>[공개]</b>를 누르세요.
+                머리말·표어·연락처(전도사·부장)·사진첩은 <a href="@($"/notices/profile?dept={_n.DepartmentId}")">부서 소개</a>에서 한 번만 적습니다.
+            </div>
+        }
+
+        @* ── 인사말 ── *@
+        <div class="pn-card">
+            <div class="pn-card-label">인사말 · 이달의 안내 <span class="hint">「」로 감싼 말은 학부모 화면에서 강조됩니다</span></div>
+            <textarea class="pn-input" rows="5" @bind="_n.Greeting"
+                      placeholder="샬롬! 주님의 이름으로 문안드립니다.&#10;4월은 「봄맞이 야외예배」가 진행됩니다."></textarea>
+        </div>
+
+        @* ── 일정표 ── *@
+        <div class="pn-card">
+            <div class="pn-card-label">일정표 <span class="hint">주일마다 한 줄 · 활동 칸은 연간계획 행사로 미리 채워집니다 · 다 비어 있는 열은 학부모 화면에서 숨겨집니다</span></div>
+
+            <div class="pn-week pn-week-head">
+                <span>날짜</span><span>말씀</span><span>제목</span><span>활동</span><span>봉헌</span><span>대표기도</span><span></span>
+            </div>
+            @foreach (var w in _n.Weeks)
+            {
+                <div class="pn-week" @key="w">
+                    <input type="date" class="pn-input" @bind="w.Date" />
+                    <input class="pn-input" @bind="w.Scripture" placeholder="말씀 (마태복음 28:5~10)" />
+                    <input class="pn-input" @bind="w.SermonTitle" placeholder="제목" />
+                    <input class="pn-input" @bind="w.Activity" placeholder="활동" />
+                    <input class="pn-input" @bind="w.Offering" placeholder="봉헌" />
+                    <input class="pn-input" @bind="w.Prayer" placeholder="대표기도" />
+                    <button type="button" class="pn-icon-btn" title="이 줄 빼기" @onclick="() => _n.Weeks.Remove(w)"><i class="bi bi-x-lg"></i></button>
+                </div>
+            }
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap; margin:0.5rem 0 0.8rem;">
+                <button type="button" class="pn-add-btn" @onclick="AddWeek"><i class="bi bi-plus-lg"></i> 줄 추가</button>
+                <button type="button" class="pn-add-btn" @onclick="FillActivities" title="비어 있는 활동 칸만 채웁니다. 적어 둔 칸은 건드리지 않습니다.">
+                    <i class="bi bi-calendar-event"></i> 빈 활동 칸을 연간계획으로 채우기
+                </button>
+            </div>
+            <input class="pn-input" @bind="_n.ScheduleNote" placeholder="표 아래 메모 (예: 활동약어 : 반(반별활동), 생(생일잔치), 레(레크레이션))" />
+        </div>
+
+        @* ── 안내 꼭지 ── *@
+        <div class="pn-card">
+            <div class="pn-card-label">안내 <span class="hint">예: 봄맞이 야외예배 안내 · 달란트 프로그램 안내</span></div>
+            @foreach (var s in _n.Sections)
+            {
+                <div class="pn-sec" @key="s">
+                    <div class="pn-sec-head">
+                        <input class="pn-input" @bind="s.Title" placeholder="제목" style="font-weight:700;" />
+                        <button type="button" class="pn-icon-btn" title="위로" disabled="@(_n.Sections.IndexOf(s) == 0)" @onclick="() => MoveSection(s, -1)"><i class="bi bi-arrow-up"></i></button>
+                        <button type="button" class="pn-icon-btn" title="빼기" @onclick="() => _n.Sections.Remove(s)"><i class="bi bi-x-lg"></i></button>
+                    </div>
+                    <textarea class="pn-input" rows="4" @bind="s.Body" placeholder="내용 — 줄바꿈이 그대로 보입니다"></textarea>
+                </div>
+            }
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <button type="button" class="pn-add-btn" @onclick="AddSection"><i class="bi bi-plus-lg"></i> 안내 추가</button>
+                <button type="button" class="pn-add-btn" @onclick="CopyPreviousSections"><i class="bi bi-clipboard"></i> 지난 통신문 안내 가져오기</button>
+            </div>
+        </div>
+
+        @* ── 사진 링크 ── *@
+        <div class="pn-card">
+            <div class="pn-card-label">이달의 사진 <span class="hint">구글포토 앨범 → [공유] → [링크 복사]한 주소 (https://photos.app.goo.gl/…)</span></div>
+            @foreach (var l in _n.Links)
+            {
+                <div class="pn-link" @key="l">
+                    <input class="pn-input" @bind="l.Title" placeholder="제목 (예: 3월 부활절 사진)" />
+                    <input class="pn-input pn-link-url" @bind="l.Url" placeholder="https://photos.app.goo.gl/..." />
+                    <button type="button" class="pn-icon-btn" title="빼기" @onclick="() => _n.Links.Remove(l)"><i class="bi bi-x-lg"></i></button>
+                </div>
+            }
+            <button type="button" class="pn-add-btn" @onclick="AddLink"><i class="bi bi-plus-lg"></i> 링크 추가</button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="pn-msg @(_isError ? "err" : "ok")">
+                <i class="bi @(_isError ? "bi-exclamation-circle" : "bi-check-circle") me-1"></i>@_message
+            </div>
+        }
+
+        <div style="display:flex; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+            <div>
+                @if (_n.Id != 0)
+                {
+                    <button class="pn-del-btn" @onclick="Delete" disabled="@_busy"><i class="bi bi-trash me-1"></i>삭제</button>
+                }
+            </div>
+            <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+                <button class="pn-ghost-btn" @onclick="GoBack">목록으로</button>
+                @if (_n.IsPublished)
+                {
+                    <button class="pn-ghost-btn" @onclick="Unpublish" disabled="@_busy">비공개로 전환</button>
+                    <button class="pn-gold-btn" @onclick="Publish" disabled="@_busy"><i class="bi bi-broadcast me-1"></i>공개 (고친 내용 반영)</button>
+                }
+                else
+                {
+                    <button class="pn-ghost-btn" @onclick="SaveDraft" disabled="@_busy">임시저장</button>
+                    <button class="pn-gold-btn" @onclick="Publish" disabled="@_busy"><i class="bi bi-broadcast me-1"></i>공개</button>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    [SupplyParameterFromQuery(Name = "year")] public int? QYear { get; set; }
+    [SupplyParameterFromQuery(Name = "month")] public int? QMonth { get; set; }
+    [SupplyParameterFromQuery(Name = "dept")] public int? QDept { get; set; }
+
+    private int _year;
+    private int _month;
+    private string _deptName = "";
+    private bool _isLoading = true;
+    private bool _busy;
+
+    private ParentNotice _n = new();
+
+    private string _message = "";
+    private bool _isError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser?.CanEdit != true) return;
+
+        _year = QYear ?? DateTime.Now.Year;
+        _month = QMonth is >= 1 and <= 12 ? QMonth.Value : DateTime.Now.Month;
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        _isLoading = true;
+        // 부서는 서비스가 권한에 맞게 좁힌다 — 화면에 보이는 부서도 돌려받은 값을 따른다
+        _n = await Portal.GetOrCreateDraftAsync(CurrentUser!, QDept ?? CurrentUser!.DepartmentId, _year, _month);
+        var depts = await Portal.GetPortalDepartmentsAsync();
+        _deptName = depts.FirstOrDefault(d => d.Id == _n.DepartmentId)?.Name ?? "";
+        _isLoading = false;
+    }
+
+    private string StatusCss => _n switch
+    {
+        { Id: 0 } => "none",
+        { HomeSynced: false } => "warn",
+        { IsPublished: true } => "live",
+        _ => "draft"
+    };
+
+    private string StatusLabel => _n switch
+    {
+        { Id: 0 } => "새로 쓰는 중",
+        { IsPublished: true, HomeSynced: false } => "⚠ 공개 · 학부모 사이트 미반영",
+        { IsPublished: false, HomeSynced: false } => "⚠ 비공개 · 학부모 화면에 남아 있음",
+        { IsPublished: true } => "공개 중",
+        _ => "임시저장"
+    };
+
+    // ── 일정표 ──
+
+    private void AddWeek()
+    {
+        var last = _n.Weeks.LastOrDefault()?.Date;
+        _n.Weeks.Add(new ParentNoticeWeek { Date = last?.AddDays(7) ?? new DateTime(_year, _month, 1) });
+    }
+
+    /// <summary>비어 있는 활동 칸만 연간계획으로 채운다. 날짜가 같은 줄끼리 맞춘다.</summary>
+    private async Task FillActivities()
+    {
+        var planned = await Portal.BuildWeeksAsync(CurrentUser!, _n.DepartmentId, _year, _month);
+        int filled = 0;
+        foreach (var w in _n.Weeks.Where(w => string.IsNullOrWhiteSpace(w.Activity)))
+        {
+            var p = planned.FirstOrDefault(x => x.Date.Date == w.Date.Date);
+            if (!string.IsNullOrWhiteSpace(p?.Activity)) { w.Activity = p.Activity; filled++; }
+        }
+        _message = filled > 0 ? $"활동 칸 {filled}개를 연간계획에서 채웠습니다." : "채울 연간계획 행사가 없습니다.";
+        _isError = false;
+    }
+
+    // ── 안내 · 링크 ──
+
+    private void AddSection() => _n.Sections.Add(new ParentNoticeSection());
+
+    private void MoveSection(ParentNoticeSection s, int delta)
+    {
+        int i = _n.Sections.IndexOf(s), j = i + delta;
+        if (i < 0 || j < 0 || j >= _n.Sections.Count) return;
+        (_n.Sections[i], _n.Sections[j]) = (_n.Sections[j], _n.Sections[i]);
+    }
+
+    private async Task CopyPreviousSections()
+    {
+        var prev = await Portal.GetPreviousSectionsAsync(CurrentUser!, _n.DepartmentId, _year, _month);
+        if (prev.Count == 0)
+        {
+            _message = "가져올 지난 통신문 안내가 없습니다."; _isError = false; return;
+        }
+        _n.Sections.AddRange(prev);
+        _message = $"지난 통신문의 안내 {prev.Count}개를 아래에 붙였습니다. 날짜 등을 고쳐 주세요.";
+        _isError = false;
+    }
+
+    private void AddLink() => _n.Links.Add(new ParentNoticeLink());
+
+    // ── 저장 · 공개 ──
+
+    private Task SaveDraft() => Run(() => Portal.SaveDraftAsync(CurrentUser!, _n));
+
+    private async Task Publish()
+    {
+        string ask = _n.IsPublished
+            ? "고친 내용을 학부모 화면에 바로 반영할까요?"
+            : $"{_month}월 가정통신문을 학부모에게 공개할까요?";
+        if (!await JSRuntime.ConfirmAsync(ask)) return;
+        await Run(() => Portal.PublishAsync(CurrentUser!, _n));
+    }
+
+    private async Task Unpublish()
+    {
+        if (!await JSRuntime.ConfirmAsync("학부모 화면에서 내리고 임시저장 상태로 돌릴까요?\n\n지금 화면에서 고친 내용은 저장되지 않습니다.")) return;
+        await Run(() => Portal.UnpublishAsync(CurrentUser!, _n.Id));
+    }
+
+    private async Task Delete()
+    {
+        if (!await JSRuntime.ConfirmAsync($"{_month}월 가정통신문을 삭제할까요?\n\n공개 중이면 학부모 화면에서도 내려갑니다.")) return;
+
+        var r = await Call(() => Portal.DeleteNoticeAsync(CurrentUser!, _n.Id));
+        if (r?.Saved == true) GoBack();
+    }
+
+    /// <summary>저장 계열 공통 — 결과 문구를 보여 주고 저장된 상태를 다시 읽는다.</summary>
+    private async Task Run(Func<Task<PortalOutcome>> action)
+    {
+        var r = await Call(action);
+        if (r?.Saved == true)
+        {
+            await Load();
+            _message = r.Message;
+            _isError = !r.Delivered;
+        }
+    }
+
+    private async Task<PortalOutcome?> Call(Func<Task<PortalOutcome>> action)
+    {
+        _busy = true;
+        try
+        {
+            var r = await action();
+            _message = r.Message;
+            _isError = !r.Saved;
+            return r;
+        }
+        catch (Exception ex) when (ex is PortalValidationException or UnauthorizedAccessException)
+        {
+            _message = ex.Message;
+            _isError = true;
+            return null;
+        }
+        finally { _busy = false; }
+    }
+
+    private void GoBack() => Nav.NavigateTo("/notices");
+}

@@ -1,4 +1,5 @@
 using Church.Home.Data;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace INcheonChurchWeb.Data
@@ -11,6 +12,14 @@ namespace INcheonChurchWeb.Data
     {
         public static void Initialize(HomeDbContext db)
         {
+            // SQLite 는 파일은 만들어도 폴더는 만들지 않는다 (기본 경로 homedata/home.db)
+            var path = new SqliteConnectionStringBuilder(db.Database.GetConnectionString()).DataSource;
+            if (!string.IsNullOrEmpty(path) && path != ":memory:")
+            {
+                var dir = Path.GetDirectoryName(Path.GetFullPath(path));
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+            }
+
             db.Database.Migrate();
 
             // 🔒 home.db 는 WAL 이면 안 된다.

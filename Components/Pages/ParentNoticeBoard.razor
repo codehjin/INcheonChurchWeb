@@ -1,0 +1,202 @@
+@page "/notices"
+@using INcheonChurchWeb.Models
+@using INcheonChurchWeb.Services
+@inject ParentPortalService Portal
+@inject NavigationManager Nav
+@inject IJSRuntime JSRuntime
+@rendermode InteractiveServer
+
+<PageTitle>가정통신문 · 인천중앙교회 재정 시스템</PageTitle>
+
+<ParentPortalStyle />
+
+<div class="pn-wrap">
+
+    @if (CurrentUser?.CanEdit != true)
+    {
+        <div class="pn-empty">가정통신문은 부서운영자 이상만 작성할 수 있습니다.</div>
+    }
+    else
+    {
+        <div class="pn-head">
+            <div>
+                <h2 class="pn-title">가정통신문</h2>
+                <p class="pn-sub">@_deptName · 공개하면 학부모 사이트(<b>@SiteHost</b>)에 올라갑니다.</p>
+            </div>
+            <div class="pn-head-actions">
+                <button class="pn-ghost-btn" @onclick="OpenProfile"><i class="bi bi-person-vcard me-1"></i>부서 소개</button>
+                @if (CurrentUser.IsSystemAdmin)
+                {
+                    <button class="pn-ghost-btn" @onclick='() => Nav.NavigateTo("/parent-accounts")'><i class="bi bi-key me-1"></i>학부모 계정</button>
+                }
+            </div>
+        </div>
+
+        <div class="pn-filters">
+            <select class="pn-select" @onchange="OnYearChanged">
+                @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                {
+                    <option value="@y" selected="@(y == _year)">@(y)년</option>
+                }
+            </select>
+
+            @if (CurrentUser.CanViewAll)
+            {
+                <select class="pn-select" @onchange="OnDeptChanged">
+                    @foreach (var d in _departments)
+                    {
+                        <option value="@d.Id" selected="@(d.Id == _deptId)">@d.Name</option>
+                    }
+                </select>
+            }
+        </div>
+
+        @if (!_profileSaved && !_isLoading)
+        {
+            <div class="pn-notice warn">
+                <i class="bi bi-info-circle me-1"></i>
+                아직 <b>부서 소개</b>가 없습니다. 머리말 이름 · 표어 · 오픈채팅 · 사진첩 · 전도사/부장 연락처를 한 번 적어 두면 모든 통신문에 붙습니다.
+                <button class="pn-add-btn ms-1" @onclick="OpenProfile">지금 적기</button>
+            </div>
+        }
+
+        @if (_notices.Any(n => !n.HomeSynced))
+        {
+            <div class="pn-notice warn">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                학부모 사이트에 아직 반영되지 않은 통신문이 있습니다. 해당 달을 열어 다시 누르거나, 관리자에게 [전체 재동기화]를 요청하세요.
+            </div>
+        }
+
+        @if (_isLoading)
+        {
+            <div class="pn-empty">불러오는 중…</div>
+        }
+        else
+        {
+            <table class="pn-table">
+                <thead>
+                    <tr>
+                        <th style="width:5rem;">월</th>
+                        <th>상태</th>
+                        <th>공개</th>
+                        <th>마지막 수정</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        int month = m;
+                        var n = _notices.FirstOrDefault(x => x.Month == month);
+                        bool isNow = _year == DateTime.Now.Year && (month == DateTime.Now.Month || month == DateTime.Now.Month % 12 + 1);
+
+                        <tr class="clickable @(isNow ? "now" : "")" @onclick="() => OpenMonth(month)">
+                            <td style="font-weight:800;">@(month)월</td>
+                            <td>
+                                @{ var (cls, label) = Status(n); }
+                                <span class="pn-badge @cls">@label</span>
+                            </td>
+                            <td class="pn-muted">@(n?.IsPublished == true && n.PublishedAt.HasValue ? n.PublishedAt.Value.ToString("M/d HH:mm") : "—")</td>
+                            <td class="pn-muted">@(n == null ? "—" : $"{(n.UpdatedAt ?? n.CreatedAt):M/d HH:mm} · {n.UpdatedBy ?? n.CreatedBy}")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            @if (CurrentUser.IsSystemAdmin)
+            {
+                <div style="margin-top:1.2rem; display:flex; align-items:center; gap:0.6rem; flex-wrap:wrap;">
+                    <button class="pn-ghost-btn" @onclick="ResyncAll" disabled="@_busy">
+                        <i class="bi bi-arrow-repeat me-1"></i>전체 재동기화
+                    </button>
+                    <span class="pn-muted">학부모 사이트를 모든 부서의 공개분과 똑같이 다시 맞춥니다. (재정앱이 다시 시작할 때도 자동으로 돕니다)</span>
+                </div>
+                @if (!string.IsNullOrEmpty(_message))
+                {
+                    <div class="pn-msg @(_isError ? "err" : "ok")" style="margin-top:0.6rem;">@_message</div>
+                }
+            }
+        }
+    }
+
+</div>
+
+@code {
+    [CascadingParameter] public User? CurrentUser { get; set; }
+
+    private int _year = DateTime.Now.Year;
+    private int _deptId;
+    private string _deptName = "";
+    private bool _isLoading = true;
+    private bool _profileSaved = true;
+    private bool _busy;
+    private string _message = "";
+    private bool _isError;
+
+    private List<Department> _departments = new();
+    private List<ParentNotice> _notices = new();
+
+    private static string SiteHost => new Uri(ParentPortalService.ParentSiteUrl).Host;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CurrentUser?.CanEdit != true) return;
+
+        _departments = await Portal.GetPortalDepartmentsAsync();
+        // 최고관리자는 '관리자' 부서 소속이라 그대로 두면 빈 목록이 뜬다 → 첫 부서로
+        _deptId = _departments.Any(d => d.Id == CurrentUser.DepartmentId)
+            ? CurrentUser.DepartmentId
+            : _departments.FirstOrDefault()?.Id ?? 0;
+
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        _isLoading = true;
+        _deptName = _departments.FirstOrDefault(d => d.Id == _deptId)?.Name ?? "";
+        _notices = await Portal.GetNoticesAsync(CurrentUser!, _deptId, _year);
+        _profileSaved = (await Portal.GetProfileAsync(CurrentUser!, _deptId)).UpdatedAt != null;
+        _isLoading = false;
+    }
+
+    /// <summary>목록의 상태 칸. 공개 여부와 학부모 사이트 반영 여부를 함께 보여 준다.</summary>
+    private static (string Css, string Label) Status(ParentNotice? n) => n switch
+    {
+        null => ("none", "미작성"),
+        { IsPublished: true, HomeSynced: true } => ("live", "공개 · 전달됨"),
+        { IsPublished: true, HomeSynced: false } => ("warn", "⚠ 공개 · 미전달"),
+        { IsPublished: false, HomeSynced: false } => ("warn", "⚠ 비공개 · 학부모 화면에 남아 있음"),
+        _ => ("draft", "임시저장")
+    };
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var y)) { _year = y; await LoadAll(); }
+    }
+
+    private async Task OnDeptChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id)) { _deptId = id; await LoadAll(); }
+    }
+
+    private void OpenMonth(int month) => Nav.NavigateTo($"/notices/edit?year={_year}&month={month}&dept={_deptId}");
+
+    private void OpenProfile() => Nav.NavigateTo($"/notices/profile?dept={_deptId}");
+
+    private async Task ResyncAll()
+    {
+        if (!await JSRuntime.ConfirmAsync("학부모 사이트를 지금 공개분과 똑같이 다시 맞출까요?\n\n임시저장 글은 넘어가지 않습니다."))
+            return;
+
+        _busy = true;
+        try
+        {
+            var r = await Portal.ResyncAllAsync(CurrentUser!);
+            _message = r.Message;
+            _isError = !r.Delivered;
+            await LoadAll();
+        }
+        finally { _busy = false; }
+    }
+}
