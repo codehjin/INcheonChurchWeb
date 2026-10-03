@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <!--
+    학부모 화면을 그리는 부품 (통신문 한 장 · 바로가기 · 연락처 · 표어 · 서식 본문) 과 그 스타일.
+    학부모앱(INcheonChurchWeb.Home)이 실제 화면에, 재정앱이 [미리보기]에 같은 부품을 쓴다 —
+    미리보기와 학부모가 보는 화면이 어긋날 수 없다.
+    🔒 Church.Home.Data 만 참조한다. 재정앱 모델은 들어오지 않는다.
+    스타일은 _content/Church.Home.Ui/home.css (학부모 화면 전체) · rich.css (서식 본문) 로 나간다.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Church.Home.Data\Church.Home.Data.csproj" />
+  </ItemGroup>
+
+</Project>

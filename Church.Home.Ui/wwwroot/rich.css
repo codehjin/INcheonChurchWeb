@@ -1,0 +1,67 @@
+/* =======================================================
+   가정통신문 서식 본문 (인사말 · 안내) — .hp-rich 안에서만.
+   재정앱 편집기와 학부모 화면이 같은 파일을 쓴다 — 쓰는 화면과 보이는 화면이 같게.
+   class 이름은 편집기(Quill)가 만들고, 허용 목록은 Church.Home.Data/RichText.cs 에 있다.
+   어두운 화면용 색은 학부모 화면(home.css)에서만 바꾼다 (재정앱은 밝은 화면뿐).
+
+   글꼴(구글 폰트 — 쓰인 글자만 받는다):
+   https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Myeongjo:wght@400;700;800&family=Nanum+Pen+Script&display=swap
+======================================================= */
+
+.hp-rich {
+    --rt-red: #d23c2a;
+    --rt-blue: #2c63d2;
+    --rt-green: #1f8f5f;
+    --rt-orange: #d9730d;
+    --rt-purple: #7b3fc4;
+    --rt-gray: #6b7280;
+    --rt-bg-yellow: #fff2a8;
+    --rt-bg-pink: #ffdfe6;
+    --rt-bg-lightblue: #dcebff;
+    --rt-bg-lightgreen: #d9f5e4;
+
+    white-space: pre-wrap;          /* 띄어쓰기를 여러 번 한 곳도 쓴 그대로 */
+    line-height: 1.75;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+
+.hp-rich p { margin: 0; min-height: 1.75em; }   /* 빈 줄도 한 줄 높이 */
+/* 말머리 목록 — 편집기 안(.ql-editor)은 Quill 이 자기 방식으로 그리므로 건드리지 않는다 */
+.hp-rich:not(.ql-editor) ul, .hp-rich:not(.ql-editor) ol { margin: 0.2em 0; padding-left: 1.5em; }
+.hp-rich:not(.ql-editor) li { margin: 0.1em 0; padding-left: 0.1em; }
+.hp-rich:not(.ql-editor) ul > li::marker { color: var(--rt-blue); }
+.hp-rich:not(.ql-editor) ol > li::marker { color: var(--rt-blue); font-weight: 700; }
+.hp-rich strong, .hp-rich b { font-weight: 800; }
+
+/* 글꼴 */
+.hp-rich .ql-font-myeongjo { font-family: 'Nanum Myeongjo', 'Batang', serif; }
+.hp-rich .ql-font-jua { font-family: 'Jua', 'Pretendard', sans-serif; }
+.hp-rich .ql-font-pen { font-family: 'Nanum Pen Script', cursive; font-size: 1.3em; line-height: 1.35; }
+
+/* 크기 */
+.hp-rich .ql-size-small { font-size: 0.85em; }
+.hp-rich .ql-size-large { font-size: 1.25em; }
+.hp-rich .ql-size-huge { font-size: 1.6em; line-height: 1.4; }
+
+/* 글자색 · 배경색 */
+.hp-rich .ql-color-red { color: var(--rt-red); }
+.hp-rich .ql-color-blue { color: var(--rt-blue); }
+.hp-rich .ql-color-green { color: var(--rt-green); }
+.hp-rich .ql-color-orange { color: var(--rt-orange); }
+.hp-rich .ql-color-purple { color: var(--rt-purple); }
+.hp-rich .ql-color-gray { color: var(--rt-gray); }
+.hp-rich .ql-bg-yellow { background-color: var(--rt-bg-yellow); }
+.hp-rich .ql-bg-pink { background-color: var(--rt-bg-pink); }
+.hp-rich .ql-bg-lightblue { background-color: var(--rt-bg-lightblue); }
+.hp-rich .ql-bg-lightgreen { background-color: var(--rt-bg-lightgreen); }
+.hp-rich [class*="ql-bg-"] { border-radius: 3px; padding: 0 0.1em; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+
+/* 정렬 · 들여쓰기 */
+.hp-rich .ql-align-center { text-align: center; }
+.hp-rich .ql-align-right { text-align: right; }
+.hp-rich .ql-align-justify { text-align: justify; }
+.hp-rich .ql-indent-1 { padding-left: 1.5em; }
+.hp-rich .ql-indent-2 { padding-left: 3em; }
+.hp-rich .ql-indent-3 { padding-left: 4.5em; }
+.hp-rich .ql-indent-4 { padding-left: 6em; }

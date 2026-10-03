@@ -1,6 +1,6 @@
 using Church.Home.Data;
 
-namespace INcheonChurchWeb.Home.Services
+namespace Church.Home.Ui
 {
     /// <summary>
     /// 통신문을 화면에 그릴 때 쓰는 글자 처리. HTML 을 만들지 않는다 —
@@ -41,7 +41,8 @@ namespace INcheonChurchWeb.Home.Services
         public static string Preview(string? greeting, int max = 70)
         {
             if (string.IsNullOrWhiteSpace(greeting)) return "";
-            var lines = greeting.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            // 서식 있는 글이면 글자만 뽑아서 (문단 하나가 한 줄)
+            var lines = RichText.ToPlainText(greeting).Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var line = lines.FirstOrDefault(l => l.Contains('「')) ?? lines.FirstOrDefault() ?? "";
             return line.Length <= max ? line : line[..max] + "…";
         }

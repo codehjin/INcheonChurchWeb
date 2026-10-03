@@ -5,6 +5,9 @@ using INcheonChurchWeb.Models;
 using Microsoft.EntityFrameworkCore;
 using PasswordHasher = Church.Home.Data.PasswordHasher;
 using SafeUrl = Church.Home.Data.SafeUrl;
+using RichText = Church.Home.Data.RichText;
+using HomeNotice = Church.Home.Data.Notice;
+using HomeProfile = Church.Home.Data.PortalProfile;
 
 namespace INcheonChurchWeb.Services
 {
@@ -222,6 +225,43 @@ namespace INcheonChurchWeb.Services
             };
         }
 
+        /// <summary>미리보기에 그릴 것 — 학부모 화면과 같은 모양으로 옮겨 적은 통신문 · 부서 소개 · 부서명.</summary>
+        public sealed record NoticePreview(HomeNotice Notice, HomeProfile? Profile, string DeptName);
+
+        /// <summary>
+        /// [미리보기] — 지금 편집 중인 내용을 학부모 화면에 나갈 모양 그대로 만든다. 저장하지 않는다.
+        /// 저장·공개와 같은 정리(Normalize)와 같은 옮겨 적기(HomePublisher.ToHome)를 거친다 —
+        /// 미리보기에 보이는 것이 곧 공개했을 때 학부모가 보는 것이다.
+        /// </summary>
+        public async Task<NoticePreview> BuildPreviewAsync(User actor, ParentNotice input)
+        {
+            int dept = EditDept(actor, input.DepartmentId);
+            var content = Normalize(input);
+
+            using var db = _dbFactory.CreateDbContext();
+            var profile = await db.ParentPortalProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.DepartmentId == dept);
+            string deptName = (await db.Departments.AsNoTracking().FirstOrDefaultAsync(d => d.Id == dept))?.Name ?? "";
+
+            var draft = new ParentNotice
+            {
+                Id = input.Id,
+                DepartmentId = dept,
+                Year = input.Year,
+                Month = input.Month,
+                Greeting = content.Greeting,
+                ScheduleNote = content.ScheduleNote,
+                Weeks = content.Weeks,
+                Sections = content.Sections,
+                Links = content.Links,
+                PublishedAt = DateTime.Now
+            };
+
+            return new NoticePreview(
+                HomePublisher.ToHome(draft),
+                profile == null ? null : HomePublisher.ToHome(profile, deptName),
+                deptName);
+        }
+
         /// <summary>[비공개로 전환] — 학부모 화면에서 내리고 임시저장 상태로 돌린다.</summary>
         public async Task<PortalOutcome> UnpublishAsync(User actor, int noticeId)
         {
@@ -291,7 +331,15 @@ namespace INcheonChurchWeb.Services
         /// 내용을 church.db 에 옮겨 적는다 (SaveChanges 는 호출부가). 자식 3종은 통째로 바꾼다.
         /// 빈 줄은 버리고, 링크 주소는 http(s) 만 받는다.
         /// </summary>
-        private static async Task<ParentNotice> SaveContentAsync(AppDbContext db, User actor, ParentNotice input)
+        /// <summary>저장·미리보기가 함께 쓰는 정리 결과.</summary>
+        private sealed record NoticeContent(string? Greeting, string? ScheduleNote,
+            List<ParentNoticeWeek> Weeks, List<ParentNoticeSection> Sections, List<ParentNoticeLink> Links);
+
+        /// <summary>
+        /// 입력을 저장할 모양으로 다듬는다 — 빈 줄은 버리고, 인사말·안내의 서식은 허용한 것만 남기고(RichText),
+        /// 링크 주소는 http(s) 만 받는다. 저장과 [미리보기]가 같은 규칙을 쓴다.
+        /// </summary>
+        private static NoticeContent Normalize(ParentNotice input)
         {
             CheckMonth(input.Month);
 
@@ -310,8 +358,9 @@ namespace INcheonChurchWeb.Services
                 }).ToList();
 
             var sections = input.Sections
-                .Where(s => !string.IsNullOrWhiteSpace(s.Title) || !string.IsNullOrWhiteSpace(s.Body))
-                .Select((s, i) => new ParentNoticeSection { Title = (s.Title ?? "").Trim(), Body = Clean(s.Body), SortOrder = i })
+                .Select(s => (Title: (s.Title ?? "").Trim(), Body: RichBody(s.Body, "안내 글이 너무 깁니다. 꼭지를 나눠 주세요.")))
+                .Where(s => s.Title.Length > 0 || s.Body != null)
+                .Select((s, i) => new ParentNoticeSection { Title = s.Title, Body = s.Body, SortOrder = i })
                 .ToList();
 
             var links = new List<ParentNoticeLink>();
@@ -327,6 +376,24 @@ namespace INcheonChurchWeb.Services
                     SortOrder = links.Count
                 });
             }
+
+            return new NoticeContent(
+                RichBody(input.Greeting, "인사말이 너무 깁니다. 일부를 안내 꼭지로 옮겨 주세요."),
+                Clean(input.ScheduleNote), weeks, sections, links);
+        }
+
+        /// <summary>인사말·안내 본문 — 서식은 허용한 것만, 빈 편집기는 빈 칸으로.</summary>
+        private static string? RichBody(string? content, string tooLongMessage)
+        {
+            var clean = RichText.Clean(content);
+            if (clean != null && clean.Length > RichText.MaxLength)
+                throw new PortalValidationException(tooLongMessage);
+            return clean;
+        }
+
+        private static async Task<ParentNotice> SaveContentAsync(AppDbContext db, User actor, ParentNotice input)
+        {
+            var content = Normalize(input);
 
             ParentNotice target;
             if (input.Id == 0)
@@ -360,11 +427,11 @@ namespace INcheonChurchWeb.Services
                 target.UpdatedBy = actor.Username;
             }
 
-            target.Greeting = Clean(input.Greeting);
-            target.ScheduleNote = Clean(input.ScheduleNote);
-            target.Weeks = weeks;
-            target.Sections = sections;
-            target.Links = links;
+            target.Greeting = content.Greeting;
+            target.ScheduleNote = content.ScheduleNote;
+            target.Weeks = content.Weeks;
+            target.Sections = content.Sections;
+            target.Links = content.Links;
             return target;
         }
 

@@ -56,8 +56,17 @@
     <EmbeddedResource Remove="Church.Home.Data/**" />
   </ItemGroup>
 
+  <!-- 통신문 화면 부품 — [미리보기]가 학부모 화면과 똑같이 그리도록 학부모앱과 같은 것을 쓴다 -->
+  <ItemGroup>
+    <Compile Remove="Church.Home.Ui/**" />
+    <Content Remove="Church.Home.Ui/**" />
+    <None Remove="Church.Home.Ui/**" />
+    <EmbeddedResource Remove="Church.Home.Ui/**" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="Church.Home.Data\Church.Home.Data.csproj" />
+    <ProjectReference Include="Church.Home.Ui\Church.Home.Ui.csproj" />
   </ItemGroup>
 
   <!-- 학부모앱은 별도 웹 프로젝트다 (재정앱과 서로 참조하지 않는다). 루트 글로빙에서 뺀다. -->

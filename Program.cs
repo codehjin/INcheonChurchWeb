@@ -88,6 +88,7 @@ builder.Services.AddScoped<AccountingService>();
 builder.Services.AddScoped<FileService>();
 builder.Services.AddScoped<HomePublisher>();
 builder.Services.AddScoped<ParentPortalService>();
+builder.Services.AddScoped<NoticePreviewRenderer>();
 
 // 부서별 심야 자동 백업 서비스를 백그라운드 엔진에 등록
 builder.Services.AddHostedService<INcheonChurchWeb.Services.AutoBackupService>();

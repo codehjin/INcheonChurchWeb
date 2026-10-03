@@ -1,0 +1,68 @@
+@* 가정통신문 서식 편집기 — 인사말 · 안내 본문 (Quill, wwwroot/js/rich-editor.js).
+   @bind-Value 로 쓴다. 편집기가 바뀐 내용을 잠시 뒤(그리고 편집기를 떠날 때) 올려 보낸다.
+   저장·공개·미리보기 직전에는 화면이 richEditor.flushAll 로 남은 것을 마저 올린다.
+   이 div 안은 Quill 이 채운다 — Blazor 는 빈 칸으로만 안다. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div class="rte-host" @ref="_host"></div>
+@if (_failed)
+{
+    <div class="pn-msg err">서식 편집기를 불러오지 못했습니다. 인터넷 연결을 확인하고 화면을 새로 고쳐 주세요.</div>
+}
+
+@code {
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+
+    private ElementReference _host;
+    private DotNetObjectReference<RichTextEditor>? _self;
+    private string? _id;
+    private string? _current;   // 편집기에 들어 있는 값 (편집기가 올려 보냈거나 우리가 넣은 것)
+    private bool _failed;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        _self = DotNetObjectReference.Create(this);
+        _current = Value;
+        try
+        {
+            _id = await JS.InvokeAsync<string>("richEditor.create", _host, RichText.ToEditorHtml(Value), Placeholder ?? "", _self);
+        }
+        catch (JSException)
+        {
+            _failed = true;
+            StateHasChanged();
+        }
+        catch (JSDisconnectedException) { }
+    }
+
+    /// <summary>밖에서 값이 바뀌었으면(다시 불러오기 등) 편집기 내용도 바꾼다.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_id == null || Value == _current) return;
+        _current = Value;
+        try { await JS.InvokeVoidAsync("richEditor.set", _id, RichText.ToEditorHtml(Value)); }
+        catch (JSDisconnectedException) { }
+    }
+
+    [JSInvokable]
+    public async Task OnEditorChanged(string html)
+    {
+        _current = string.IsNullOrEmpty(html) ? null : html;
+        await ValueChanged.InvokeAsync(_current);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_id != null)
+        {
+            try { await JS.InvokeVoidAsync("richEditor.destroy", _id); }
+            catch (JSDisconnectedException) { }
+        }
+        _self?.Dispose();
+    }
+}

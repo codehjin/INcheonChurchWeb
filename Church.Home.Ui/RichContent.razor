@@ -1,0 +1,18 @@
+@* 인사말 · 안내 본문.
+   서식 HTML(편집기로 쓴 글)이면 허용한 서식만 남겨 그리고 — 그릴 때 한 번 더 거른다 (RichText.ForDisplay).
+   서식 없는 글(예전 글)은 글자로 찍는다 — 줄바꿈 그대로, 「」 강조. *@
+@if (RichText.IsHtml(Content))
+{
+    <div class="hp-rich">@((MarkupString)RichText.ForDisplay(Content!))</div>
+}
+else if (!string.IsNullOrWhiteSpace(Content))
+{
+    <div class="@PlainClass"><HighlightedText Text="@Content" /></div>
+}
+
+@code {
+    [Parameter] public string? Content { get; set; }
+
+    /// <summary>서식 없는 글에 붙일 class (기본: 줄바꿈을 살리는 hp-body)</summary>
+    [Parameter] public string PlainClass { get; set; } = "hp-body";
+}

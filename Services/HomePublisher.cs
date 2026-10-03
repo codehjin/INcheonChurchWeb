@@ -102,7 +102,7 @@ namespace INcheonChurchWeb.Services
             DepartmentId = src.DepartmentId,
             Year = src.Year,
             Month = src.Month,
-            Greeting = Clean(src.Greeting),
+            Greeting = RichText.Clean(src.Greeting),     // 서식은 허용한 것만 (저장할 때 걸렀지만 내보내는 문 앞에서 한 번 더)
             ScheduleNote = Clean(src.ScheduleNote),
             PublishedAt = src.PublishedAt ?? DateTime.Now,
             Weeks = src.Weeks.OrderBy(w => w.SortOrder).Select((w, i) => new NoticeWeek
@@ -118,7 +118,7 @@ namespace INcheonChurchWeb.Services
             Sections = src.Sections.OrderBy(s => s.SortOrder).Select((s, i) => new NoticeSection
             {
                 Title = s.Title.Trim(),
-                Body = Clean(s.Body),
+                Body = RichText.Clean(s.Body),
                 SortOrder = i
             }).ToList(),
             // 저장할 때 이미 걸렀지만, 내보내는 문 앞에서 한 번 더 거른다.

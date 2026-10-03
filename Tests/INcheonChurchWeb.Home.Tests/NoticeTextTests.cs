@@ -1,6 +1,6 @@
 using Church.Home.Data;
 using INcheonChurchWeb.Home.Components.Pages;
-using INcheonChurchWeb.Home.Services;
+using Church.Home.Ui;
 
 namespace INcheonChurchWeb.Home.Tests;
 

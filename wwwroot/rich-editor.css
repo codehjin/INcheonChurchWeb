@@ -1,0 +1,66 @@
+/* =======================================================
+   가정통신문 서식 편집기 (Quill) — 툴바를 한글로, 색 견본을 실제 쓰는 색으로.
+   본문 서식 자체(글꼴·크기·색)는 _content/Church.Home.Ui/rich.css — 학부모 화면과 같은 파일.
+======================================================= */
+
+.rte-host { margin-bottom: 0.2rem; }
+
+.rte-host .ql-toolbar.ql-snow {
+    border: 1px solid var(--outline-variant); border-bottom: 0;
+    border-radius: 0.45rem 0.45rem 0 0; background: var(--surface-low);
+    padding: 6px; display: flex; flex-wrap: wrap; gap: 2px 4px;
+}
+.rte-host .ql-toolbar.ql-snow .ql-formats { margin-right: 6px; }
+.rte-host .ql-container.ql-snow {
+    border: 1px solid var(--outline-variant); border-radius: 0 0 0.45rem 0.45rem;
+    background: #fff; font-family: 'Pretendard', -apple-system, 'Malgun Gothic', sans-serif; font-size: 16px;
+}
+.rte-host .ql-editor { min-height: 150px; max-height: 60vh; overflow-y: auto; padding: 0.75rem 0.85rem; line-height: 1.75; color: #1f2933; }
+.rte-host .ql-editor.ql-blank::before { font-style: normal; color: var(--on-surface-muted); left: 0.85rem; right: 0.85rem; }
+.rte-host .ql-container.ql-snow:focus-within { border-color: #785600; box-shadow: 0 0 0 3px rgba(120, 86, 0, 0.12); }
+
+/* 폰에서 누르기 쉽게 */
+@media (max-width: 640px) {
+    .rte-host .ql-toolbar.ql-snow button { width: 32px; height: 32px; padding: 5px; }
+    .rte-host .ql-toolbar.ql-snow .ql-picker { height: 32px; }
+    .rte-host .ql-editor { min-height: 130px; }
+}
+
+/* ── 글꼴 고르기 ── */
+.rte-host .ql-snow .ql-picker.ql-font { width: 92px; }
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-label::before,
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-item::before { content: '기본 글꼴'; font-family: 'Pretendard', sans-serif; }
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="myeongjo"]::before,
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="myeongjo"]::before { content: '명조'; font-family: 'Nanum Myeongjo', serif; }
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="jua"]::before,
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="jua"]::before { content: '둥근체'; font-family: 'Jua', sans-serif; }
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="pen"]::before,
+.rte-host .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="pen"]::before { content: '손글씨'; font-family: 'Nanum Pen Script', cursive; font-size: 1.25em; }
+
+/* ── 크기 고르기 ── */
+.rte-host .ql-snow .ql-picker.ql-size { width: 82px; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item::before { content: '보통'; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="small"]::before { content: '작게'; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="large"]::before { content: '크게'; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before { content: '아주 크게'; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="small"]::before { font-size: 0.85em; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="large"]::before { font-size: 1.2em; }
+.rte-host .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before { font-size: 1.45em; }
+
+/* ── 색 견본 = 실제 글자색 (rich.css 와 같은 값) ── */
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="red"] { background-color: #d23c2a !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="blue"] { background-color: #2c63d2 !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="green"] { background-color: #1f8f5f !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="orange"] { background-color: #d9730d !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="purple"] { background-color: #7b3fc4 !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item[data-value="gray"] { background-color: #6b7280 !important; }
+.rte-host .ql-snow .ql-color-picker.ql-background .ql-picker-item[data-value="yellow"] { background-color: #fff2a8 !important; }
+.rte-host .ql-snow .ql-color-picker.ql-background .ql-picker-item[data-value="pink"] { background-color: #ffdfe6 !important; }
+.rte-host .ql-snow .ql-color-picker.ql-background .ql-picker-item[data-value="lightblue"] { background-color: #dcebff !important; }
+.rte-host .ql-snow .ql-color-picker.ql-background .ql-picker-item[data-value="lightgreen"] { background-color: #d9f5e4 !important; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-options { width: 128px; }
+.rte-host .ql-snow .ql-color-picker .ql-picker-item { width: 20px; height: 20px; margin: 3px; border-radius: 4px; }

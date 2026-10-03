@@ -66,6 +66,18 @@
         --hp-focus: rgba(130, 173, 255, 0.35);
         --hp-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
     }
+
+    /* 서식 본문의 글자색 — 어두운 바탕에서도 읽히게 밝게 */
+    .hp-rich {
+        --rt-red: #ff8f7f;
+        --rt-blue: #82adff;
+        --rt-green: #63d39d;
+        --rt-orange: #ffb05c;
+        --rt-purple: #c39bff;
+        --rt-gray: #a3adbb;
+    }
+    /* 형광펜(배경색)은 밝은 색 그대로 두고 글자만 어둡게 */
+    .hp-rich [class*="ql-bg-"], .hp-rich [class*="ql-bg-"] * { color: #1f2933; }
 }
 
 *, *::before, *::after { box-sizing: border-box; }

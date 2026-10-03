@@ -27,6 +27,8 @@
 
     @* 파일이 바뀌면 주소도 바뀌도록 수정 시각을 붙인다 (브라우저 캐시가 옛 파일을 물고 있는 문제 방지) *@
     <script src="@V("js/app.js")"></script>
+    @* 가정통신문 서식 편집기 — Quill 본체는 편집기를 처음 열 때만 불러온다 *@
+    <script src="@V("js/rich-editor.js")"></script>
 
     <script>
         /* [중요] App.razor 안에 직접 작성되어 있던 window.printPopup 관련

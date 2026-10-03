@@ -165,6 +165,35 @@ public class HomeSiteTests : IDisposable
     }
 
     [Fact]
+    public async Task 서식_있는_통신문은_허용한_서식만_그린다()
+    {
+        // home.db 에 걸러지지 않은 HTML 이 들어 있어도(다른 경로로 들어왔다고 쳐도) 그릴 때 다시 거른다
+        _db.Change(db =>
+        {
+            var n = db.Notices.Single(x => x.Id == 10);
+            n.Greeting = "<p class=\"ql-align-center\"><strong>샬롬!</strong> 「야외예배」</p><script>alert(1)</script><p onclick=\"x()\">둘째</p>";
+            n.Sections.Add(new Church.Home.Data.NoticeSection { Title = "준비물", Body = "<ul><li>성경책</li></ul><img src=x onerror=alert(2)>" });
+        });
+        using var client = Client();
+        await 로그인(client, "hanaon", "hanaon91");
+
+        var html = await client.GetStringAsync("/notice/10");
+
+        Assert.Contains("<strong>샬롬!</strong>", html);
+        Assert.Contains("ql-align-center", html);
+        Assert.Contains("<mark class=\"hp-em\">「야외예배」</mark>", html);
+        Assert.Contains("<li>성경책</li>", html);
+        Assert.DoesNotContain("<script>alert", html);
+        Assert.DoesNotContain("onclick", html);
+        Assert.DoesNotContain("onerror", html);
+
+        // 목록의 한 줄 미리보기는 글자만
+        var list = await client.GetStringAsync("/");
+        var preview = Regex.Match(list, "<span class=\"hp-notice-preview\">(.*?)</span>\\s*<span class=\"hp-notice-meta\"", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Equal("샬롬! <mark class=\"hp-em\">「야외예배」</mark>", preview.Trim());   // 서식 태그 없이 글자 + 「」 강조만
+    }
+
+    [Fact]
     public async Task 보안_헤더가_붙는다()
     {
         using var client = Client();

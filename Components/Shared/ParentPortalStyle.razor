@@ -73,6 +73,32 @@
 
     .pn-empty { text-align: center; color: var(--on-surface-muted); padding: 2.5rem 1rem; font-size: 0.95rem; }
 
+    /* 미리보기 — 학부모 화면을 iframe 에 (폰 · 폴드 · PC 폭으로 바꿔 보기) */
+    .pn-preview-backdrop {
+        position: fixed; inset: 0; z-index: 2000; background: rgba(20, 22, 18, 0.55);
+        display: flex; align-items: center; justify-content: center; padding: 16px;
+    }
+    .pn-preview {
+        background: var(--surface-lowest); border-radius: 0.8rem; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        width: min(1040px, 100%); height: min(92vh, 100%); display: flex; flex-direction: column; overflow: hidden;
+    }
+    .pn-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.7rem 0.9rem 0.4rem; }
+    .pn-preview-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; min-width: 0; }
+    .pn-preview-sizes { display: flex; gap: 0.3rem; flex-wrap: wrap; padding: 0 0.9rem 0.6rem; }
+    .pn-size {
+        border: 1px solid var(--outline-variant); background: var(--surface-lowest); color: var(--on-surface-sub);
+        border-radius: 999px; padding: 0.25rem 0.8rem; font-size: 0.8rem; font-weight: 700; cursor: pointer;
+    }
+    .pn-size.on { background: #5a4000; border-color: #5a4000; color: #fff; }
+    .pn-preview-stage {
+        flex: 1; min-height: 0; overflow: auto; background: #dfe3ea;
+        display: flex; justify-content: center; align-items: stretch; padding: 12px;
+    }
+    .pn-preview-frame {
+        max-width: 100%; height: 100%; min-height: 480px; border: 0; border-radius: 0.6rem;
+        background: #fff; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18); flex-shrink: 0;
+    }
+
     @@media (max-width: 720px) {
         .pn-week { grid-template-columns: 1fr 1fr; padding: 0.55rem; border: 1px solid var(--outline-variant); border-radius: 0.55rem; margin-bottom: 0.55rem; }
         .pn-week-head { display: none; }
