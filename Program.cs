@@ -41,6 +41,12 @@ if (File.Exists(googleKeyPath))
     Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", googleKeyPath);
     Console.WriteLine("✅ Google Vision API 키 로드 완료!");
 }
+else if (builder.Environment.IsDevelopment())
+{
+    // 키는 git 에 올리지 않는 파일이라 개발 PC 에는 없을 수 있다.
+    // OcrService 는 키가 없으면 오류 문구만 돌려주므로, 영수증 OCR 만 빼고 나머지 화면은 그대로 쓸 수 있다.
+    Console.WriteLine($"⚠️ 구글 API 키 파일이 없어 영수증 OCR 은 동작하지 않습니다 (개발 환경이라 계속 진행). 경로: {googleKeyPath}");
+}
 else
 {
     // 파일이 제대로 복사되지 않았을 경우 에러를 뿜게 하여 원인을 바로 알 수 있게 합니다.
